@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,8 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { createProject } from "@/lib/project-actions";
 
 const templates = [
   {
@@ -38,14 +40,14 @@ const templates = [
 
 const modes = [
   {
-    id: "draft_only",
+    id: "DRAFT_ONLY",
     name: "Draft Only",
     description:
       "Never takes external actions. Drafts everything for your review and copy/paste.",
     badge: "Safe default",
   },
   {
-    id: "ask_first",
+    id: "ASK_FIRST",
     name: "Do It — Ask Me First",
     description:
       "Can take actions but always asks for approval via the dashboard before executing.",
@@ -54,11 +56,14 @@ const modes = [
 ];
 
 export default function NewProjectPage() {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [description, setDescription] = useState("");
   const [templateId, setTemplateId] = useState("pe");
-  const [mode, setMode] = useState("draft_only");
+  const [mode, setMode] = useState("DRAFT_ONLY");
   const [neverRules, setNeverRules] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const steps = ["Describe", "Template", "Mode", "Review"];
 
@@ -216,12 +221,19 @@ export default function NewProjectPage() {
         </Card>
       )}
 
+      {/* Error */}
+      {error && (
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {/* Navigation */}
       <div className="flex justify-between">
         <Button
           variant="outline"
           onClick={() => setStep(Math.max(0, step - 1))}
-          disabled={step === 0}
+          disabled={step === 0 || isSubmitting}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
@@ -232,7 +244,65 @@ export default function NewProjectPage() {
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         ) : (
-          <Button>Create &amp; Pay</Button>
+          <Button
+            disabled={isSubmitting}
+            onClick={async () => {
+              setIsSubmitting(true);
+              setError("");
+              try {
+                const rules = neverRules
+                  .split("\n")
+                  .map((r) => r.trim())
+                  .filter(Boolean);
+
+                const result = await createProject({
+                  name:
+                    templates.find((t) => t.id === templateId)?.name +
+                    " Assistant",
+                  description,
+                  templateId,
+                  mode,
+                  neverRules: rules,
+                });
+
+                if (result.error) {
+                  setError(result.error);
+                  setIsSubmitting(false);
+                  return;
+                }
+
+                if (result.projectId) {
+                  // Redirect to Stripe checkout
+                  const res = await fetch("/api/stripe/create-checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ projectId: result.projectId }),
+                  });
+
+                  const data = await res.json();
+
+                  if (data.url) {
+                    window.location.href = data.url;
+                  } else {
+                    setError(data.error || "Failed to create checkout session");
+                    setIsSubmitting(false);
+                  }
+                }
+              } catch {
+                setError("Something went wrong. Please try again.");
+                setIsSubmitting(false);
+              }
+            }}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Create & Pay"
+            )}
+          </Button>
         )}
       </div>
     </div>
