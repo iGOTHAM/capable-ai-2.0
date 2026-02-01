@@ -124,7 +124,7 @@ export default function ChatPage() {
                 </div>
               ))}
               {sending && (
-                <div className="flex justify-start">
+                <div className="flex justify-start" role="status" aria-label="Sending message">
                   <div className="rounded-lg bg-muted px-4 py-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                   </div>
@@ -148,7 +148,12 @@ export default function ChatPage() {
                 className="flex h-9 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 disabled={sending}
               />
-              <Button type="submit" size="icon" disabled={sending}>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={sending}
+                aria-label="Send message"
+              >
                 <Send className="h-4 w-4" />
               </Button>
             </form>

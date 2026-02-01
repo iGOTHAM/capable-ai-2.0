@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -5,8 +6,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -19,14 +24,19 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
-          <CardDescription>
-            Your account settings and preferences.
-          </CardDescription>
+          <CardDescription>Your account information.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Settings will be available after auth is implemented.
-          </p>
+        <CardContent className="flex flex-col gap-4">
+          <div>
+            <p className="text-sm font-medium">Email</p>
+            <p className="text-sm text-muted-foreground">{user.email}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Member since</p>
+            <p className="text-sm text-muted-foreground">
+              {user.createdAt.toLocaleDateString()}
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

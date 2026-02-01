@@ -63,7 +63,11 @@ export default async function ProjectsPage() {
       ) : (
         <div className="grid gap-4">
           {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`}>
+            <Link
+              key={project.id}
+              href={`/projects/${project.id}`}
+              className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
               <Card className="transition-colors hover:bg-muted/50">
                 <CardHeader>
                   <div className="flex items-center justify-between">

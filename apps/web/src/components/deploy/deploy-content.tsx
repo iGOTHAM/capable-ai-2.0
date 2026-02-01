@@ -129,6 +129,7 @@ export function DeployContent(props: DeployContentProps) {
               size="sm"
               className="absolute right-2 top-2"
               onClick={handleCopy}
+              aria-label={copied ? "Copied to clipboard" : "Copy cloud-init script"}
             >
               {copied ? (
                 <>

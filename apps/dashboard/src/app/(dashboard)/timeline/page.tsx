@@ -27,6 +27,22 @@ const typeColors: Record<string, string> = {
   "bootstrap.completed": "default",
 };
 
+const typeBorderColors: Record<string, string> = {
+  "run.started": "border-l-blue-500",
+  "run.finished": "border-l-green-500",
+  "plan.created": "border-l-violet-500",
+  "tool.called": "border-l-zinc-400",
+  "tool.result": "border-l-zinc-400",
+  "approval.requested": "border-l-amber-500",
+  "approval.resolved": "border-l-green-500",
+  "memory.write": "border-l-cyan-500",
+  "security.warning": "border-l-red-500",
+  error: "border-l-red-500",
+  "chat.user_message": "border-l-zinc-300",
+  "chat.bot_message": "border-l-zinc-300",
+  "bootstrap.completed": "border-l-emerald-500",
+};
+
 export default async function TimelinePage() {
   const runMap = await getEventsByRun();
   const runs = Array.from(runMap.entries()).reverse();
@@ -55,50 +71,78 @@ export default async function TimelinePage() {
           </CardContent>
         </Card>
       ) : (
-        runs.map(([runId, events]) => (
-          <Card key={runId}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium font-mono">
-                  {runId}
-                </CardTitle>
-                <span className="text-xs text-muted-foreground">
-                  {events.length} event{events.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <CardDescription>
-                {new Date(events[0]!.ts).toLocaleString()}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-2">
-                {events.map((event, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-3 rounded-md border p-3"
-                  >
-                    <Badge
-                      variant={
-                        (typeColors[event.type] as "default" | "secondary" | "destructive" | "outline") ??
-                        "outline"
-                      }
-                      className="mt-0.5 shrink-0 text-[10px]"
-                    >
-                      {event.type}
-                    </Badge>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm">{event.summary}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(event.ts).toLocaleTimeString()}
-                        {event.risk && ` · Risk: ${event.risk}`}
-                      </p>
-                    </div>
+        runs.map(([runId, events]) => {
+          const startEvent = events.find((e) => e.type === "run.started");
+          const endEvent = events.find((e) => e.type === "run.finished");
+          const isActive = startEvent && !endEvent;
+
+          return (
+            <Card key={runId}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isActive && (
+                      <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                    )}
+                    <CardTitle className="text-sm font-medium font-mono">
+                      {runId}
+                    </CardTitle>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))
+                  <Badge variant="secondary" className="text-[10px]">
+                    {events.length} event{events.length !== 1 ? "s" : ""}
+                  </Badge>
+                </div>
+                <CardDescription>
+                  {new Date(events[0]!.ts).toLocaleString()}
+                  {endEvent && (
+                    <span className="ml-2">
+                      — {new Date(endEvent.ts).toLocaleString()}
+                    </span>
+                  )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="relative flex flex-col gap-0">
+                  {events.map((event, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-start gap-3 border-l-2 p-3 pl-4 ${
+                        typeBorderColors[event.type] ?? "border-l-zinc-300"
+                      } ${i < events.length - 1 ? "" : ""}`}
+                    >
+                      <Badge
+                        variant={
+                          (typeColors[event.type] as
+                            | "default"
+                            | "secondary"
+                            | "destructive"
+                            | "outline") ?? "outline"
+                        }
+                        className="mt-0.5 shrink-0 text-[10px]"
+                      >
+                        {event.type}
+                      </Badge>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">{event.summary}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(event.ts).toLocaleTimeString()}
+                          {event.risk && (
+                            <Badge
+                              variant="destructive"
+                              className="ml-2 text-[9px] px-1.5 py-0"
+                            >
+                              {event.risk}
+                            </Badge>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })
       )}
     </div>
   );
