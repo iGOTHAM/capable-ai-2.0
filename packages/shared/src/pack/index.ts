@@ -10,3 +10,10 @@ export {
   TEMPLATE_NAMES,
   MODE_NAMES,
 } from "./pack-types";
+export {
+  SOUL_TEMPLATES,
+  AGENTS_DRAFT_ONLY,
+  AGENTS_ASK_FIRST,
+  MEMORY_SCAFFOLD,
+  KNOWLEDGE_TEMPLATES,
+} from "./pack-templates";
