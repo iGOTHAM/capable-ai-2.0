@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, ExternalLink, RefreshCw } from "lucide-react";
+import { generateCloudInitScript } from "@/lib/cloud-init";
 
 interface DeployContentProps {
   projectId: string;
@@ -22,73 +23,6 @@ interface DeployContentProps {
   doReferralUrl: string;
   appUrl: string;
   latestPackVersion: number;
-}
-
-function generateCloudInit(props: {
-  appUrl: string;
-  projectId: string;
-  projectToken: string;
-  packVersion: number;
-}): string {
-  return `#!/bin/bash
-# Capable.ai — Cloud-Init Script
-# Paste this into your DigitalOcean droplet User Data field
-
-set -euo pipefail
-
-echo ">>> Installing Docker..."
-curl -fsSL https://get.docker.com | sh
-
-echo ">>> Installing unzip..."
-apt-get install -y unzip
-
-echo ">>> Creating directories..."
-mkdir -p /root/.openclaw/workspace
-mkdir -p /data/activity
-
-echo ">>> Downloading Capable Pack..."
-PACK_URL=$(curl -sf -X POST ${props.appUrl}/api/packs/${props.projectId}/download-url \\
-  -H "Content-Type: application/json" \\
-  -d '{"version":${props.packVersion}}' | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
-
-curl -fsSL "$PACK_URL" -o /tmp/pack.zip
-cd /root/.openclaw/workspace && unzip -o /tmp/pack.zip
-
-echo ">>> Generating dashboard password..."
-DASH_PASSWORD=$(openssl rand -base64 16)
-echo "Dashboard password: $DASH_PASSWORD" > /root/dashboard-credentials.txt
-chmod 600 /root/dashboard-credentials.txt
-
-echo ">>> Starting dashboard..."
-docker run -d \\
-  --name capable-dashboard \\
-  --restart unless-stopped \\
-  -p 3100:3100 \\
-  -v /data/activity:/data/activity \\
-  -v /root/.openclaw/workspace:/workspace \\
-  -e AUTH_PASSWORD="$DASH_PASSWORD" \\
-  capable-ai/dashboard:latest
-
-echo ">>> Setting up heartbeat cron..."
-DROPLET_IP=$(curl -s ifconfig.me)
-cat > /etc/cron.d/capable-heartbeat << CRON
-*/5 * * * * root curl -sf -X POST ${props.appUrl}/api/deployments/heartbeat \\
-  -H "Content-Type: application/json" \\
-  -d '{"projectToken":"${props.projectToken}","dropletIp":"'\\$DROPLET_IP'","packVersion":${props.packVersion},"status":"active"}' > /dev/null 2>&1
-CRON
-
-echo ">>> Sending initial heartbeat..."
-curl -sf -X POST ${props.appUrl}/api/deployments/heartbeat \\
-  -H "Content-Type: application/json" \\
-  -d '{"projectToken":"${props.projectToken}","dropletIp":"'$DROPLET_IP'","packVersion":${props.packVersion},"status":"active"}'
-
-echo ""
-echo "========================================="
-echo "  Capable.ai deployment complete!"
-echo "  Dashboard: http://$DROPLET_IP:3100"
-echo "  Password:  $DASH_PASSWORD"
-echo "  (also saved to /root/dashboard-credentials.txt)"
-echo "========================================="`;
 }
 
 const statusConfig: Record<
@@ -108,7 +42,7 @@ export function DeployContent(props: DeployContentProps) {
   const [lastHb, setLastHb] = useState(props.lastHeartbeat);
   const [ip, setIp] = useState(props.dropletIp);
 
-  const cloudInit = generateCloudInit({
+  const cloudInit = generateCloudInitScript({
     appUrl: props.appUrl,
     projectId: props.projectId,
     projectToken: props.projectToken,
