@@ -1,0 +1,53 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Activity,
+  Clock,
+  ShieldCheck,
+  MessageSquare,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const navItems = [
+  { href: "/now", label: "Now", icon: Activity },
+  { href: "/timeline", label: "Timeline", icon: Clock },
+  { href: "/approvals", label: "Approvals", icon: ShieldCheck },
+  { href: "/chat", label: "Chat", icon: MessageSquare },
+];
+
+export function DashboardSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="hidden w-56 shrink-0 border-r bg-sidebar lg:block">
+      <div className="flex h-14 items-center border-b px-4">
+        <span className="text-lg font-semibold">Capable</span>
+        <span className="ml-1 text-xs text-muted-foreground">Dashboard</span>
+      </div>
+      <nav className="flex flex-col gap-1 p-3">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}

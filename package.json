@@ -1,0 +1,29 @@
+{
+  "name": "capable-ai",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=@capable-ai/web",
+    "dev:dashboard": "turbo dev --filter=@capable-ai/dashboard",
+    "build": "turbo build",
+    "build:web": "turbo build --filter=@capable-ai/web",
+    "build:dashboard": "turbo build --filter=@capable-ai/dashboard",
+    "db:generate": "pnpm --filter=@capable-ai/prisma generate",
+    "db:migrate:dev": "pnpm --filter=@capable-ai/prisma migrate:dev",
+    "db:migrate:deploy": "pnpm --filter=@capable-ai/prisma migrate:deploy",
+    "db:push": "pnpm --filter=@capable-ai/prisma db:push",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

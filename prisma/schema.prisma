@@ -1,0 +1,11 @@
+// Capable.ai — Prisma Schema (Milestone 2 will flesh this out)
+// This is a placeholder to validate the monorepo structure.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
