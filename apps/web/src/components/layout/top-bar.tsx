@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getCurrentUser } from "@/lib/auth";
+import { LogoutButton } from "@/components/auth/logout-button";
 
-export function TopBar() {
+export async function TopBar() {
+  const user = await getCurrentUser();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-6">
@@ -9,8 +13,23 @@ export function TopBar() {
           <span className="text-lg">Capable</span>
           <span className="text-xs text-muted-foreground">.ai</span>
         </Link>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
           <ThemeToggle />
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                {user.email}
+              </span>
+              <LogoutButton />
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </div>
     </header>
