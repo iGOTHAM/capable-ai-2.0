@@ -1,14 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Send } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Send, Loader2 } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -16,27 +11,39 @@ interface Message {
   ts: string;
 }
 
-const REVERSE_PROMPTS: Message[] = [
-  {
-    role: "assistant",
-    content:
-      "Based on what you know about me and my goals, what are some tasks you can do to get us closer to our missions?",
-    ts: new Date().toISOString(),
-  },
-  {
-    role: "assistant",
-    content:
-      "What other information can I provide you to improve our productivity",
-    ts: new Date().toISOString(),
-  },
-];
-
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>(REVERSE_PROMPTS);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  // Load chat history on mount
+  useEffect(() => {
+    fetch("/api/chat")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.messages) {
+          setMessages(
+            data.messages.map((m: { type: string; summary: string; ts: string }) => ({
+              role: m.type === "chat.user_message" ? "user" : "assistant",
+              content: m.summary,
+              ts: m.ts,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || sending) return;
 
     const userMsg: Message = {
       role: "user",
@@ -44,17 +51,40 @@ export default function ChatPage() {
       ts: new Date().toISOString(),
     };
 
-    setMessages((prev) => [
-      ...prev,
-      userMsg,
-      {
-        role: "assistant",
-        content:
-          "This is a stub response. The agent runtime integration will be implemented in a later milestone.",
-        ts: new Date().toISOString(),
-      },
-    ]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setSending(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsg.content }),
+      });
+
+      const data = await res.json();
+      if (data.response) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.response,
+            ts: new Date().toISOString(),
+          },
+        ]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Failed to get a response. Please try again.",
+          ts: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -66,11 +96,15 @@ export default function ChatPage() {
         </p>
       </div>
 
-      {/* Messages */}
       <Card className="flex-1 overflow-hidden">
         <CardContent className="flex h-full flex-col p-0">
-          <div className="flex-1 overflow-auto p-4">
+          <div ref={scrollRef} className="flex-1 overflow-auto p-4">
             <div className="flex flex-col gap-3">
+              {messages.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">
+                  No messages yet. Start a conversation.
+                </p>
+              )}
               {messages.map((msg, i) => (
                 <div
                   key={i}
@@ -89,10 +123,16 @@ export default function ChatPage() {
                   </div>
                 </div>
               ))}
+              {sending && (
+                <div className="flex justify-start">
+                  <div className="rounded-lg bg-muted px-4 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Input */}
           <div className="border-t p-4">
             <form
               onSubmit={(e) => {
@@ -106,8 +146,9 @@ export default function ChatPage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Send a message..."
                 className="flex h-9 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                disabled={sending}
               />
-              <Button type="submit" size="icon">
+              <Button type="submit" size="icon" disabled={sending}>
                 <Send className="h-4 w-4" />
               </Button>
             </form>

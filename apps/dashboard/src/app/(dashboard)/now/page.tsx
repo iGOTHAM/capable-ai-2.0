@@ -7,8 +7,24 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Clock, ShieldCheck, Zap } from "lucide-react";
+import { getLatestEvents, getPendingApprovals, readToday } from "@/lib/events";
 
-export default function NowPage() {
+export const dynamic = "force-dynamic";
+
+export default async function NowPage() {
+  const [events, pendingApprovals, todayMd] = await Promise.all([
+    getLatestEvents(10),
+    getPendingApprovals(),
+    readToday(),
+  ]);
+
+  const latestEvent = events[0];
+  const activeRun = events.find(
+    (e) => e.type === "run.started" && !events.some(
+      (f) => f.type === "run.finished" && f.runId === e.runId,
+    ),
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -29,11 +45,17 @@ export default function NowPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
-              <span className="text-sm font-medium">Idle</span>
+              <div
+                className={`h-2.5 w-2.5 rounded-full ${activeRun ? "bg-blue-500 animate-pulse" : "bg-green-500"}`}
+              />
+              <span className="text-sm font-medium">
+                {activeRun ? "Working" : "Idle"}
+              </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Awaiting instructions
+              {activeRun
+                ? activeRun.summary
+                : "Awaiting instructions"}
             </p>
           </CardContent>
         </Card>
@@ -49,7 +71,9 @@ export default function NowPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">No active task</p>
+            <p className="text-sm text-muted-foreground">
+              {activeRun ? activeRun.summary : "No active task"}
+            </p>
           </CardContent>
         </Card>
 
@@ -64,9 +88,18 @@ export default function NowPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              No activity recorded yet
-            </p>
+            {latestEvent ? (
+              <div>
+                <p className="text-sm">{latestEvent.summary}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {new Date(latestEvent.ts).toLocaleString()}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No activity recorded yet
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -81,10 +114,26 @@ export default function NowPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Badge variant="secondary">0 pending</Badge>
+            <Badge
+              variant={pendingApprovals.length > 0 ? "destructive" : "secondary"}
+            >
+              {pendingApprovals.length} pending
+            </Badge>
           </CardContent>
         </Card>
       </div>
+
+      {/* Today's Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Daily Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm">
+            {todayMd}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
