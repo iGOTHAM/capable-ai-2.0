@@ -19,22 +19,26 @@ const templates = [
   {
     id: "pe",
     name: "Private Equity",
-    description: "Deal sourcing, due diligence, investment memos, pipeline tracking.",
+    description:
+      "Pre-loaded with deal sourcing workflows, due diligence checklists, investment memo templates, and pipeline tracking. Your agent will understand PE terminology, QoE analysis, and fund operations out of the box.",
   },
   {
     id: "legal",
     name: "Legal",
-    description: "Contract review, compliance research, regulatory analysis.",
+    description:
+      "Optimized for contract review, compliance research, and regulatory analysis. Comes with legal document templates, clause libraries, and jurisdiction-aware workflows.",
   },
   {
     id: "healthcare",
     name: "Healthcare",
-    description: "Clinical research, patient workflow, regulatory compliance.",
+    description:
+      "Built for clinical research support, patient workflow management, and regulatory compliance. Includes medical terminology knowledge and HIPAA-aware operating boundaries.",
   },
   {
     id: "general",
     name: "General",
-    description: "Flexible assistant for any workflow or domain.",
+    description:
+      "A flexible starting point for any workflow or domain. Your agent comes with a clean knowledge base you can customize through the dashboard after deployment.",
   },
 ];
 
@@ -43,14 +47,14 @@ const modes = [
     id: "DRAFT_ONLY",
     name: "Draft Only",
     description:
-      "Never takes external actions. Drafts everything for your review and copy/paste.",
+      "Your agent drafts everything — emails, memos, analyses — but never sends or publishes anything on its own. You review each output and decide what to do with it. Best for getting started or high-stakes workflows.",
     badge: "Safe default",
   },
   {
     id: "ASK_FIRST",
     name: "Do It — Ask Me First",
     description:
-      "Can take actions but always asks for approval via the dashboard before executing.",
+      "Your agent can take actions like sending emails or updating records, but it always asks for your approval first through the dashboard. You'll see a notification, review the action, and approve or reject it in real time.",
     badge: "Supervised",
   },
 ];
@@ -65,7 +69,7 @@ export default function NewProjectPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const steps = ["Describe", "Template", "Mode", "Review"];
+  const steps = ["Describe", "Knowledge", "Autonomy", "Review"];
 
   return (
     <div className="flex flex-col gap-6">
@@ -76,7 +80,7 @@ export default function NewProjectPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">New Project</h1>
+          <h1 className="text-2xl font-bold">Create Your AI Agent</h1>
           <p className="text-sm text-muted-foreground">
             Step {step + 1} of {steps.length}: {steps[step]}
           </p>
@@ -99,9 +103,10 @@ export default function NewProjectPage() {
       {step === 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Describe your bot</CardTitle>
+            <CardTitle>Describe your agent</CardTitle>
             <CardDescription>
-              In 1–2 sentences, describe what you want your AI assistant to do.
+              Tell us what you want your AI agent to do. This shapes its persona, knowledge,
+              and operating style. You can always refine this later by regenerating your pack.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -118,27 +123,48 @@ export default function NewProjectPage() {
 
       {/* Step 1: Template */}
       {step === 1 && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {templates.map((t) => (
-            <Card
-              key={t.id}
-              className={`cursor-pointer transition-colors hover:border-primary/50 ${
-                templateId === t.id ? "border-primary ring-1 ring-primary" : ""
-              }`}
-              onClick={() => setTemplateId(t.id)}
-            >
-              <CardHeader>
-                <CardTitle className="text-base">{t.name}</CardTitle>
-                <CardDescription>{t.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
+        <div className="flex flex-col gap-4">
+          <Card className="border-0 bg-transparent shadow-none">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-base">Choose a knowledge template</CardTitle>
+              <CardDescription>
+                Templates pre-load your agent with domain-specific knowledge, workflows, and document
+                templates. Pick the one closest to your use case — you can customize everything after deployment.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {templates.map((t) => (
+              <Card
+                key={t.id}
+                className={`cursor-pointer transition-colors hover:border-primary/50 ${
+                  templateId === t.id ? "border-primary ring-1 ring-primary" : ""
+                }`}
+                onClick={() => setTemplateId(t.id)}
+              >
+                <CardHeader>
+                  <CardTitle className="text-base">{t.name}</CardTitle>
+                  <CardDescription>{t.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Step 2: Mode */}
       {step === 2 && (
         <div className="flex flex-col gap-4">
+          <Card className="border-0 bg-transparent shadow-none">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-base">How should your agent operate?</CardTitle>
+              <CardDescription>
+                This controls how much autonomy your agent has. You interact with your agent through
+                a private dashboard on your server — chatting, reviewing its timeline of work, and
+                approving actions when needed.
+              </CardDescription>
+            </CardHeader>
+          </Card>
           {modes.map((m) => (
             <Card
               key={m.id}
@@ -160,17 +186,18 @@ export default function NewProjectPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Never do this (optional)
+                Safety boundaries (optional)
               </CardTitle>
               <CardDescription>
-                Add rules for things your bot should never do, one per line.
+                Define hard rules your agent must never break — things it should never do regardless of mode.
+                These are baked into your agent&apos;s operating rules and enforced at all times.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <textarea
                 value={neverRules}
                 onChange={(e) => setNeverRules(e.target.value)}
-                placeholder="e.g., Never send emails without my review&#10;Never delete CRM records"
+                placeholder="e.g., Never send emails without my review&#10;Never delete CRM records&#10;Never share financial data externally"
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 rows={3}
               />
@@ -183,36 +210,41 @@ export default function NewProjectPage() {
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle>Review your project</CardTitle>
+            <CardTitle>Review &amp; create</CardTitle>
             <CardDescription>
-              Confirm your settings before proceeding to payment.
+              After payment, we&apos;ll generate your Capable Pack — a complete bundle with your agent&apos;s
+              persona, knowledge, memory scaffolding, and dashboard config. You&apos;ll then deploy it to
+              your own server and interact with your agent through a private web dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div>
               <p className="text-sm font-medium text-muted-foreground">
-                Description
+                What your agent does
               </p>
-              <p className="text-sm">{description || "No description"}</p>
+              <p className="text-sm">{description || "No description provided"}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">
-                Template
+                Knowledge template
               </p>
               <p className="text-sm">
                 {templates.find((t) => t.id === templateId)?.name}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Mode</p>
+              <p className="text-sm font-medium text-muted-foreground">Operating mode</p>
               <p className="text-sm">
-                {modes.find((m) => m.id === mode)?.name}
+                {modes.find((m) => m.id === mode)?.name}{" "}
+                <span className="text-muted-foreground">
+                  — {modes.find((m) => m.id === mode)?.description.split(".")[0]}.
+                </span>
               </p>
             </div>
             {neverRules && (
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Never rules
+                  Safety boundaries
                 </p>
                 <p className="text-sm whitespace-pre-line">{neverRules}</p>
               </div>

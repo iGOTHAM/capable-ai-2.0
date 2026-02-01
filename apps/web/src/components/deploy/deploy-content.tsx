@@ -73,8 +73,11 @@ export function DeployContent(props: DeployContentProps) {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold">Deploy: {props.projectName}</h1>
-        <p className="text-sm text-muted-foreground">
-          Deploy your Capable Pack to a DigitalOcean droplet.
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Your Capable Pack is ready to go. Follow the steps below to deploy it to a
+          DigitalOcean droplet. Once live, you&apos;ll access your AI agent through a private
+          dashboard on your server — chat with it, review its work on a timeline, and approve
+          actions in real time.
         </p>
       </div>
 
@@ -88,7 +91,9 @@ export function DeployContent(props: DeployContentProps) {
             </CardTitle>
           </div>
           <CardDescription>
-            Create a new droplet with Ubuntu 22.04, minimum 2 GB RAM.
+            Create a new droplet with <strong>Ubuntu 22.04</strong> and at least <strong>2 GB RAM</strong>.
+            This will be your agent&apos;s home — it runs entirely on your server, using your API keys.
+            We never access your data or credentials.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -111,12 +116,14 @@ export function DeployContent(props: DeployContentProps) {
           <div className="flex items-center gap-2">
             <Badge variant="outline">Step 2</Badge>
             <CardTitle className="text-base">
-              Paste Cloud-Init Script
+              Paste the Setup Script
             </CardTitle>
           </div>
           <CardDescription>
-            Copy this script and paste it into the &quot;User Data&quot; field
-            when creating your droplet.
+            When creating your droplet, scroll down to <strong>&quot;Advanced Options&quot;</strong> and
+            check <strong>&quot;Add Initialization Scripts (free)&quot;</strong>. Paste the script below
+            into the text field. It installs Docker, downloads your Capable Pack, and starts your
+            private dashboard — the whole process takes about 5 minutes after the droplet boots.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -153,7 +160,7 @@ export function DeployContent(props: DeployContentProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge variant="outline">Step 3</Badge>
-              <CardTitle className="text-base">Deployment Status</CardTitle>
+              <CardTitle className="text-base">Wait for Your Agent to Come Online</CardTitle>
             </div>
             <Button variant="ghost" size="sm" onClick={refreshStatus}>
               <RefreshCw className="mr-1 h-3 w-3" />
@@ -161,7 +168,9 @@ export function DeployContent(props: DeployContentProps) {
             </Button>
           </div>
           <CardDescription>
-            We&apos;ll detect when your droplet sends its first heartbeat.
+            Once the droplet finishes setup, it will send a heartbeat to confirm it&apos;s running.
+            When the status turns green, click the link below to open your private dashboard.
+            From there you can chat with your agent, see what it&apos;s working on, and approve any actions it wants to take.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -177,10 +186,15 @@ export function DeployContent(props: DeployContentProps) {
                 rel="noopener noreferrer"
                 className="text-sm text-primary hover:underline"
               >
-                http://{ip}:3100
+                Open Dashboard →
               </a>
             )}
           </div>
+          {status === "ACTIVE" && ip && (
+            <p className="text-xs text-muted-foreground">
+              Your dashboard is running at http://{ip}:3100. Log in with the password from your environment variables.
+            </p>
+          )}
           {lastHb && (
             <p className="text-xs text-muted-foreground">
               Last heartbeat: {new Date(lastHb).toLocaleString()}

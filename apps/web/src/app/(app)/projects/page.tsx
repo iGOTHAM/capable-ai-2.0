@@ -9,9 +9,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, Bot } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { templateLabel, modeLabel } from "@/lib/labels";
+
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Live",
+  PENDING: "Ready to deploy",
+  PROVISIONING: "Provisioning",
+  UNHEALTHY: "Unhealthy",
+  DEACTIVATED: "Deactivated",
+};
 
 export default async function ProjectsPage() {
   const user = await getCurrentUser();
@@ -21,6 +30,7 @@ export default async function ProjectsPage() {
     where: { userId: user.id },
     include: {
       deployment: true,
+      payments: { where: { status: "COMPLETED" }, take: 1 },
       packVersions: { orderBy: { version: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
@@ -30,9 +40,10 @@ export default async function ProjectsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Projects</h1>
+          <h1 className="text-2xl font-bold">Your AI Agents</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your Capable packs and deployments.
+            Each project is a self-hosted AI agent you own and control.
+            Create a project, deploy it to your server, and interact through your private dashboard.
           </p>
         </div>
         <Button asChild>
@@ -47,51 +58,61 @@ export default async function ProjectsPage() {
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-16">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <FolderPlus className="h-6 w-6 text-muted-foreground" />
+              <Bot className="h-6 w-6 text-muted-foreground" />
             </div>
             <div className="text-center">
-              <CardTitle className="text-base">No projects yet</CardTitle>
-              <CardDescription className="mt-1">
-                Create your first project to generate a Capable Pack.
+              <CardTitle className="text-base">No agents yet</CardTitle>
+              <CardDescription className="mt-1 max-w-sm">
+                Create your first project to build a Capable Pack — a complete AI agent
+                with persona, knowledge, and memory that runs on your own server.
               </CardDescription>
             </div>
             <Button asChild>
-              <Link href="/projects/new">Create Project</Link>
+              <Link href="/projects/new">Create Your First Agent</Link>
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4">
-          {projects.map((project) => (
-            <Link
-              key={project.id}
-              href={`/projects/${project.id}`}
-              className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <Card className="transition-colors hover:bg-muted/50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{project.name}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{project.mode}</Badge>
-                      {project.deployment && (
+          {projects.map((project) => {
+            const isPaid = project.payments.length > 0;
+            const deployStatus = project.deployment?.status;
+            return (
+              <Link
+                key={project.id}
+                href={`/projects/${project.id}`}
+                className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <Card className="transition-colors hover:bg-muted/50">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">{project.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">
+                          {templateLabel(project.templateId)}
+                        </Badge>
+                        <Badge variant="secondary">
+                          {modeLabel(project.mode)}
+                        </Badge>
                         <Badge
                           variant={
-                            project.deployment.status === "ACTIVE"
-                              ? "default"
-                              : "outline"
+                            deployStatus === "ACTIVE" ? "default" : "outline"
                           }
                         >
-                          {project.deployment.status}
+                          {deployStatus
+                            ? (STATUS_LABELS[deployStatus] ?? deployStatus)
+                            : isPaid
+                              ? "Ready to deploy"
+                              : "Awaiting payment"}
                         </Badge>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                  <CardDescription>{project.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
+                    <CardDescription>{project.description}</CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
