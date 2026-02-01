@@ -31,7 +31,7 @@ mkdir -p /data/activity
 echo ">>> [4/7] Downloading Capable Pack v${packVersion}..."
 PACK_URL=$(curl -sf -X POST ${appUrl}/api/packs/${projectId}/download-url \\
   -H "Content-Type: application/json" \\
-  -d '{"version":${packVersion}}' | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
+  -d '{"version":${packVersion},"projectToken":"${projectToken}"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
 
 curl -fsSL "$PACK_URL" -o /tmp/pack.zip
 cd /root/.openclaw/workspace && unzip -o /tmp/pack.zip
@@ -67,14 +67,19 @@ docker run -d \\
 echo ">>> [7/7] Setting up heartbeat..."
 DROPLET_IP=$(curl -s ifconfig.me)
 
+# Save IP for cron reuse (single-quoted heredoc can't expand subshells)
+echo "$DROPLET_IP" > /etc/capable-droplet-ip
+
 # Send initial heartbeat
 curl -sf -X POST ${appUrl}/api/deployments/heartbeat \\
   -H "Content-Type: application/json" \\
   -d '{"projectToken":"${projectToken}","dropletIp":"'"$DROPLET_IP"'","packVersion":${packVersion},"status":"active"}' || true
 
 # Set up recurring heartbeat every 5 minutes
+# Note: JS template vars (appUrl, projectToken, packVersion) are baked in at generation time.
+# The IP is read from a file since single-quoted heredoc prevents bash subshell expansion.
 cat > /etc/cron.d/capable-heartbeat << 'CRON'
-*/5 * * * * root curl -sf -X POST ${appUrl}/api/deployments/heartbeat -H "Content-Type: application/json" -d '{"projectToken":"${projectToken}","dropletIp":"'"$(curl -s ifconfig.me)"'","packVersion":${packVersion},"status":"active"}' > /dev/null 2>&1
+*/5 * * * * root DROPLET_IP=$(/bin/cat /etc/capable-droplet-ip); /usr/bin/curl -sf -X POST ${appUrl}/api/deployments/heartbeat -H "Content-Type: application/json" -d "{\\"projectToken\\":\\"${projectToken}\\",\\"dropletIp\\":\\"$DROPLET_IP\\",\\"packVersion\\":${packVersion},\\"status\\":\\"active\\"}" > /dev/null 2>&1
 CRON
 chmod 644 /etc/cron.d/capable-heartbeat
 

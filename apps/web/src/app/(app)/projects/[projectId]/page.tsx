@@ -11,7 +11,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   Rocket,
-  Download,
   CheckCircle2,
   XCircle,
   Bot,
@@ -23,6 +22,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CheckoutButton } from "@/components/checkout-button";
 import { RegenerateButton } from "@/components/regenerate-button";
+import { PackDownloadButton } from "@/components/pack-download-button";
 import { getStripe } from "@/lib/stripe";
 import { fulfillPayment } from "@/lib/fulfill-payment";
 import { templateLabel, modeLabel, MODE_DESCRIPTIONS } from "@/lib/labels";
@@ -293,10 +293,10 @@ export default async function ProjectDetailPage({
                       </p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </Button>
+                  <PackDownloadButton
+                    projectId={projectId}
+                    version={pv.version}
+                  />
                 </div>
               ))}
             </div>

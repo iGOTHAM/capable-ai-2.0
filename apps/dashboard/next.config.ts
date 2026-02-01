@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // output: "standalone" is enabled for production Docker builds.
-  // On Windows dev, symlinks fail, so we leave it off locally.
-  // Uncomment for production: output: "standalone",
+  // Enable standalone output for Docker builds (set STANDALONE=1 in Dockerfile).
+  // Disabled on Windows dev where symlink creation fails (EPERM).
+  ...(process.env.STANDALONE === "1" ? { output: "standalone" as const } : {}),
   transpilePackages: ["@capable-ai/shared"],
 };
 
