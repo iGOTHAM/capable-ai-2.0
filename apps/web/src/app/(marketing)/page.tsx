@@ -6,9 +6,9 @@ import { Shield, Zap, Brain, Activity } from "lucide-react";
 const features = [
   {
     icon: Zap,
-    title: "One-Time Payment",
+    title: "7-Day Free Trial",
     description:
-      "Pay once. Deploy your AI assistant to your own server. No recurring fees for the runtime.",
+      "Try everything free for 7 days. Then $49/mo for your own AI assistant with a custom subdomain.",
   },
   {
     icon: Shield,
@@ -42,8 +42,8 @@ export default function LandingPage() {
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground">
           Capable.ai generates a fully configured AI assistant pack and deploys
-          it to your own DigitalOcean droplet. One payment. Full control. Memory
-          that actually works.
+          it to your own DigitalOcean droplet with a custom subdomain. Start your
+          7-day free trial. Full control. Memory that actually works.
         </p>
         <div className="flex gap-3">
           <Button size="lg" asChild>
@@ -83,8 +83,8 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-6 text-center">
           <h2 className="text-2xl font-bold">Ready to deploy?</h2>
           <p className="text-muted-foreground">
-            Create your project, choose a template, pay once, and deploy in
-            minutes.
+            Create your project, name your bot, start your free trial, and
+            deploy in minutes.
           </p>
           <Button size="lg" asChild>
             <Link href="/register">Create Your Pack</Link>

@@ -12,7 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Capable.ai",
   description:
-    "Generate and deploy AI assistant packs to your own infrastructure. Pay once, own your data.",
+    "Deploy your own AI assistant with custom knowledge, personality, and subdomain — hosted on your infrastructure.",
 };
 
 export default function RootLayout({
