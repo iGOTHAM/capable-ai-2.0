@@ -4,11 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "prisma generate --schema=../../prisma/schema.prisma && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "postinstall": "prisma generate --schema=../../prisma/schema.prisma"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@capable-ai/shared": "workspace:*",
