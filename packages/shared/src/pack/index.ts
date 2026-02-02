@@ -1,6 +1,7 @@
 export type {
   TemplateId,
   ProjectMode,
+  PersonalityTone,
   PackManifest,
   PackFiles,
   ConfigPatch,
@@ -16,4 +17,5 @@ export {
   AGENTS_ASK_FIRST,
   MEMORY_SCAFFOLD,
   KNOWLEDGE_TEMPLATES,
+  PERSONALITY_TONES,
 } from "./pack-templates";

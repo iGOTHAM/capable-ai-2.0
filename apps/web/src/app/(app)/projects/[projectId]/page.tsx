@@ -11,20 +11,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   Rocket,
-  CheckCircle2,
-  XCircle,
   Bot,
   FileText,
   Shield,
   Monitor,
+  Globe,
+  AlertTriangle,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { CheckoutButton } from "@/components/checkout-button";
 import { RegenerateButton } from "@/components/regenerate-button";
 import { PackDownloadButton } from "@/components/pack-download-button";
-import { getStripe } from "@/lib/stripe";
-import { fulfillPayment } from "@/lib/fulfill-payment";
+import { getActiveSubscription, getSubscription } from "@/lib/subscription-guard";
 import { templateLabel, modeLabel, MODE_DESCRIPTIONS } from "@/lib/labels";
 
 export default async function ProjectDetailPage({
@@ -32,79 +30,78 @@ export default async function ProjectDetailPage({
   searchParams,
 }: {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ payment?: string }>;
+  searchParams: Promise<{ subscription?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const { projectId } = await params;
-  const { payment } = await searchParams;
-
-  // If returning from Stripe with success, check for pending payments and fulfill
-  if (payment === "success") {
-    const pendingPayment = await db.payment.findFirst({
-      where: { projectId, status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (pendingPayment?.stripeCheckoutSessionId) {
-      try {
-        const session = await getStripe().checkout.sessions.retrieve(
-          pendingPayment.stripeCheckoutSessionId,
-        );
-
-        if (session.payment_status === "paid") {
-          await fulfillPayment(session.id, {
-            paymentIntentId: session.payment_intent as string | null,
-            customerId: session.customer as string | null,
-            amountCents: session.amount_total ?? 0,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to verify Stripe payment:", err);
-      }
-    }
-  }
+  const { subscription: subParam } = await searchParams;
 
   const project = await db.project.findFirst({
     where: { id: projectId, userId: user.id },
     include: {
       packVersions: { orderBy: { version: "desc" } },
       deployment: true,
-      payments: { where: { status: "COMPLETED" }, take: 1 },
     },
   });
 
   if (!project) notFound();
 
-  const isPaid = project.payments.length > 0;
+  // Check subscription status
+  const activeSub = await getActiveSubscription(user.id);
+  const anySub = !activeSub ? await getSubscription(user.id) : activeSub;
+  const isCanceled = anySub?.status === "CANCELED";
+  const hasActiveSub = !!activeSub;
+
+  // Determine dashboard URL
+  const dashboardUrl = project.deployment?.subdomain
+    ? `https://${project.deployment.subdomain}.capable.ai`
+    : project.deployment?.dropletIp
+      ? `http://${project.deployment.dropletIp}:3100`
+      : null;
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Payment feedback banners */}
-      {payment === "success" && isPaid && (
+      {/* Subscription success banner */}
+      {subParam === "success" && (
         <div className="flex items-center gap-2 rounded-md bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          Payment successful! Your Capable Pack has been generated and is ready to deploy.
+          <Bot className="h-4 w-4 shrink-0" />
+          Subscription activated! Your project is ready to deploy.
         </div>
       )}
-      {payment === "cancelled" && (
+
+      {/* Canceled subscription banner */}
+      {isCanceled && (
         <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <XCircle className="h-4 w-4 shrink-0" />
-          Payment was cancelled. You can try again when you&apos;re ready.
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Your subscription has been canceled. Deployments are deactivated.{" "}
+          <Link href="/settings" className="underline hover:no-underline">
+            Re-subscribe
+          </Link>{" "}
+          to restore access.
         </div>
       )}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{project.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">
+              {project.botName || project.name}
+            </h1>
+            {project.deployment?.subdomain && (
+              <Badge variant="secondary" className="text-xs">
+                {project.deployment.subdomain}.capable.ai
+              </Badge>
+            )}
+          </div>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             {project.description}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          {isPaid ? (
+          {hasActiveSub && (
             <>
               <RegenerateButton projectId={projectId} />
               <Button asChild>
@@ -114,14 +111,17 @@ export default async function ProjectDetailPage({
                 </Link>
               </Button>
             </>
-          ) : (
-            <CheckoutButton projectId={projectId} />
+          )}
+          {!hasActiveSub && !isCanceled && (
+            <Button asChild>
+              <Link href="/settings">Subscribe to Deploy</Link>
+            </Button>
           )}
         </div>
       </div>
 
-      {/* What you get section — shown after payment */}
-      {isPaid && project.packVersions.length > 0 && (
+      {/* What you get section */}
+      {project.packVersions.length > 0 && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
             <CardTitle className="text-base">What&apos;s in your Capable Pack</CardTitle>
@@ -198,28 +198,56 @@ export default async function ProjectDetailPage({
           <CardHeader className="pb-2">
             <CardDescription>Status</CardDescription>
             <CardTitle className="text-base">
-              <Badge
-                variant={
-                  project.deployment?.status === "ACTIVE"
-                    ? "default"
-                    : "outline"
-                }
-              >
-                {project.deployment?.status === "ACTIVE"
-                  ? "Live"
-                  : project.deployment?.status === "PENDING"
-                    ? "Ready to deploy"
-                    : isPaid
-                      ? "Ready to deploy"
-                      : "Awaiting payment"}
-              </Badge>
+              {project.deployment?.status === "ACTIVE" ? (
+                <div className="flex items-center gap-2">
+                  <Badge>Live</Badge>
+                  {dashboardUrl && (
+                    <a
+                      href={dashboardUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Globe className="h-3 w-3" />
+                      Open
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <Badge variant="outline">
+                  {project.deployment?.status === "DEACTIVATED"
+                    ? "Deactivated"
+                    : project.deployment?.status === "UNHEALTHY"
+                      ? "Unhealthy"
+                      : "Ready to deploy"}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
         </Card>
       </div>
 
+      {/* Personality info (if set) */}
+      {project.personality && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Personality</CardDescription>
+            <CardTitle className="text-base capitalize">{project.personality}</CardTitle>
+          </CardHeader>
+          {(project.userName || project.userRole) && (
+            <CardContent className="pt-0">
+              <p className="text-xs text-muted-foreground">
+                {project.userName && <>Owner: {project.userName}</>}
+                {project.userName && project.userRole && <> · </>}
+                {project.userRole && <>Role: {project.userRole}</>}
+              </p>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
       {/* Next Steps — shown before deployment */}
-      {isPaid && (!project.deployment || project.deployment.status === "PENDING") && (
+      {hasActiveSub && (!project.deployment || project.deployment.status === "PENDING") && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Next Steps</CardTitle>
@@ -242,7 +270,9 @@ export default async function ProjectDetailPage({
               <div>
                 <p className="text-sm font-medium">Open your dashboard</p>
                 <p className="text-xs text-muted-foreground">
-                  Once deployed, you&apos;ll get a URL and password to access your private dashboard on your server.
+                  {project.deployment?.subdomain
+                    ? `Once deployed, your dashboard will be at https://${project.deployment.subdomain}.capable.ai`
+                    : "Once deployed, you'll get a URL and password to access your private dashboard on your server."}
                 </p>
               </div>
             </div>
@@ -271,9 +301,7 @@ export default async function ProjectDetailPage({
         <CardContent>
           {project.packVersions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {isPaid
-                ? "Pack generation in progress..."
-                : "Complete payment to generate your first Capable Pack."}
+              No pack versions yet. Your pack will be generated when you create the project.
             </p>
           ) : (
             <div className="flex flex-col gap-3">

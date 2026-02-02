@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, ExternalLink, RefreshCw } from "lucide-react";
+import { Copy, Check, ExternalLink, RefreshCw, Globe } from "lucide-react";
 import { generateCloudInitScript } from "@/lib/cloud-init";
 
 interface DeployContentProps {
@@ -20,6 +20,7 @@ interface DeployContentProps {
   deploymentStatus: string;
   lastHeartbeat: string | null;
   dropletIp: string | null;
+  subdomain: string | null;
   doReferralUrl: string;
   appUrl: string;
   latestPackVersion: number;
@@ -47,7 +48,15 @@ export function DeployContent(props: DeployContentProps) {
     projectId: props.projectId,
     projectToken: props.projectToken,
     packVersion: props.latestPackVersion,
+    subdomain: props.subdomain ?? undefined,
   });
+
+  // Determine the dashboard URL — prefer subdomain, fallback to raw IP
+  const dashboardUrl = props.subdomain
+    ? `https://${props.subdomain}.capable.ai`
+    : ip
+      ? `http://${ip}:3100`
+      : null;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(cloudInit);
@@ -80,6 +89,19 @@ export function DeployContent(props: DeployContentProps) {
           actions in real time.
         </p>
       </div>
+
+      {/* Subdomain preview */}
+      {props.subdomain && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-4 py-3">
+          <Globe className="h-4 w-4 shrink-0 text-primary" />
+          <span className="text-sm">
+            Your dashboard will be available at{" "}
+            <strong className="text-primary">
+              https://{props.subdomain}.capable.ai
+            </strong>
+          </span>
+        </div>
+      )}
 
       {/* Step 1: Create Droplet */}
       <Card>
@@ -122,7 +144,7 @@ export function DeployContent(props: DeployContentProps) {
           <CardDescription>
             When creating your droplet, scroll down to <strong>&quot;Advanced Options&quot;</strong> and
             check <strong>&quot;Add Initialization Scripts (free)&quot;</strong>. Paste the script below
-            into the text field. It installs Docker, downloads your Capable Pack, and starts your
+            into the text field. It installs your Capable Pack{props.subdomain ? ", sets up HTTPS," : ""} and starts your
             private dashboard — the whole process takes about 5 minutes after the droplet boots.
           </CardDescription>
         </CardHeader>
@@ -179,9 +201,9 @@ export function DeployContent(props: DeployContentProps) {
               className={`h-3 w-3 rounded-full ${s.color} ${s.animate ? "animate-pulse" : ""}`}
             />
             <span className="text-sm font-medium">{s.label}</span>
-            {status === "ACTIVE" && ip && (
+            {status === "ACTIVE" && dashboardUrl && (
               <a
-                href={`http://${ip}:3100`}
+                href={dashboardUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-primary hover:underline"
@@ -190,10 +212,20 @@ export function DeployContent(props: DeployContentProps) {
               </a>
             )}
           </div>
-          {status === "ACTIVE" && ip && (
-            <p className="text-xs text-muted-foreground">
-              Your dashboard is running at http://{ip}:3100. Log in with the password from your environment variables.
-            </p>
+          {status === "ACTIVE" && dashboardUrl && (
+            <div className="flex flex-col gap-1">
+              <p className="text-xs text-muted-foreground">
+                Your dashboard is running at{" "}
+                <strong>{dashboardUrl}</strong>.
+                Log in with the password from your server&apos;s credentials file.
+              </p>
+              {/* If using subdomain, show raw IP as fallback */}
+              {props.subdomain && ip && (
+                <p className="text-xs text-muted-foreground">
+                  Direct IP fallback: http://{ip}:3100
+                </p>
+              )}
+            </div>
           )}
           {lastHb && (
             <p className="text-xs text-muted-foreground">

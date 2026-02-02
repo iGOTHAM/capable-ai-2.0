@@ -40,3 +40,6 @@ tmp/
 
 # Claude
 .claude/
+
+.vercel
+.env*.local

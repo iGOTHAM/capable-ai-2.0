@@ -1,11 +1,18 @@
+import { redirect } from "next/navigation";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { getSetupState } from "@/lib/openclaw";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const setupState = await getSetupState();
+  if (setupState === "pending") {
+    redirect("/setup");
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <a

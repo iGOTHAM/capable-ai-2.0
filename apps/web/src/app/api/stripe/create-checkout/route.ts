@@ -9,69 +9,61 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { projectId } = body;
+  // Check if user already has an active subscription
+  const existingSubscription = await db.subscription.findUnique({
+    where: { userId: user.id },
+  });
 
-  if (!projectId) {
+  if (
+    existingSubscription &&
+    (existingSubscription.status === "ACTIVE" ||
+      existingSubscription.status === "TRIALING")
+  ) {
     return NextResponse.json(
-      { error: "Missing projectId" },
+      { error: "You already have an active subscription" },
       { status: 400 },
     );
   }
 
-  const project = await db.project.findFirst({
-    where: { id: projectId, userId: user.id },
-  });
-
-  if (!project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  }
-
-  const existingPayment = await db.payment.findFirst({
-    where: { projectId, status: "COMPLETED" },
-  });
-
-  if (existingPayment) {
+  const priceId = process.env.STRIPE_SUBSCRIPTION_PRICE_ID;
+  if (!priceId) {
+    console.error("STRIPE_SUBSCRIPTION_PRICE_ID is not set");
     return NextResponse.json(
-      { error: "Project already paid for" },
-      { status: 400 },
+      { error: "Billing not configured" },
+      { status: 500 },
     );
   }
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    (process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
 
-  const successUrl = `${appUrl}/projects/${project.id}?payment=success`;
-  const cancelUrl = `${appUrl}/projects/${project.id}?payment=cancelled`;
+  const successUrl = `${appUrl}/projects?subscription=success`;
+  const cancelUrl = `${appUrl}/settings?subscription=cancelled`;
 
   try {
     const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
-      mode: "payment",
+      mode: "subscription",
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ID,
+          price: priceId,
           quantity: 1,
         },
       ],
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: {
+          userId: user.id,
+        },
+      },
       metadata: {
-        projectId: project.id,
         userId: user.id,
       },
       success_url: successUrl,
       cancel_url: cancelUrl,
-    });
-
-    // Create a pending payment record
-    await db.payment.create({
-      data: {
-        userId: user.id,
-        projectId: project.id,
-        stripeCheckoutSessionId: session.id,
-        amountCents: 0, // Will be updated by webhook
-        status: "PENDING",
-      },
     });
 
     return NextResponse.json({ url: session.url });

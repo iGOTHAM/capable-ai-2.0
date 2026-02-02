@@ -6,21 +6,159 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth";
+import { getSubscription } from "@/lib/subscription-guard";
+import { db } from "@/lib/db";
+import { SubscribeButton } from "@/components/subscribe-button";
+import { ManageSubscriptionButton } from "@/components/manage-subscription-button";
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  const subscription = await getSubscription(user.id);
+  const projectCount = await db.project.count({ where: { userId: user.id } });
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Manage your account settings.
+          Manage your account and subscription.
         </p>
       </div>
 
+      {/* ── Subscription Card ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Subscription</CardTitle>
+          <CardDescription>
+            Your plan and billing information.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          {!subscription ? (
+            // No subscription — show pricing
+            <div className="flex flex-col gap-4">
+              <div className="rounded-lg border p-6">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold">$49</span>
+                  <span className="text-muted-foreground">/month</span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Everything you need to run your AI agent.
+                </p>
+                <ul className="mt-4 flex flex-col gap-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-500">&#10003;</span>
+                    1 Capable Pack agent
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-500">&#10003;</span>
+                    Custom subdomain (yourbot.capable.ai)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-500">&#10003;</span>
+                    Auto-HTTPS with Let&apos;s Encrypt
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-500">&#10003;</span>
+                    Pack updates and regeneration
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-500">&#10003;</span>
+                    7-day free trial
+                  </li>
+                </ul>
+                <div className="mt-6">
+                  <SubscribeButton />
+                </div>
+              </div>
+            </div>
+          ) : subscription.status === "CANCELED" ? (
+            // Canceled subscription
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="destructive">Canceled</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Your subscription has been canceled. Re-subscribe to regain
+                access to your agent and subdomain hosting.
+              </p>
+              <SubscribeButton label="Re-subscribe" />
+            </div>
+          ) : (
+            // Active or Trialing subscription
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <Badge
+                  variant={
+                    subscription.status === "TRIALING"
+                      ? "secondary"
+                      : subscription.status === "PAST_DUE"
+                        ? "destructive"
+                        : "default"
+                  }
+                >
+                  {subscription.status === "TRIALING"
+                    ? "Free Trial"
+                    : subscription.status === "PAST_DUE"
+                      ? "Past Due"
+                      : "Active"}
+                </Badge>
+                {subscription.cancelAtPeriodEnd && (
+                  <Badge variant="outline">Cancels at period end</Badge>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm font-medium">Plan</p>
+                  <p className="text-sm text-muted-foreground">
+                    Capable.ai &mdash; $49/month
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Usage</p>
+                  <p className="text-sm text-muted-foreground">
+                    {projectCount} / 1 agent
+                  </p>
+                </div>
+                {subscription.status === "TRIALING" && subscription.trialEnd && (
+                  <div>
+                    <p className="text-sm font-medium">Trial ends</p>
+                    <p className="text-sm text-muted-foreground">
+                      {subscription.trialEnd.toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium">
+                    {subscription.cancelAtPeriodEnd
+                      ? "Access until"
+                      : "Next billing date"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {subscription.currentPeriodEnd.toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {subscription.status === "PAST_DUE" && (
+                <p className="text-sm text-destructive">
+                  Your payment failed. Please update your payment method to
+                  avoid losing access.
+                </p>
+              )}
+
+              <ManageSubscriptionButton />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Account Card ── */}
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>

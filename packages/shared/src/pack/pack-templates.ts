@@ -1,4 +1,4 @@
-import type { TemplateId } from "./pack-types";
+import type { TemplateId, PersonalityTone } from "./pack-types";
 
 // --- SOUL.md templates ---
 
@@ -340,4 +340,33 @@ export const KNOWLEDGE_TEMPLATES: Record<TemplateId, { filename: string; content
   legal: { filename: "knowledge/legal.md", content: KNOWLEDGE_LEGAL },
   healthcare: { filename: "knowledge/healthcare.md", content: KNOWLEDGE_HEALTHCARE },
   general: { filename: "knowledge/general.md", content: KNOWLEDGE_GENERAL },
+};
+
+// --- Personality tones ---
+
+export const PERSONALITY_TONES: Record<PersonalityTone, { label: string; description: string; soulFragment: string }> = {
+  professional: {
+    label: "Professional",
+    description: "Precise, measured, formal but approachable",
+    soulFragment:
+      "Communication style: Professional — precise, measured, formal but approachable. Use structured formats. Minimal informality.",
+  },
+  casual: {
+    label: "Casual",
+    description: "Conversational, friendly, plain language",
+    soulFragment:
+      "Communication style: Casual — conversational, friendly, uses plain language. Still accurate, but approachable and relaxed.",
+  },
+  direct: {
+    label: "Direct",
+    description: "Blunt, concise, no filler",
+    soulFragment:
+      "Communication style: Direct — blunt, concise, no filler. Get to the point fast. Flag problems immediately. Skip pleasantries.",
+  },
+  friendly: {
+    label: "Friendly",
+    description: "Warm, encouraging, collaborative",
+    soulFragment:
+      "Communication style: Friendly — warm, encouraging, collaborative. Acknowledge effort, celebrate progress, gentle with criticism.",
+  },
 };

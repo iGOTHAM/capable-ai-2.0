@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,6 +10,7 @@ import {
   Clock,
   ShieldCheck,
   MessageSquare,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -20,7 +21,59 @@ const navItems = [
   { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck },
   { href: "/chat", label: "Chat", icon: MessageSquare },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+type AgentStatus = "running" | "stopped" | "pending";
+
+function AgentStatusDot() {
+  const [status, setStatus] = useState<AgentStatus>("stopped");
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/setup/status");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.setupState === "pending") {
+          setStatus("pending");
+        } else if (data.daemonRunning) {
+          setStatus("running");
+        } else {
+          setStatus("stopped");
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
+
+  const colors: Record<AgentStatus, string> = {
+    running: "bg-green-500",
+    stopped: "bg-red-500",
+    pending: "bg-yellow-500",
+  };
+
+  const labels: Record<AgentStatus, string> = {
+    running: "Agent running",
+    stopped: "Agent stopped",
+    pending: "Setup pending",
+  };
+
+  return (
+    <div className="flex items-center gap-2" title={labels[status]}>
+      <div className={`h-2.5 w-2.5 rounded-full ${colors[status]}`} />
+      <span className="hidden text-xs text-muted-foreground sm:inline">
+        {labels[status]}
+      </span>
+    </div>
+  );
+}
 
 export function DashboardHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -43,7 +96,8 @@ export function DashboardHeader() {
             )}
           </Button>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
+          <AgentStatusDot />
           <ThemeToggle />
         </div>
       </header>

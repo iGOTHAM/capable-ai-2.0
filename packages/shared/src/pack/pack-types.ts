@@ -2,6 +2,8 @@ export type TemplateId = "pe" | "legal" | "healthcare" | "general";
 
 export type ProjectMode = "draft_only" | "ask_first";
 
+export type PersonalityTone = "professional" | "casual" | "direct" | "friendly";
+
 export interface PackManifest {
   projectId: string;
   version: number;

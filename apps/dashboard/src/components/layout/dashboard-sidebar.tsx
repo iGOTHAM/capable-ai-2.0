@@ -7,6 +7,7 @@ import {
   Clock,
   ShieldCheck,
   MessageSquare,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ const navItems = [
   { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck },
   { href: "/chat", label: "Chat", icon: MessageSquare },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function DashboardSidebar() {

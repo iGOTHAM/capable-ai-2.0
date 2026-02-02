@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import {
+  createDnsRecord,
+  updateDnsRecord,
+  deleteDnsRecord,
+} from "@/lib/cloudflare-dns";
 
 const heartbeatSchema = z.object({
   projectToken: z.string().min(1),
@@ -39,13 +44,15 @@ export async function POST(request: NextRequest) {
   }
 
   const newStatus = status === "stopping" ? "DEACTIVATED" : "ACTIVE";
+  const currentIp = dropletIp ?? deployment.dropletIp;
 
+  // Update deployment record first
   await db.deployment.update({
     where: { id: deployment.id },
     data: {
       status: newStatus,
       lastHeartbeatAt: new Date(),
-      dropletIp: dropletIp ?? deployment.dropletIp,
+      dropletIp: currentIp,
       activePackVer: packVersion ?? deployment.activePackVer,
       heartbeatData: {
         receivedAt: new Date().toISOString(),
@@ -54,6 +61,41 @@ export async function POST(request: NextRequest) {
       },
     },
   });
+
+  // --- DNS management (best-effort, don't fail the heartbeat) ---
+  try {
+    const hasCloudflareConfig =
+      process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ZONE_ID;
+
+    if (hasCloudflareConfig && deployment.subdomain && currentIp) {
+      if (status === "stopping" && deployment.cloudflareRecordId) {
+        // Droplet is shutting down — delete the DNS record
+        await deleteDnsRecord(deployment.cloudflareRecordId);
+        await db.deployment.update({
+          where: { id: deployment.id },
+          data: { cloudflareRecordId: null },
+        });
+      } else if (status === "active") {
+        if (!deployment.cloudflareRecordId) {
+          // First heartbeat with a subdomain — create the DNS A record
+          const recordId = await createDnsRecord(
+            deployment.subdomain,
+            currentIp,
+          );
+          await db.deployment.update({
+            where: { id: deployment.id },
+            data: { cloudflareRecordId: recordId },
+          });
+        } else if (deployment.dropletIp && deployment.dropletIp !== currentIp) {
+          // IP changed — update the existing DNS record
+          await updateDnsRecord(deployment.cloudflareRecordId, currentIp);
+        }
+      }
+    }
+  } catch (err) {
+    // Log but don't fail the heartbeat — DNS is best-effort
+    console.error("DNS management error during heartbeat:", err);
+  }
 
   return NextResponse.json({ ok: true });
 }
