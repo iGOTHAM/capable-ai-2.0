@@ -16,10 +16,12 @@
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
     "docker:up": "docker compose up -d",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "docker:down": "docker compose down"
   },
   "devDependencies": {
     "next": "^15.1.0",
+    "prisma": "^6.3.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0"
   },
