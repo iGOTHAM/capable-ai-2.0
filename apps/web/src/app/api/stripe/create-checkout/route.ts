@@ -40,33 +40,42 @@ export async function POST(request: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  const stripe = getStripe();
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: [
-      {
-        price: process.env.STRIPE_PRICE_ID,
-        quantity: 1,
+  try {
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price: process.env.STRIPE_PRICE_ID,
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        projectId: project.id,
+        userId: user.id,
       },
-    ],
-    metadata: {
-      projectId: project.id,
-      userId: user.id,
-    },
-    success_url: `${appUrl}/projects/${project.id}?payment=success`,
-    cancel_url: `${appUrl}/projects/${project.id}?payment=cancelled`,
-  });
+      success_url: `${appUrl}/projects/${project.id}?payment=success`,
+      cancel_url: `${appUrl}/projects/${project.id}?payment=cancelled`,
+    });
 
-  // Create a pending payment record
-  await db.payment.create({
-    data: {
-      userId: user.id,
-      projectId: project.id,
-      stripeCheckoutSessionId: session.id,
-      amountCents: 0, // Will be updated by webhook
-      status: "PENDING",
-    },
-  });
+    // Create a pending payment record
+    await db.payment.create({
+      data: {
+        userId: user.id,
+        projectId: project.id,
+        stripeCheckoutSessionId: session.id,
+        amountCents: 0, // Will be updated by webhook
+        status: "PENDING",
+      },
+    });
 
-  return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Stripe checkout error:", message);
+    return NextResponse.json(
+      { error: `Checkout failed: ${message}` },
+      { status: 500 },
+    );
+  }
 }
