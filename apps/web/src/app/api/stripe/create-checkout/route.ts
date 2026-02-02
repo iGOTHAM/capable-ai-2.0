@@ -38,7 +38,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
+  const successUrl = `${appUrl}/projects/${project.id}?payment=success`;
+  const cancelUrl = `${appUrl}/projects/${project.id}?payment=cancelled`;
 
   try {
     const stripe = getStripe();
@@ -54,8 +59,8 @@ export async function POST(request: NextRequest) {
         projectId: project.id,
         userId: user.id,
       },
-      success_url: `${appUrl}/projects/${project.id}?payment=success`,
-      cancel_url: `${appUrl}/projects/${project.id}?payment=cancelled`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
     });
 
     // Create a pending payment record
@@ -72,9 +77,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Stripe checkout error:", message);
+    console.error("Stripe checkout error:", message, "appUrl:", appUrl, "successUrl:", successUrl);
     return NextResponse.json(
-      { error: `Checkout failed: ${message}` },
+      { error: `Checkout failed: ${message}`, debug: { appUrl, successUrl } },
       { status: 500 },
     );
   }

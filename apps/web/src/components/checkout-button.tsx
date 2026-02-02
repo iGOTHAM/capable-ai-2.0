@@ -23,7 +23,8 @@ export function CheckoutButton({ projectId }: { projectId: string }) {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        setError(data.error || "Failed to create checkout session");
+        const debugInfo = data.debug ? ` [appUrl: ${data.debug.appUrl}]` : "";
+        setError((data.error || "Failed to create checkout session") + debugInfo);
         setLoading(false);
       }
     } catch {
