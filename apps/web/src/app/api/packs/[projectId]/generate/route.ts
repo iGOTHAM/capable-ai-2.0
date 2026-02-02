@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { generatePackFiles } from "@/lib/pack-generator";
+import { getActiveSubscription } from "@/lib/subscription-guard";
 import { DEFAULT_CONFIG_PATCH } from "@capable-ai/shared";
 import type { TemplateId } from "@capable-ai/shared";
 import type { Prisma } from "@prisma/client";
@@ -19,18 +20,17 @@ export async function POST(
 
   const project = await db.project.findFirst({
     where: { id: projectId, userId: user.id },
-    include: {
-      payments: { where: { status: "COMPLETED" }, take: 1 },
-    },
   });
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.payments.length === 0) {
+  // Check subscription instead of legacy one-time payment
+  const subscription = await getActiveSubscription(user.id);
+  if (!subscription) {
     return NextResponse.json(
-      { error: "Payment required before generating pack" },
+      { error: "Active subscription required" },
       { status: 402 },
     );
   }

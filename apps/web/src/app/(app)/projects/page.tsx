@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { FolderPlus, Bot } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getActiveSubscription } from "@/lib/subscription-guard";
 import { templateLabel, modeLabel } from "@/lib/labels";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -26,15 +27,19 @@ export default async function ProjectsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const projects = await db.project.findMany({
-    where: { userId: user.id },
-    include: {
-      deployment: true,
-      payments: { where: { status: "COMPLETED" }, take: 1 },
-      packVersions: { orderBy: { version: "desc" }, take: 1 },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [projects, subscription] = await Promise.all([
+    db.project.findMany({
+      where: { userId: user.id },
+      include: {
+        deployment: true,
+        packVersions: { orderBy: { version: "desc" }, take: 1 },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    getActiveSubscription(user.id),
+  ]);
+
+  const hasSubscription = !!subscription;
 
   return (
     <div className="flex flex-col gap-6">
@@ -75,7 +80,6 @@ export default async function ProjectsPage() {
       ) : (
         <div className="grid gap-4">
           {projects.map((project) => {
-            const isPaid = project.payments.length > 0;
             const deployStatus = project.deployment?.status;
             return (
               <Link
@@ -101,9 +105,9 @@ export default async function ProjectsPage() {
                         >
                           {deployStatus
                             ? (STATUS_LABELS[deployStatus] ?? deployStatus)
-                            : isPaid
+                            : hasSubscription
                               ? "Ready to deploy"
-                              : "Awaiting payment"}
+                              : "Subscribe to deploy"}
                         </Badge>
                       </div>
                     </div>

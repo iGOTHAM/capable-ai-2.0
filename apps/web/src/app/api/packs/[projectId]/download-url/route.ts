@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { canDeploy } from "@/lib/subscription-guard";
 import { generateSignedToken } from "@capable-ai/shared";
 
 export async function POST(
@@ -19,17 +20,15 @@ export async function POST(
   if (user) {
     const project = await db.project.findFirst({
       where: { id: projectId, userId: user.id },
-      include: {
-        payments: { where: { status: "COMPLETED" }, take: 1 },
-      },
     });
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    if (project.payments.length === 0) {
-      return NextResponse.json({ error: "Payment required" }, { status: 402 });
+    const hasAccess = await canDeploy(user.id);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Active subscription required" }, { status: 402 });
     }
 
     verifiedProjectId = project.id;
@@ -40,11 +39,7 @@ export async function POST(
     const deployment = await db.deployment.findUnique({
       where: { projectToken },
       include: {
-        project: {
-          include: {
-            payments: { where: { status: "COMPLETED" }, take: 1 },
-          },
-        },
+        project: true,
       },
     });
 
@@ -52,8 +47,9 @@ export async function POST(
       return NextResponse.json({ error: "Invalid project token" }, { status: 401 });
     }
 
-    if (deployment.project.payments.length === 0) {
-      return NextResponse.json({ error: "Payment required" }, { status: 402 });
+    const hasAccess = await canDeploy(deployment.project.userId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Active subscription required" }, { status: 402 });
     }
 
     verifiedProjectId = deployment.project.id;
