@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import type { SubscriptionStatus } from "@prisma/client";
 import { deleteDnsRecord } from "@/lib/cloudflare-dns";
+import { destroyDroplet } from "@/lib/digitalocean";
+import { decrypt } from "@/lib/encryption";
 
 /**
  * Creates a subscription record after Stripe checkout completes.
@@ -99,7 +101,14 @@ export async function handleSubscriptionCanceled(
 ) {
   const subscription = await db.subscription.findUnique({
     where: { stripeSubscriptionId },
-    include: { user: { include: { projects: { include: { deployment: true } } } } },
+    include: {
+      user: {
+        include: {
+          projects: { include: { deployment: true } },
+          doAccount: true,
+        },
+      },
+    },
   });
 
   if (!subscription) return;
@@ -113,9 +122,31 @@ export async function handleSubscriptionCanceled(
     },
   });
 
-  // Deactivate all user deployments and clean up DNS
+  // Get DO token for droplet destruction (if user has DO connected)
+  let doToken: string | null = null;
+  if (subscription.user.doAccount) {
+    try {
+      doToken = decrypt(subscription.user.doAccount.accessToken);
+    } catch (err) {
+      console.error("Failed to decrypt DO token during cancellation:", err);
+    }
+  }
+
+  // Deactivate all user deployments, destroy droplets, and clean up DNS
   for (const project of subscription.user.projects) {
     if (project.deployment) {
+      // Destroy DigitalOcean droplet if one exists
+      if (project.deployment.dropletId && doToken) {
+        try {
+          await destroyDroplet(doToken, project.deployment.dropletId);
+        } catch (err) {
+          console.error(
+            `Failed to destroy droplet ${project.deployment.dropletId} for deployment ${project.deployment.id}:`,
+            err,
+          );
+        }
+      }
+
       // Delete Cloudflare DNS record if one exists
       if (project.deployment.cloudflareRecordId) {
         try {
@@ -133,6 +164,7 @@ export async function handleSubscriptionCanceled(
         data: {
           status: "DEACTIVATED",
           cloudflareRecordId: null,
+          dropletId: null,
         },
       });
     }
