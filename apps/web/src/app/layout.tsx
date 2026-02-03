@@ -12,7 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Capable.ai",
   description:
-    "Deploy your own AI assistant with custom knowledge, personality, and subdomain — hosted on your infrastructure.",
+    "The full power of OpenClaw — deployed and configured for you. Persistent memory, computer use, 100+ integrations, custom personality, your own server.",
 };
 
 export default function RootLayout({

@@ -28,8 +28,14 @@ export default function MarketingLayout({
       </header>
       <main className="flex-1">{children}</main>
       <footer className="border-t py-8">
-        <div className="mx-auto max-w-6xl px-6 text-center text-sm text-muted-foreground">
-          Capable.ai — Own your AI, own your data.
+        <div className="mx-auto max-w-6xl px-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Capable.ai — Own your AI, own your data.
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground/60">
+            OpenClaw is an independent open-source project. Capable.ai is not
+            affiliated with or endorsed by OpenClaw.
+          </p>
         </div>
       </footer>
     </div>
