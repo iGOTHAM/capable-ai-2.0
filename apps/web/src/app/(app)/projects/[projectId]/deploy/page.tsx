@@ -14,23 +14,30 @@ export default async function DeployPage({
 
   const { projectId } = await params;
 
-  // Require active subscription instead of payment
   const subscription = await getActiveSubscription(user.id);
   if (!subscription) {
     redirect("/settings");
   }
 
-  const project = await db.project.findFirst({
-    where: { id: projectId, userId: user.id },
-    include: {
-      deployment: true,
-      packVersions: { orderBy: { version: "desc" }, take: 1 },
-    },
-  });
+  const [project, doAccount] = await Promise.all([
+    db.project.findFirst({
+      where: { id: projectId, userId: user.id },
+      include: {
+        deployment: true,
+        packVersions: { orderBy: { version: "desc" }, take: 1 },
+      },
+    }),
+    db.digitalOceanAccount.findUnique({
+      where: { userId: user.id },
+      select: {
+        doAccountEmail: true,
+        tokenExpiresAt: true,
+      },
+    }),
+  ]);
 
   if (!project) notFound();
 
-  // Must have a pack version to deploy
   if (project.packVersions.length === 0) {
     redirect(`/projects/${projectId}`);
   }
@@ -46,9 +53,16 @@ export default async function DeployPage({
       projectName={project.name}
       projectToken={project.deployment?.projectToken ?? ""}
       deploymentStatus={project.deployment?.status ?? "PENDING"}
-      lastHeartbeat={project.deployment?.lastHeartbeatAt?.toISOString() ?? null}
+      lastHeartbeat={
+        project.deployment?.lastHeartbeatAt?.toISOString() ?? null
+      }
       dropletIp={project.deployment?.dropletIp ?? null}
       subdomain={project.deployment?.subdomain ?? null}
+      deployMethod={project.deployment?.deployMethod ?? null}
+      dropletRegion={project.deployment?.region ?? null}
+      dropletSize={project.deployment?.size ?? null}
+      doConnected={!!doAccount}
+      doEmail={doAccount?.doAccountEmail ?? null}
       doReferralUrl={doReferralUrl}
       appUrl={appUrl}
       latestPackVersion={latestVersion}

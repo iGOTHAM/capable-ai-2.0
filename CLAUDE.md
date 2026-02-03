@@ -1,5 +1,12 @@
 # Capable.ai — Claude Code Instructions
 
+## Working Style
+
+- **Be autonomous.** Prefer action over asking. Only ask the user when genuinely blocked — e.g., need external credentials, account access, or a product direction judgment call.
+- Make reasonable decisions on implementation details (naming, structure, error handling) without confirmation.
+- If something fails, try to fix it yourself before asking for help.
+- Report what you did after, not what you plan to do before.
+
 ## Project Overview
 
 Capable.ai is a paid web app that generates "Capable Packs" for deployment on user-owned DigitalOcean droplets running OpenClaw. pnpm monorepo with Turborepo.
@@ -64,6 +71,12 @@ Types: run.started, run.finished, plan.created, tool.called, tool.result, approv
 - Stripe: use test mode keys, `stripe listen --forward-to localhost:3000/api/stripe/webhook`
 - Dashboard: seed sample NDJSON events in `/data/activity/events.ndjson`
 - Pack download: `curl` signed URL, verify zip contents
+
+## Session Continuity
+
+- **TODO.md** (gitignored) tracks progress, next steps, infrastructure refs, and gotchas across sessions
+- **Update TODO.md after each completed task** — not at the end of the session, because sessions can freeze unexpectedly
+- At the start of a new session, read TODO.md first to pick up where the last session left off
 
 ## Security
 

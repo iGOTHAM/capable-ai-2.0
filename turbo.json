@@ -16,6 +16,9 @@
         "DO_REFERRAL_URL",
         "CLOUDFLARE_API_TOKEN",
         "CLOUDFLARE_ZONE_ID",
+        "DO_CLIENT_ID",
+        "DO_CLIENT_SECRET",
+        "ENCRYPTION_KEY",
         "NEXT_PUBLIC_APP_URL"
       ]
     },
