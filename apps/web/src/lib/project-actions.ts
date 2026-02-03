@@ -10,6 +10,9 @@ import { DEFAULT_CONFIG_PATCH } from "@capable-ai/shared";
 import type { TemplateId, PersonalityTone } from "@capable-ai/shared";
 import type { Prisma } from "@prisma/client";
 import crypto from "crypto";
+import { destroyDroplet } from "./digitalocean";
+import { deleteDnsRecord } from "./cloudflare-dns";
+import { decrypt } from "./encryption";
 
 const createProjectSchema = z.object({
   botName: z
@@ -121,4 +124,60 @@ export async function createProject(data: {
   });
 
   return { projectId: project.id };
+}
+
+/**
+ * Delete a project and clean up all associated infrastructure.
+ * Destroys DO droplet + DNS record, then cascade-deletes
+ * PackVersions, Deployment, and Payments via Prisma.
+ */
+export async function deleteProject(
+  projectId: string,
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const project = await db.project.findFirst({
+    where: { id: projectId, userId: user.id },
+    include: { deployment: true },
+  });
+
+  if (!project) return { error: "Project not found" };
+
+  // Clean up infrastructure if deployment exists
+  if (project.deployment) {
+    const deployment = project.deployment;
+
+    // Destroy DO droplet if auto-deployed
+    if (deployment.dropletId && deployment.deployMethod === "auto") {
+      const doAccount = await db.digitalOceanAccount.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (doAccount) {
+        try {
+          const token = decrypt(doAccount.accessToken);
+          await destroyDroplet(token, deployment.dropletId);
+        } catch (err) {
+          console.error("Failed to destroy droplet during project deletion:", err);
+        }
+      }
+    }
+
+    // Delete Cloudflare DNS record
+    if (deployment.cloudflareRecordId) {
+      try {
+        await deleteDnsRecord(deployment.cloudflareRecordId);
+      } catch (err) {
+        console.error("Failed to delete DNS record during project deletion:", err);
+      }
+    }
+  }
+
+  // Delete the project — cascades handle PackVersion, Deployment, Payment
+  await db.project.delete({
+    where: { id: projectId },
+  });
+
+  return {};
 }

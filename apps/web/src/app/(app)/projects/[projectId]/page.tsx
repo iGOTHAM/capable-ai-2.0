@@ -22,6 +22,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { RegenerateButton } from "@/components/regenerate-button";
 import { PackDownloadButton } from "@/components/pack-download-button";
+import { DeleteProjectButton } from "@/components/delete-project-button";
 import { getActiveSubscription, getSubscription } from "@/lib/subscription-guard";
 import { templateLabel, modeLabel, MODE_DESCRIPTIONS } from "@/lib/labels";
 
@@ -117,6 +118,10 @@ export default async function ProjectDetailPage({
               <Link href="/settings">Subscribe to Deploy</Link>
             </Button>
           )}
+          <DeleteProjectButton
+            projectId={projectId}
+            projectName={project.botName || project.name}
+          />
         </div>
       </div>
 
