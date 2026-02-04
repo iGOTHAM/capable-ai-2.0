@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
   authorizeUrl.searchParams.set("client_id", clientId);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("scope", "read write");
   authorizeUrl.searchParams.set("state", state);
 
   return NextResponse.redirect(authorizeUrl.toString());
