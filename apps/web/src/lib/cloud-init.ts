@@ -66,8 +66,8 @@ echo ">>> [2/${totalSteps}] Installing Node.js 20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs unzip python3 curl git ufw
 
-# Install pnpm
-npm install -g pnpm@9.15.0
+# Install pnpm (must match packageManager in package.json)
+npm install -g pnpm@9.15.9
 
 echo ">>> [3/${totalSteps}] Creating directories..."
 mkdir -p /root/.openclaw/workspace
@@ -165,7 +165,8 @@ git clone --depth 1 https://github.com/iGOTHAM/capable-ai-2.0.git capable-ai
 cd /opt/capable-ai
 
 # Install deps and build just the dashboard
-pnpm install --frozen-lockfile
+# --ignore-scripts: skip root postinstall (prisma generate) — not needed for dashboard
+pnpm install --frozen-lockfile --ignore-scripts
 STANDALONE=1 pnpm build:dashboard
 
 echo ">>> [8/${totalSteps}] Generating dashboard credentials..."
