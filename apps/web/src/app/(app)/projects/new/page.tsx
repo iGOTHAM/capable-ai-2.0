@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,7 +21,7 @@ import Link from "next/link";
 import { createProject } from "@/lib/project-actions";
 import { KNOWLEDGE_TEMPLATES } from "@capable-ai/shared";
 import type { TemplateId } from "@capable-ai/shared";
-import { Skeleton } from "@/components/ui/skeleton";
+
 
 const templates = [
   {
@@ -94,22 +94,33 @@ const personalities = [
   },
 ];
 
+function getStepFromUrl(): number {
+  if (typeof window === "undefined") return 0;
+  const params = new URLSearchParams(window.location.search);
+  const raw = Number(params.get("step") ?? "0");
+  return Number.isNaN(raw) ? 0 : Math.max(0, Math.min(raw, 5));
+}
+
 function NewProjectWizard() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [step, setStep] = useState(getStepFromUrl);
 
-  // Read step from URL, clamp to 0–5
-  const rawStep = Number(searchParams.get("step") ?? "0");
-  const step = Number.isNaN(rawStep) ? 0 : Math.max(0, Math.min(rawStep, 5));
+  // Sync step to URL via history API (no Next.js navigation = no remount)
+  const navigateToStep = useCallback((newStep: number) => {
+    setStep(newStep);
+    window.history.pushState(null, "", `/projects/new?step=${newStep}`);
+  }, []);
 
-  const navigateToStep = useCallback(
-    (newStep: number) => {
-      router.push(`/projects/new?step=${newStep}`);
-    },
-    [router],
-  );
+  // Listen for browser back/forward
+  useEffect(() => {
+    const onPopState = () => {
+      setStep(getStepFromUrl());
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
-  // Form state (persists across URL param changes since component stays mounted)
+  // Form state
   const [botName, setBotName] = useState("");
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -670,30 +681,7 @@ function NewProjectWizard() {
   );
 }
 
-function NewProjectSkeleton() {
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-md" />
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-32" />
-        </div>
-      </div>
-      <div className="flex gap-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-1.5 flex-1 rounded-full" />
-        ))}
-      </div>
-      <Skeleton className="h-64 w-full rounded-xl" />
-    </div>
-  );
-}
 
 export default function NewProjectPage() {
-  return (
-    <Suspense fallback={<NewProjectSkeleton />}>
-      <NewProjectWizard />
-    </Suspense>
-  );
+  return <NewProjectWizard />;
 }
