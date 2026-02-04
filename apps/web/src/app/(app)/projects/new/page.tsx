@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,9 +11,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Loader2, Check, X } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ArrowLeft, ArrowRight, Loader2, Check, X, Eye } from "lucide-react";
 import Link from "next/link";
 import { createProject } from "@/lib/project-actions";
+import { KNOWLEDGE_TEMPLATES } from "@capable-ai/shared";
+import type { TemplateId } from "@capable-ai/shared";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const templates = [
   {
@@ -86,11 +94,22 @@ const personalities = [
   },
 ];
 
-export default function NewProjectPage() {
+function NewProjectWizard() {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  const searchParams = useSearchParams();
 
-  // New fields
+  // Read step from URL, clamp to 0–5
+  const rawStep = Number(searchParams.get("step") ?? "0");
+  const step = Number.isNaN(rawStep) ? 0 : Math.max(0, Math.min(rawStep, 5));
+
+  const navigateToStep = useCallback(
+    (newStep: number) => {
+      router.push(`/projects/new?step=${newStep}`);
+    },
+    [router],
+  );
+
+  // Form state (persists across URL param changes since component stays mounted)
   const [botName, setBotName] = useState("");
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -102,7 +121,6 @@ export default function NewProjectPage() {
     checking: boolean;
   }>({ available: null, checking: false });
 
-  // Existing fields
   const [description, setDescription] = useState("");
   const [templateId, setTemplateId] = useState("pe");
   const [mode, setMode] = useState("DRAFT_ONLY");
@@ -368,22 +386,56 @@ export default function NewProjectPage() {
             </CardHeader>
           </Card>
           <div className="grid gap-4 sm:grid-cols-2">
-            {templates.map((t) => (
-              <Card
-                key={t.id}
-                className={`cursor-pointer transition-colors hover:border-primary/50 ${
-                  templateId === t.id
-                    ? "border-primary ring-1 ring-primary"
-                    : ""
-                }`}
-                onClick={() => setTemplateId(t.id)}
-              >
-                <CardHeader>
-                  <CardTitle className="text-base">{t.name}</CardTitle>
-                  <CardDescription>{t.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
+            {templates.map((t) => {
+              const knowledge =
+                KNOWLEDGE_TEMPLATES[t.id as TemplateId];
+              const lineCount = knowledge.content.split("\n").length;
+
+              return (
+                <Card
+                  key={t.id}
+                  className={`cursor-pointer transition-colors hover:border-primary/50 ${
+                    templateId === t.id
+                      ? "border-primary ring-1 ring-primary"
+                      : ""
+                  }`}
+                  onClick={() => setTemplateId(t.id)}
+                >
+                  <CardHeader>
+                    <CardTitle className="text-base">{t.name}</CardTitle>
+                    <CardDescription>{t.description}</CardDescription>
+                    <p className="text-xs text-muted-foreground/70">
+                      {lineCount} lines of domain knowledge
+                    </p>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Eye className="mr-1.5 h-3 w-3" />
+                          Preview knowledge
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div
+                          className="mt-2 max-h-64 overflow-y-auto rounded-md bg-muted p-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-mono">
+                            {knowledge.content}
+                          </pre>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
@@ -550,14 +602,17 @@ export default function NewProjectPage() {
       <div className="flex justify-between">
         <Button
           variant="outline"
-          onClick={() => setStep(Math.max(0, step - 1))}
+          onClick={() => navigateToStep(Math.max(0, step - 1))}
           disabled={step === 0 || isSubmitting}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
         {step < steps.length - 1 ? (
-          <Button onClick={() => setStep(step + 1)} disabled={!canProceed()}>
+          <Button
+            onClick={() => navigateToStep(step + 1)}
+            disabled={!canProceed()}
+          >
             Next
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
@@ -612,5 +667,33 @@ export default function NewProjectPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function NewProjectSkeleton() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-md" />
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-1.5 flex-1 rounded-full" />
+        ))}
+      </div>
+      <Skeleton className="h-64 w-full rounded-xl" />
+    </div>
+  );
+}
+
+export default function NewProjectPage() {
+  return (
+    <Suspense fallback={<NewProjectSkeleton />}>
+      <NewProjectWizard />
+    </Suspense>
   );
 }

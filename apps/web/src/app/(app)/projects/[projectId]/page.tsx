@@ -23,6 +23,7 @@ import { db } from "@/lib/db";
 import { RegenerateButton } from "@/components/regenerate-button";
 import { PackDownloadButton } from "@/components/pack-download-button";
 import { DeleteProjectButton } from "@/components/delete-project-button";
+import { PackFilesViewer } from "@/components/pack-files-viewer";
 import { getActiveSubscription, getSubscription } from "@/lib/subscription-guard";
 import { templateLabel, modeLabel, MODE_DESCRIPTIONS } from "@/lib/labels";
 
@@ -177,6 +178,25 @@ export default async function ProjectDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Pack Contents */}
+      {project.packVersions.length > 0 && (() => {
+        const latestFiles = project.packVersions[0]?.files as Record<string, string> | undefined;
+        if (!latestFiles || Object.keys(latestFiles).length === 0) return null;
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Pack Contents</CardTitle>
+              <CardDescription>
+                The files that power your AI agent. These are deployed to your server.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PackFilesViewer files={latestFiles} />
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Project Info */}
       <div className="grid gap-4 sm:grid-cols-3">
