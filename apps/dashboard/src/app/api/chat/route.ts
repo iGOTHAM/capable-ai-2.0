@@ -102,7 +102,7 @@ async function callOpenAI(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 4096,
+      max_completion_tokens: 4096,
       messages: allMessages,
     }),
   });
