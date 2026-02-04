@@ -41,15 +41,30 @@ const ANTHROPIC_MODELS: ModelOption[] = [
 
 const OPENAI_MODELS: ModelOption[] = [
   {
-    id: "gpt-4o",
-    name: "GPT-4o",
-    description: "Most capable GPT model — fast and accurate",
+    id: "gpt-4.1",
+    name: "GPT-4.1",
+    description: "Latest flagship model — best coding and instruction following",
     recommended: true,
   },
   {
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    description: "Smaller, faster, and more affordable",
+    id: "gpt-4.1-mini",
+    name: "GPT-4.1 Mini",
+    description: "Fast and affordable — great balance of speed and quality",
+  },
+  {
+    id: "gpt-4.1-nano",
+    name: "GPT-4.1 Nano",
+    description: "Fastest and cheapest — ideal for simple tasks",
+  },
+  {
+    id: "o4-mini",
+    name: "o4-mini",
+    description: "Reasoning model — thinks step-by-step for complex problems",
+  },
+  {
+    id: "gpt-4o",
+    name: "GPT-4o",
+    description: "Previous generation — fast and accurate",
   },
 ];
 

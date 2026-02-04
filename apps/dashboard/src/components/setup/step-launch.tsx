@@ -38,8 +38,11 @@ const MODEL_NAMES: Record<string, string> = {
   "claude-sonnet-4-20250514": "Claude Sonnet 4",
   "claude-opus-4-20250514": "Claude Opus 4",
   "claude-haiku-4-20250414": "Claude Haiku 4",
+  "gpt-4.1": "GPT-4.1",
+  "gpt-4.1-mini": "GPT-4.1 Mini",
+  "gpt-4.1-nano": "GPT-4.1 Nano",
+  "o4-mini": "o4-mini",
   "gpt-4o": "GPT-4o",
-  "gpt-4o-mini": "GPT-4o Mini",
 };
 
 export function StepLaunch({ data, onBack }: StepLaunchProps) {
