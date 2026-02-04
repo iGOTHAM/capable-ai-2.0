@@ -86,7 +86,7 @@ report "1-swap" "done"
 
 echo ">>> [2/${totalSteps}] Installing Node.js 20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs unzip curl ufw jq
+apt-get install -y nodejs curl ufw jq
 report "2-nodejs" "done"
 
 echo ">>> [3/${totalSteps}] Creating directories..."
@@ -98,8 +98,16 @@ PACK_URL=$(curl -sf -X POST ${appUrl}/api/packs/${projectId}/download-url \\
   -H "Content-Type: application/json" \\
   -d '{"version":${packVersion},"projectToken":"${projectToken}"}' | jq -r '.url')
 
-curl -fsSL "$PACK_URL" -o /tmp/pack.zip
-cd /root/.openclaw/workspace && unzip -o /tmp/pack.zip
+# Download pack files as JSON (fast — avoids zip/archiver timeout on serverless)
+curl -fsSL "\${PACK_URL}&format=json" -o /tmp/pack.json
+
+# Extract files from JSON and write to workspace
+cd /root/.openclaw/workspace
+for filename in $(jq -r '.files | keys[]' /tmp/pack.json); do
+  mkdir -p "$(dirname "$filename")"
+  jq -r --arg f "$filename" '.files[$f]' /tmp/pack.json > "$filename"
+done
+rm /tmp/pack.json
 
 # Copy activity files to data dir
 if [ -d "/root/.openclaw/workspace/activity" ]; then
@@ -118,55 +126,32 @@ else
   CONFIG_PATCH='{}'
 fi
 
-# Build the base openclaw.json config
-python3 -c "
-import json, sys
+# Build the base openclaw.json config using jq (no python3 needed)
+COMPACTION=$(echo "$CONFIG_PATCH" | jq -r '.compaction // {"memoryFlush":{"enabled":true}}')
+MEMORY_SEARCH=$(echo "$CONFIG_PATCH" | jq -r '.memorySearch // {"experimental":{"sessionMemory":true},"sources":["memory","sessions"]}')
 
-# Load configPatch from pack (memory boost settings)
-try:
-    patch = json.loads('''$CONFIG_PATCH''')
-except:
-    patch = {}
-
-config = {
-    'workspace': '/root/.openclaw/workspace',
-    'provider': '',
-    'apiKey': '',
-    'model': '',
-    'compaction': patch.get('compaction', {
-        'memoryFlush': { 'enabled': True }
-    }),
-    'memorySearch': patch.get('memorySearch', {
-        'experimental': { 'sessionMemory': True },
-        'sources': ['memory', 'sessions']
-    }),
-    'skills': {
-        'enabled': [
-            'web-search',
-            'file-reader',
-            'memory',
-            'calendar',
-            'notes'
-        ],
-        'disabled': [
-            'exec',
-            'shell',
-            'file-writer',
-            'browser-automation'
-        ]
+jq -n \\
+  --argjson compaction "$COMPACTION" \\
+  --argjson memorySearch "$MEMORY_SEARCH" \\
+  '{
+    workspace: "/root/.openclaw/workspace",
+    provider: "",
+    apiKey: "",
+    model: "",
+    compaction: $compaction,
+    memorySearch: $memorySearch,
+    skills: {
+      enabled: ["web-search","file-reader","memory","calendar","notes"],
+      disabled: ["exec","shell","file-writer","browser-automation"]
     },
-    'security': {
-        'execPolicy': 'disabled',
-        'sandboxMode': 'strict',
-        'allowExternalUrls': False,
-        'dmPairingRequired': True
+    security: {
+      execPolicy: "disabled",
+      sandboxMode: "strict",
+      allowExternalUrls: false,
+      dmPairingRequired: true
     },
-    'channels': {}
-}
-
-with open('/root/.openclaw/openclaw.json', 'w') as f:
-    json.dump(config, f, indent=2)
-"
+    channels: {}
+  }' > /root/.openclaw/openclaw.json
 chmod 600 /root/.openclaw/openclaw.json
 
 # Mark as needing setup — dashboard wizard will complete configuration
