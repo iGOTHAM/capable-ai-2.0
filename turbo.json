@@ -19,7 +19,8 @@
         "DO_CLIENT_ID",
         "DO_CLIENT_SECRET",
         "ENCRYPTION_KEY",
-        "NEXT_PUBLIC_APP_URL"
+        "NEXT_PUBLIC_APP_URL",
+        "STANDALONE"
       ]
     },
     "dev": {

@@ -64,10 +64,7 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
 echo ">>> [2/${totalSteps}] Installing Node.js 20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs unzip python3 curl git ufw
-
-# Install pnpm (must match packageManager in package.json)
-npm install -g pnpm@9.15.9
+apt-get install -y nodejs unzip curl ufw jq
 
 echo ">>> [3/${totalSteps}] Creating directories..."
 mkdir -p /root/.openclaw/workspace
@@ -76,7 +73,7 @@ mkdir -p /data/activity
 echo ">>> [4/${totalSteps}] Downloading Capable Pack v${packVersion}..."
 PACK_URL=$(curl -sf -X POST ${appUrl}/api/packs/${projectId}/download-url \\
   -H "Content-Type: application/json" \\
-  -d '{"version":${packVersion},"projectToken":"${projectToken}"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
+  -d '{"version":${packVersion},"projectToken":"${projectToken}"}' | jq -r '.url')
 
 curl -fsSL "$PACK_URL" -o /tmp/pack.zip
 cd /root/.openclaw/workspace && unzip -o /tmp/pack.zip
@@ -159,15 +156,11 @@ ufw allow 22/tcp
 ufw allow 3100/tcp
 ufw --force enable
 
-echo ">>> [7/${totalSteps}] Cloning and building dashboard..."
-cd /opt
-git clone --depth 1 https://github.com/iGOTHAM/capable-ai-2.0.git capable-ai
-cd /opt/capable-ai
-
-# Install deps and build just the dashboard
-# --ignore-scripts: skip root postinstall (prisma generate) — not needed for dashboard
-pnpm install --frozen-lockfile --ignore-scripts
-STANDALONE=1 pnpm build:dashboard
+echo ">>> [7/${totalSteps}] Downloading pre-built dashboard..."
+mkdir -p /opt/capable-ai
+curl -fsSL https://github.com/iGOTHAM/capable-ai-2.0/releases/download/dashboard-latest/dashboard-standalone.tar.gz -o /tmp/dashboard.tar.gz
+tar -xzf /tmp/dashboard.tar.gz -C /opt/capable-ai
+rm /tmp/dashboard.tar.gz
 
 echo ">>> [8/${totalSteps}] Generating dashboard credentials..."
 DASH_PASSWORD=$(openssl rand -base64 16)
@@ -192,7 +185,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/capable-ai/apps/dashboard
-ExecStart=/usr/bin/node .next/standalone/apps/dashboard/server.js
+ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
