@@ -123,10 +123,13 @@ export function DeployContent(props: DeployContentProps) {
     subdomain: props.subdomain ?? undefined,
   });
 
+  // IPv6 addresses need brackets in URLs (e.g. http://[::1]:3100)
+  const ipForUrl = ip?.includes(":") ? `[${ip}]` : ip;
+
   const dashboardUrl = props.subdomain
     ? `https://${props.subdomain}.capable.ai`
     : ip
-      ? `http://${ip}:3100`
+      ? `http://${ipForUrl}:3100`
       : null;
 
   const handleCopy = async () => {
@@ -343,7 +346,7 @@ export function DeployContent(props: DeployContentProps) {
                   </p>
                   {props.subdomain && ip && (
                     <p className="text-xs text-muted-foreground">
-                      Direct IP fallback: http://{ip}:3100
+                      Direct IP fallback: http://{ipForUrl}:3100
                     </p>
                   )}
                 </div>

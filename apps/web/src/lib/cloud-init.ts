@@ -176,7 +176,7 @@ report "7-dashboard-download" "done"
 
 echo ">>> [8/${totalSteps}] Generating dashboard credentials..."
 DASH_PASSWORD=$(openssl rand -base64 16)
-DROPLET_IP=$(curl -s ifconfig.me)
+DROPLET_IP=$(curl -4 -s ifconfig.me)
 
 cat > /root/dashboard-credentials.txt << CREDENTIALS
 Capable Dashboard Credentials
