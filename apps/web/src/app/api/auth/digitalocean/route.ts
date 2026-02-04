@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const clientId = process.env.DO_CLIENT_ID;
+  const clientId = process.env.DO_CLIENT_ID?.trim();
   if (!clientId) {
     return NextResponse.json(
       { error: "DigitalOcean OAuth not configured" },
