@@ -132,11 +132,11 @@ export function StepLaunch({ data, onBack }: StepLaunchProps) {
 
       {phase === "success" ? (
         <Button
-          onClick={() => (window.location.href = "/now")}
+          onClick={() => (window.location.href = "/chat")}
           className="w-full gap-2"
         >
           <CheckCircle2 className="h-4 w-4" />
-          Go to Dashboard
+          Start Chatting
         </Button>
       ) : (
         <div className="flex gap-3">

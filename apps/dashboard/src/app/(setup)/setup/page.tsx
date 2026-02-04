@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import { StepApiKey } from "@/components/setup/step-api-key";
 import { StepModel } from "@/components/setup/step-model";
 import { StepChannels } from "@/components/setup/step-channels";
 import { StepLaunch } from "@/components/setup/step-launch";
+import { Loader2 } from "lucide-react";
 
 export type Provider = "anthropic" | "openai";
 
@@ -31,6 +32,7 @@ const STEPS = [
 
 export default function SetupPage() {
   const [step, setStep] = useState(0);
+  const [checking, setChecking] = useState(true);
   const [data, setData] = useState<SetupData>({
     provider: "anthropic",
     apiKey: "",
@@ -38,12 +40,37 @@ export default function SetupPage() {
     telegramToken: "",
   });
 
+  // If setup is already complete, redirect to chat
+  useEffect(() => {
+    fetch("/api/setup/status")
+      .then((res) => res.json())
+      .then((status) => {
+        if (
+          status.setupState === "running" ||
+          status.setupState === "configured"
+        ) {
+          window.location.href = "/chat";
+        } else {
+          setChecking(false);
+        }
+      })
+      .catch(() => setChecking(false));
+  }, []);
+
   const updateData = (patch: Partial<SetupData>) => {
     setData((prev) => ({ ...prev, ...patch }));
   };
 
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
+
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <>

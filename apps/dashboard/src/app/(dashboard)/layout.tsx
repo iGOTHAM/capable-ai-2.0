@@ -3,6 +3,9 @@ import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { getSetupState } from "@/lib/openclaw";
 
+// Must be dynamic — getSetupState reads files from disk at request time
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {
