@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   const projectId = state.split(":")[1] ?? "";
 
   try {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim();
     const redirectUri = `${appUrl}/api/auth/digitalocean/callback`;
 
     // Exchange code for tokens
@@ -102,9 +102,10 @@ export async function GET(req: NextRequest) {
     );
   } catch (err) {
     console.error("DO OAuth callback error:", err);
+    const errMsg = err instanceof Error ? encodeURIComponent(err.message) : "unknown";
     const redirectUrl = projectId
-      ? `/projects/${projectId}/deploy?do_error=token_exchange`
-      : "/projects?do_error=token_exchange";
+      ? `/projects/${projectId}/deploy?do_error=token_exchange&detail=${errMsg}`
+      : `/projects?do_error=token_exchange&detail=${errMsg}`;
     return NextResponse.redirect(
       new URL(redirectUrl, req.nextUrl.origin).toString(),
     );

@@ -70,8 +70,8 @@ export async function exchangeCodeForTokens(
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      client_id: process.env.DO_CLIENT_ID!,
-      client_secret: process.env.DO_CLIENT_SECRET!,
+      client_id: process.env.DO_CLIENT_ID!.trim(),
+      client_secret: process.env.DO_CLIENT_SECRET!.trim(),
       redirect_uri: redirectUri,
     }),
   });
