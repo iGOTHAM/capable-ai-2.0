@@ -63,6 +63,9 @@ export default function ChatPage() {
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Request failed");
+      }
       if (data.response) {
         setMessages((prev) => [
           ...prev,
@@ -73,12 +76,13 @@ export default function ChatPage() {
           },
         ]);
       }
-    } catch {
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to get a response.";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Failed to get a response. Please try again.",
+          content: `Error: ${errorMsg}`,
           ts: new Date().toISOString(),
         },
       ]);

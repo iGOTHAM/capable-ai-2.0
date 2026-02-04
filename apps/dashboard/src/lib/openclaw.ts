@@ -1,9 +1,5 @@
 import { readFile, writeFile, unlink, access, chmod } from "fs/promises";
-import { execFile } from "child_process";
-import { promisify } from "util";
 import path from "path";
-
-const execFileAsync = promisify(execFile);
 
 // Paths — configurable via env vars (set in systemd service by cloud-init)
 const OPENCLAW_DIR = process.env.OPENCLAW_DIR || "/root/.openclaw";
@@ -103,8 +99,9 @@ export async function getSetupState(): Promise<SetupState> {
   const config = await readConfig();
   if (!config || !config.provider || !config.apiKey) return "pending";
 
-  const daemon = await getDaemonStatus();
-  if (daemon.running) return "running";
+  // The dashboard itself IS the agent runtime — if config has
+  // provider + apiKey + model, the agent is ready to handle chat.
+  if (config.model) return "running";
 
   return "configured";
 }
@@ -117,70 +114,30 @@ export async function removeSetupMarker(): Promise<void> {
   }
 }
 
-// ─── Daemon Management ──────────────────────────────────────────────────────
+// ─── Agent Status ────────────────────────────────────────────────────────────
+// The dashboard itself serves as the agent runtime. Chat requests go through
+// the dashboard API which calls the configured LLM provider directly.
+// "Running" means: config exists with provider + apiKey + model.
 
 export async function getDaemonStatus(): Promise<DaemonStatus> {
-  try {
-    const { stdout } = await execFileAsync("pgrep", ["-f", "openclaw"]);
-    const firstLine = stdout.trim().split("\n")[0] ?? "";
-    const pid = parseInt(firstLine, 10);
-    return { running: !isNaN(pid), pid: isNaN(pid) ? undefined : pid };
-  } catch {
-    return { running: false };
+  const config = await readConfig();
+  if (config?.provider && config?.apiKey && config?.model) {
+    return { running: true, pid: process.pid };
   }
+  return { running: false };
 }
 
 export async function startDaemon(): Promise<void> {
-  // Start OpenClaw as a background daemon using systemd
-  // First check if the systemd service file exists, if not create it
-  const serviceExists = await fileExists(
-    "/etc/systemd/system/capable-openclaw.service",
-  );
-
-  if (!serviceExists) {
-    const serviceContent = `[Unit]
-Description=OpenClaw AI Agent
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/npx openclaw start
-Restart=always
-RestartSec=10
-Environment=HOME=/root
-WorkingDirectory=/root
-
-[Install]
-WantedBy=multi-user.target
-`;
-    await writeFile(
-      "/etc/systemd/system/capable-openclaw.service",
-      serviceContent,
-      "utf-8",
-    );
-    await execFileAsync("systemctl", ["daemon-reload"]);
-  }
-
-  await execFileAsync("systemctl", ["enable", "capable-openclaw"]);
-  await execFileAsync("systemctl", ["start", "capable-openclaw"]);
+  // No-op: the dashboard IS the agent runtime.
+  // Config is written by the setup wizard; chat API calls the LLM directly.
 }
 
 export async function stopDaemon(): Promise<void> {
-  try {
-    await execFileAsync("systemctl", ["stop", "capable-openclaw"]);
-  } catch {
-    // May not be running
-  }
+  // No-op: stopping the "agent" would mean stopping the dashboard itself.
 }
 
 export async function restartDaemon(): Promise<void> {
-  try {
-    await execFileAsync("systemctl", ["restart", "capable-openclaw"]);
-  } catch {
-    // If restart fails, try stop then start
-    await stopDaemon();
-    await startDaemon();
-  }
+  // No-op: the dashboard handles chat directly, no separate daemon to restart.
 }
 
 // ─── API Key Validation ─────────────────────────────────────────────────────
@@ -280,27 +237,17 @@ export async function launchSetup(
     // 3. Remove setup marker
     await removeSetupMarker();
 
-    // 4. Start the daemon
-    await startDaemon();
-
-    // 5. Wait up to 15 seconds for daemon to start
-    for (let i = 0; i < 15; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const status = await getDaemonStatus();
-      if (status.running) {
-        return { success: true };
-      }
-    }
-
-    // Daemon didn't start within timeout — check if it's running one more time
-    const finalStatus = await getDaemonStatus();
-    if (finalStatus.running) {
+    // 4. The dashboard IS the agent runtime — no separate daemon to start.
+    // Once config is written, the chat API will use it to call the LLM.
+    // Verify the config is readable.
+    const config = await readConfig();
+    if (config?.provider && config?.apiKey && config?.model) {
       return { success: true };
     }
 
     return {
       success: false,
-      error: "OpenClaw daemon did not start within 15 seconds. Check logs with: journalctl -u capable-openclaw -n 50",
+      error: "Configuration was not saved correctly. Please try again.",
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Launch failed";
