@@ -60,6 +60,8 @@ mkdir -p /root/.ssh
 echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGC2NAsP/kqtML11T09G6ZCI9QqVCmlZTVqnqrQsvmnk kingc@2026DesktopKC" >> /root/.ssh/authorized_keys
 chmod 700 /root/.ssh
 chmod 600 /root/.ssh/authorized_keys
+# Disable forced password change (DO sets this when no SSH key is on the account)
+chage -d $(date +%Y-%m-%d) root
 
 # Progress reporting helper — sends step status to capable.ai for debugging
 report() {
