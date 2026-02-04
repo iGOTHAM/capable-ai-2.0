@@ -22,10 +22,15 @@ interface ModelOption {
 
 const ANTHROPIC_MODELS: ModelOption[] = [
   {
+    id: "claude-sonnet-4-5-20250929",
+    name: "Claude Sonnet 4.5",
+    description: "Most intelligent Sonnet — best for coding and complex agents",
+    recommended: true,
+  },
+  {
     id: "claude-sonnet-4-20250514",
     name: "Claude Sonnet 4",
-    description: "Fast and highly capable — best balance of speed and quality",
-    recommended: true,
+    description: "Fast and highly capable — great balance of speed and quality",
   },
   {
     id: "claude-opus-4-20250514",
@@ -41,30 +46,30 @@ const ANTHROPIC_MODELS: ModelOption[] = [
 
 const OPENAI_MODELS: ModelOption[] = [
   {
+    id: "gpt-5.2",
+    name: "GPT-5.2",
+    description: "Latest flagship — best reasoning, coding, and agentic tasks",
+    recommended: true,
+  },
+  {
+    id: "gpt-5-mini",
+    name: "GPT-5 Mini",
+    description: "Powerful small model — great balance of speed and quality",
+  },
+  {
     id: "gpt-4.1",
     name: "GPT-4.1",
-    description: "Latest flagship model — best coding and instruction following",
-    recommended: true,
+    description: "Strong coding and instruction following — 1M token context",
   },
   {
     id: "gpt-4.1-mini",
     name: "GPT-4.1 Mini",
-    description: "Fast and affordable — great balance of speed and quality",
-  },
-  {
-    id: "gpt-4.1-nano",
-    name: "GPT-4.1 Nano",
-    description: "Fastest and cheapest — ideal for simple tasks",
+    description: "Fast and affordable — good for most tasks",
   },
   {
     id: "o4-mini",
     name: "o4-mini",
     description: "Reasoning model — thinks step-by-step for complex problems",
-  },
-  {
-    id: "gpt-4o",
-    name: "GPT-4o",
-    description: "Previous generation — fast and accurate",
   },
 ];
 

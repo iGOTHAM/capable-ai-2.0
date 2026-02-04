@@ -35,14 +35,15 @@ const PHASE_LABELS: Record<LaunchPhase, string> = {
 };
 
 const MODEL_NAMES: Record<string, string> = {
+  "claude-sonnet-4-5-20250929": "Claude Sonnet 4.5",
   "claude-sonnet-4-20250514": "Claude Sonnet 4",
   "claude-opus-4-20250514": "Claude Opus 4",
   "claude-haiku-4-20250414": "Claude Haiku 4",
+  "gpt-5.2": "GPT-5.2",
+  "gpt-5-mini": "GPT-5 Mini",
   "gpt-4.1": "GPT-4.1",
   "gpt-4.1-mini": "GPT-4.1 Mini",
-  "gpt-4.1-nano": "GPT-4.1 Nano",
   "o4-mini": "o4-mini",
-  "gpt-4o": "GPT-4o",
 };
 
 export function StepLaunch({ data, onBack }: StepLaunchProps) {
