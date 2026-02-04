@@ -27,10 +27,13 @@ export async function GET(
     );
   }
 
+  const heartbeatData = deployment.heartbeatData as Record<string, unknown> | null;
+
   return NextResponse.json({
     status: deployment.status,
     dropletIp: deployment.dropletIp,
     lastHeartbeatAt: deployment.lastHeartbeatAt?.toISOString() ?? null,
     activePackVer: deployment.activePackVer,
+    dashboardPassword: (heartbeatData?.dashboardPassword as string) ?? null,
   });
 }

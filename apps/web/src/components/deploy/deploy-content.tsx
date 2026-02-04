@@ -46,6 +46,7 @@ interface DeployContentProps {
   doReferralUrl: string;
   appUrl: string;
   latestPackVersion: number;
+  dashboardPassword: string | null;
 }
 
 const statusConfig: Record<
@@ -100,9 +101,11 @@ const SIZES = [
 
 export function DeployContent(props: DeployContentProps) {
   const [copied, setCopied] = useState(false);
+  const [pwCopied, setPwCopied] = useState(false);
   const [status, setStatus] = useState(props.deploymentStatus);
   const [lastHb, setLastHb] = useState(props.lastHeartbeat);
   const [ip, setIp] = useState(props.dropletIp);
+  const [password, setPassword] = useState(props.dashboardPassword);
   const [showManual, setShowManual] = useState(false);
   const [region, setRegion] = useState("nyc1");
   const [size, setSize] = useState("s-1vcpu-1gb");
@@ -145,6 +148,7 @@ export function DeployContent(props: DeployContentProps) {
       setStatus(data.status);
       setLastHb(data.lastHeartbeatAt);
       setIp(data.dropletIp);
+      if (data.dashboardPassword) setPassword(data.dashboardPassword);
     }
   };
 
@@ -349,6 +353,32 @@ export function DeployContent(props: DeployContentProps) {
                       Direct IP fallback: http://{ipForUrl}:3100
                     </p>
                   )}
+                </div>
+              )}
+              {status === "ACTIVE" && password && (
+                <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">
+                    Password:
+                  </span>
+                  <code className="text-xs font-mono font-medium">
+                    {password}
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(password);
+                      setPwCopied(true);
+                      setTimeout(() => setPwCopied(false), 2000);
+                    }}
+                  >
+                    {pwCopied ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
                 </div>
               )}
               {lastHb && (

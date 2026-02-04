@@ -221,12 +221,12 @@ echo ">>> [10/${totalSteps}] Setting up heartbeat..."
 # Save IP for cron reuse
 echo "$DROPLET_IP" > /etc/capable-droplet-ip
 
-# Send initial heartbeat
+# Send initial heartbeat (includes dashboard password so user can see it in the UI)
 curl -sf -X POST ${appUrl}/api/deployments/heartbeat \\
   -H "Content-Type: application/json" \\
-  -d '{"projectToken":"${projectToken}","dropletIp":"'"$DROPLET_IP"'","packVersion":${packVersion},"status":"active"}' || true
+  -d '{"projectToken":"${projectToken}","dropletIp":"'"$DROPLET_IP"'","packVersion":${packVersion},"status":"active","dashboardPassword":"'"$DASH_PASSWORD"'"}' || true
 
-# Set up recurring heartbeat every 5 minutes
+# Set up recurring heartbeat every 5 minutes (no password — only sent once)
 cat > /etc/cron.d/capable-heartbeat << 'CRON'
 */5 * * * * root DROPLET_IP=$(/bin/cat /etc/capable-droplet-ip); /usr/bin/curl -sf -X POST ${appUrl}/api/deployments/heartbeat -H "Content-Type: application/json" -d "{\\"projectToken\\":\\"${projectToken}\\",\\"dropletIp\\":\\"$DROPLET_IP\\",\\"packVersion\\":${packVersion},\\"status\\":\\"active\\"}" > /dev/null 2>&1
 CRON

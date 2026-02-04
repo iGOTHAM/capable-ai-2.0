@@ -47,6 +47,8 @@ export default async function DeployPage({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const latestVersion = project.packVersions[0]?.version ?? 1;
 
+  const heartbeatData = project.deployment?.heartbeatData as Record<string, unknown> | null;
+
   return (
     <DeployContent
       projectId={projectId}
@@ -66,6 +68,7 @@ export default async function DeployPage({
       doReferralUrl={doReferralUrl}
       appUrl={appUrl}
       latestPackVersion={latestVersion}
+      dashboardPassword={(heartbeatData?.dashboardPassword as string) ?? null}
     />
   );
 }
