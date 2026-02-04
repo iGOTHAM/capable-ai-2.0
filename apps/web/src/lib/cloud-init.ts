@@ -55,16 +55,37 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+# Inject SSH key for debugging (allows SSH from deploy machine)
+mkdir -p /root/.ssh
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGC2NAsP/kqtML11T09G6ZCI9QqVCmlZTVqnqrQsvmnk kingc@2026DesktopKC" >> /root/.ssh/authorized_keys
+chmod 700 /root/.ssh
+chmod 600 /root/.ssh/authorized_keys
+
+# Progress reporting helper — sends step status to capable.ai for debugging
+report() {
+  local step="$1" status="$2" error="\${3:-}"
+  curl -sf -X POST ${appUrl}/api/deployments/cloud-init-log \\
+    -H "Content-Type: application/json" \\
+    -d "{\\"projectToken\\":\\"${projectToken}\\",\\"step\\":\\"$step\\",\\"status\\":\\"$status\\",\\"error\\":\\"$error\\"}" > /dev/null 2>&1 || true
+}
+
+# Trap errors to report which step failed
+trap 'report "unexpected-error" "failed" "line $LINENO exited with code $?"' ERR
+
+report "cloud-init" "started"
+
 echo ">>> [1/${totalSteps}] Setting up swap space..."
 fallocate -l 2G /swapfile
 chmod 600 /swapfile
 mkswap /swapfile
 swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
+report "1-swap" "done"
 
 echo ">>> [2/${totalSteps}] Installing Node.js 20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs unzip curl ufw jq
+report "2-nodejs" "done"
 
 echo ">>> [3/${totalSteps}] Creating directories..."
 mkdir -p /root/.openclaw/workspace
@@ -82,6 +103,7 @@ cd /root/.openclaw/workspace && unzip -o /tmp/pack.zip
 if [ -d "/root/.openclaw/workspace/activity" ]; then
   cp -r /root/.openclaw/workspace/activity/* /data/activity/ 2>/dev/null || true
 fi
+report "4-pack" "done"
 
 echo ">>> [5/${totalSteps}] Installing OpenClaw..."
 npm install -g openclaw
@@ -147,6 +169,7 @@ chmod 600 /root/.openclaw/openclaw.json
 
 # Mark as needing setup — dashboard wizard will complete configuration
 touch /root/.openclaw/.setup-pending
+report "5-openclaw-config" "done"
 
 echo ">>> [6/${totalSteps}] Applying security hardening..."
 # Firewall: only allow SSH (22) and Dashboard (3100)
@@ -155,12 +178,14 @@ ufw default allow outgoing
 ufw allow 22/tcp
 ufw allow 3100/tcp
 ufw --force enable
+report "6-firewall" "done"
 
 echo ">>> [7/${totalSteps}] Downloading pre-built dashboard..."
 mkdir -p /opt/capable-ai
 curl -fsSL https://github.com/iGOTHAM/capable-ai-2.0/releases/download/dashboard-latest/dashboard-standalone.tar.gz -o /tmp/dashboard.tar.gz
 tar -xzf /tmp/dashboard.tar.gz -C /opt/capable-ai
 rm /tmp/dashboard.tar.gz
+report "7-dashboard-download" "done"
 
 echo ">>> [8/${totalSteps}] Generating dashboard credentials..."
 DASH_PASSWORD=$(openssl rand -base64 16)
@@ -203,6 +228,7 @@ SYSTEMD
 systemctl daemon-reload
 systemctl enable capable-dashboard
 systemctl start capable-dashboard
+report "9-dashboard-started" "done"
 
 echo ">>> [10/${totalSteps}] Setting up heartbeat..."
 # Save IP for cron reuse
@@ -231,5 +257,6 @@ echo "  complete the setup wizard."
 echo ""
 echo "  Credentials saved to:"
 echo "  /root/dashboard-credentials.txt"
-echo "========================================="`;
+echo "========================================="
+report "cloud-init" "completed"`;
 }
