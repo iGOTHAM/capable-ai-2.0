@@ -11,19 +11,19 @@ export function generateCloudInitScript(params: CloudInitParams): string {
 
   // Determine the total step count and dashboard URL format based on subdomain
   const hasSub = !!subdomain;
-  const totalSteps = hasSub ? 11 : 9;
+  const totalSteps = hasSub ? 12 : 10;
 
   // Build Caddy install + config steps (only when subdomain is present)
   const caddySteps = hasSub
     ? `
-echo ">>> [10/${totalSteps}] Installing Caddy..."
+echo ">>> [11/${totalSteps}] Installing Caddy..."
 apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
 apt-get update
 apt-get install -y caddy
 
-echo ">>> [11/${totalSteps}] Configuring Caddy for ${subdomain}.capable.ai..."
+echo ">>> [12/${totalSteps}] Configuring Caddy for ${subdomain}.capable.ai..."
 cat > /etc/caddy/Caddyfile << 'CADDY'
 ${subdomain}.capable.ai {
     reverse_proxy localhost:3100
@@ -55,18 +55,25 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-echo ">>> [1/${totalSteps}] Installing Node.js 20..."
+echo ">>> [1/${totalSteps}] Setting up swap space..."
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+echo ">>> [2/${totalSteps}] Installing Node.js 20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs unzip python3 curl git ufw
 
 # Install pnpm
 npm install -g pnpm@9.15.0
 
-echo ">>> [2/${totalSteps}] Creating directories..."
+echo ">>> [3/${totalSteps}] Creating directories..."
 mkdir -p /root/.openclaw/workspace
 mkdir -p /data/activity
 
-echo ">>> [3/${totalSteps}] Downloading Capable Pack v${packVersion}..."
+echo ">>> [4/${totalSteps}] Downloading Capable Pack v${packVersion}..."
 PACK_URL=$(curl -sf -X POST ${appUrl}/api/packs/${projectId}/download-url \\
   -H "Content-Type: application/json" \\
   -d '{"version":${packVersion},"projectToken":"${projectToken}"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
@@ -79,7 +86,7 @@ if [ -d "/root/.openclaw/workspace/activity" ]; then
   cp -r /root/.openclaw/workspace/activity/* /data/activity/ 2>/dev/null || true
 fi
 
-echo ">>> [4/${totalSteps}] Installing OpenClaw..."
+echo ">>> [5/${totalSteps}] Installing OpenClaw..."
 npm install -g openclaw
 
 # Write base OpenClaw config — merges configPatch.json from pack
@@ -144,7 +151,7 @@ chmod 600 /root/.openclaw/openclaw.json
 # Mark as needing setup — dashboard wizard will complete configuration
 touch /root/.openclaw/.setup-pending
 
-echo ">>> [5/${totalSteps}] Applying security hardening..."
+echo ">>> [6/${totalSteps}] Applying security hardening..."
 # Firewall: only allow SSH (22) and Dashboard (3100)
 ufw default deny incoming
 ufw default allow outgoing
@@ -152,7 +159,7 @@ ufw allow 22/tcp
 ufw allow 3100/tcp
 ufw --force enable
 
-echo ">>> [6/${totalSteps}] Cloning and building dashboard..."
+echo ">>> [7/${totalSteps}] Cloning and building dashboard..."
 cd /opt
 git clone --depth 1 https://github.com/iGOTHAM/capable-ai-2.0.git capable-ai
 cd /opt/capable-ai
@@ -161,7 +168,7 @@ cd /opt/capable-ai
 pnpm install --frozen-lockfile
 STANDALONE=1 pnpm build:dashboard
 
-echo ">>> [7/${totalSteps}] Generating dashboard credentials..."
+echo ">>> [8/${totalSteps}] Generating dashboard credentials..."
 DASH_PASSWORD=$(openssl rand -base64 16)
 DROPLET_IP=$(curl -s ifconfig.me)
 
@@ -174,7 +181,7 @@ Created:  $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 CREDENTIALS
 chmod 600 /root/dashboard-credentials.txt
 
-echo ">>> [8/${totalSteps}] Starting dashboard..."
+echo ">>> [9/${totalSteps}] Starting dashboard..."
 # Create systemd service for the dashboard
 cat > /etc/systemd/system/capable-dashboard.service << SYSTEMD
 [Unit]
@@ -203,7 +210,7 @@ systemctl daemon-reload
 systemctl enable capable-dashboard
 systemctl start capable-dashboard
 
-echo ">>> [9/${totalSteps}] Setting up heartbeat..."
+echo ">>> [10/${totalSteps}] Setting up heartbeat..."
 # Save IP for cron reuse
 echo "$DROPLET_IP" > /etc/capable-droplet-ip
 
