@@ -40,6 +40,42 @@ const TOOLS: ToolDef[] = [
       required: ["url"],
     },
   },
+  {
+    name: "read_file",
+    description:
+      "Read the contents of an uploaded file or deal file. Use this to analyze documents (PDFs, CSVs, text files) that the user has uploaded. Path must be relative to the workspace (e.g. 'uploads/report.pdf', 'deals/acme-corp/cim.pdf').",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description:
+            "Relative path to the file within the workspace (e.g. 'uploads/report.pdf', 'deals/acme/notes.md')",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "write_file",
+    description:
+      "Write content to a file in the deals folder. Use this to save analysis outputs, memos, notes, or reports. Path must start with 'deals/' (e.g. 'deals/acme-corp/dd-notes.md'). Creates directories as needed.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description:
+            "Relative path within workspace, must start with 'deals/' (e.g. 'deals/acme-corp/memo.md')",
+        },
+        content: {
+          type: "string",
+          description: "The content to write to the file",
+        },
+      },
+      required: ["path", "content"],
+    },
+  },
 ];
 
 /** OpenAI function-calling format */

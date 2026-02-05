@@ -1,9 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Send, Loader2, ChevronDown, ChevronRight, Globe, Link } from "lucide-react";
+import {
+  Send,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Globe,
+  Link,
+  FileText,
+  FileOutput,
+  Square,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -12,28 +22,60 @@ interface ToolCall {
   args: Record<string, string>;
 }
 
+interface ActiveTool {
+  name: string;
+  args: Record<string, string>;
+  done: boolean;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   ts: string;
   toolCalls?: ToolCall[];
+  streaming?: boolean;
+  activeTools?: ActiveTool[];
 }
 
-function ToolCallBadge({ toolCall }: { toolCall: ToolCall }) {
+function getToolIcon(name: string) {
+  switch (name) {
+    case "web_search": return Globe;
+    case "fetch_url": return Link;
+    case "read_file": return FileText;
+    case "write_file": return FileOutput;
+    default: return Globe;
+  }
+}
+
+function getToolLabel(name: string, args: Record<string, string>) {
+  switch (name) {
+    case "web_search": return `Searching: ${args.query || "..."}`;
+    case "fetch_url": return `Fetching: ${args.url || "..."}`;
+    case "read_file": return `Reading: ${args.path || "..."}`;
+    case "write_file": return `Writing: ${args.path || "..."}`;
+    default: return `${name}(...)`;
+  }
+}
+
+function ToolCallBadge({ tool, active }: { tool: { name: string; args: Record<string, string>; done?: boolean }; active?: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const icon = toolCall.name === "web_search" ? Globe : Link;
-  const Icon = icon;
-  const label =
-    toolCall.name === "web_search"
-      ? `Searched: ${toolCall.args.query || "..."}`
-      : `Fetched: ${toolCall.args.url || "..."}`;
+  const Icon = getToolIcon(tool.name);
+  const label = getToolLabel(tool.name, tool.args);
 
   return (
     <button
       onClick={() => setExpanded(!expanded)}
-      className="flex items-center gap-1.5 rounded-md border border-input bg-muted/50 px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors text-left w-full"
+      className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs text-left w-full transition-colors ${
+        active && !tool.done
+          ? "border-primary/30 bg-primary/5 text-primary animate-pulse"
+          : "border-input bg-muted/50 text-muted-foreground hover:bg-muted"
+      }`}
     >
-      <Icon className="h-3 w-3 shrink-0" />
+      {active && !tool.done ? (
+        <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+      ) : (
+        <Icon className="h-3 w-3 shrink-0" />
+      )}
       <span className="truncate flex-1">{label}</span>
       {expanded ? (
         <ChevronDown className="h-3 w-3 shrink-0" />
@@ -55,8 +97,9 @@ function MarkdownContent({ content }: { content: string }) {
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Load chat history on mount
   useEffect(() => {
@@ -65,10 +108,11 @@ export default function ChatPage() {
       .then((data) => {
         if (data.messages) {
           setMessages(
-            data.messages.map((m: { type: string; summary: string; ts: string }) => ({
+            data.messages.map((m: { type: string; summary: string; ts: string; details?: { toolCalls?: ToolCall[] } }) => ({
               role: m.type === "chat.user_message" ? "user" : "assistant",
               content: m.summary,
               ts: m.ts,
+              toolCalls: m.details?.toolCalls,
             })),
           );
         }
@@ -76,6 +120,7 @@ export default function ChatPage() {
       .catch(() => {});
   }, []);
 
+  // Auto-scroll
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -83,8 +128,12 @@ export default function ChatPage() {
     });
   }, [messages]);
 
+  const handleAbort = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
   const handleSend = async () => {
-    if (!input.trim() || sending) return;
+    if (!input.trim() || streaming) return;
 
     const userMsg: Message = {
       role: "user",
@@ -92,44 +141,199 @@ export default function ChatPage() {
       ts: new Date().toISOString(),
     };
 
+    const msgContent = userMsg.content;
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    setSending(true);
+    setStreaming(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    // Track the assistant message index for updates
+    let assistantIdx = -1;
+
+    // Add a placeholder assistant message for streaming
+    setMessages((prev) => {
+      assistantIdx = prev.length;
+      return [
+        ...prev,
+        {
+          role: "assistant",
+          content: "",
+          ts: new Date().toISOString(),
+          streaming: true,
+          activeTools: [],
+        },
+      ];
+    });
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.content }),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ message: msgContent }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Request failed");
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || `Request failed: ${res.status}`);
       }
-      if (data.response) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: data.response,
-            ts: new Date().toISOString(),
-            toolCalls: data.toolCalls,
-          },
-        ]);
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let contentAccum = "";
+      const tools: ActiveTool[] = [];
+      const completedToolCalls: ToolCall[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue;
+
+            try {
+              const event = JSON.parse(jsonStr) as {
+                type: string;
+                text?: string;
+                name?: string;
+                args?: Record<string, string>;
+                result?: string;
+                fullText?: string;
+                toolCalls?: ToolCall[];
+                message?: string;
+              };
+
+              switch (event.type) {
+                case "token":
+                  contentAccum += event.text || "";
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const msg = updated[assistantIdx];
+                    if (msg) {
+                      updated[assistantIdx] = { ...msg, content: contentAccum };
+                    }
+                    return updated;
+                  });
+                  break;
+
+                case "tool_start":
+                  tools.push({
+                    name: event.name || "",
+                    args: event.args || {},
+                    done: false,
+                  });
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const msg = updated[assistantIdx];
+                    if (msg) {
+                      updated[assistantIdx] = { ...msg, activeTools: [...tools] };
+                    }
+                    return updated;
+                  });
+                  break;
+
+                case "tool_result": {
+                  const lastTool = tools[tools.length - 1];
+                  if (lastTool) {
+                    lastTool.done = true;
+                    completedToolCalls.push({
+                      name: lastTool.name,
+                      args: lastTool.args,
+                    });
+                  }
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const msg = updated[assistantIdx];
+                    if (msg) {
+                      updated[assistantIdx] = { ...msg, activeTools: [...tools] };
+                    }
+                    return updated;
+                  });
+                  break;
+                }
+
+                case "done":
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    updated[assistantIdx] = {
+                      role: "assistant",
+                      content: event.fullText || contentAccum,
+                      ts: new Date().toISOString(),
+                      toolCalls: event.toolCalls?.map((tc: ToolCall) => ({
+                        name: tc.name,
+                        args: tc.args,
+                      })) || completedToolCalls,
+                      streaming: false,
+                    };
+                    return updated;
+                  });
+                  break;
+
+                case "error":
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    updated[assistantIdx] = {
+                      role: "assistant",
+                      content: `Error: ${event.message || "Unknown error"}`,
+                      ts: new Date().toISOString(),
+                      streaming: false,
+                    };
+                    return updated;
+                  });
+                  break;
+              }
+            } catch {
+              // Ignore JSON parse errors
+            }
+          }
+        }
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to get a response.";
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `Error: ${errorMsg}`,
-          ts: new Date().toISOString(),
-        },
-      ]);
+      if ((err as Error).name === "AbortError") {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const msg = updated[assistantIdx];
+          if (msg) {
+            updated[assistantIdx] = {
+              ...msg,
+              content: msg.content || "Response cancelled.",
+              streaming: false,
+            };
+          }
+          return updated;
+        });
+      } else {
+        const errorMsg = err instanceof Error ? err.message : "Failed to get a response.";
+        setMessages((prev) => {
+          const updated = [...prev];
+          const msg = updated[assistantIdx];
+          if (msg) {
+            updated[assistantIdx] = {
+              ...msg,
+              content: `Error: ${errorMsg}`,
+              streaming: false,
+            };
+          }
+          return updated;
+        });
+      }
     } finally {
-      setSending(false);
+      setStreaming(false);
+      abortRef.current = null;
     }
   };
 
@@ -167,14 +371,27 @@ export default function ChatPage() {
                   >
                     {msg.role === "assistant" ? (
                       <>
-                        {msg.toolCalls && msg.toolCalls.length > 0 && (
+                        {/* Active tool badges (during streaming) */}
+                        {msg.activeTools && msg.activeTools.length > 0 && (
                           <div className="flex flex-col gap-1 mb-2">
-                            {msg.toolCalls.map((tc, j) => (
-                              <ToolCallBadge key={j} toolCall={tc} />
+                            {msg.activeTools.map((tool, j) => (
+                              <ToolCallBadge key={j} tool={tool} active />
                             ))}
                           </div>
                         )}
-                        <MarkdownContent content={msg.content} />
+                        {/* Completed tool badges (after done) */}
+                        {!msg.streaming && msg.toolCalls && msg.toolCalls.length > 0 && !msg.activeTools?.length && (
+                          <div className="flex flex-col gap-1 mb-2">
+                            {msg.toolCalls.map((tc, j) => (
+                              <ToolCallBadge key={j} tool={{ ...tc, done: true }} />
+                            ))}
+                          </div>
+                        )}
+                        {msg.content ? (
+                          <MarkdownContent content={msg.content} />
+                        ) : msg.streaming ? (
+                          <span className="inline-block w-2 h-4 bg-foreground/60 animate-pulse rounded-sm" />
+                        ) : null}
                       </>
                     ) : (
                       msg.content
@@ -182,13 +399,6 @@ export default function ChatPage() {
                   </div>
                 </div>
               ))}
-              {sending && (
-                <div className="flex justify-start" role="status" aria-label="Sending message">
-                  <div className="rounded-lg bg-muted px-4 py-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -205,16 +415,28 @@ export default function ChatPage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Send a message..."
                 className="flex h-9 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                disabled={sending}
+                disabled={streaming}
               />
-              <Button
-                type="submit"
-                size="icon"
-                disabled={sending}
-                aria-label="Send message"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+              {streaming ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="destructive"
+                  onClick={handleAbort}
+                  aria-label="Stop generation"
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!input.trim()}
+                  aria-label="Send message"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              )}
             </form>
           </div>
         </CardContent>

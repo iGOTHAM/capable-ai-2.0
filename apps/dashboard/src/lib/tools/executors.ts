@@ -1,9 +1,13 @@
 /**
- * Tool executors for web_search and fetch_url.
+ * Tool executors for web_search, fetch_url, read_file, and write_file.
  * No API keys required — uses Brave Search HTML scraping + SearXNG fallback.
  */
 
+import { promises as fs } from "fs";
+import pathModule from "path";
+
 const MAX_CONTENT_LENGTH = 12000; // chars — keep tool results reasonable for context window
+const WORKSPACE = process.env.OPENCLAW_DIR || "/root/.openclaw";
 
 // --- SSRF protection ---
 
@@ -238,6 +242,86 @@ export async function executeFetchUrl(urlStr: string): Promise<string> {
   }
 }
 
+// --- File operations ---
+
+/**
+ * Resolve a relative path to an absolute path within workspace.
+ * Prevents path traversal attacks.
+ */
+function resolveWorkspacePath(relativePath: string): string {
+  // Normalize and resolve
+  const resolved = pathModule.resolve(
+    pathModule.join(WORKSPACE, "workspace", relativePath),
+  );
+  const workspaceRoot = pathModule.resolve(
+    pathModule.join(WORKSPACE, "workspace"),
+  );
+
+  // Ensure the resolved path is still within workspace
+  if (!resolved.startsWith(workspaceRoot + pathModule.sep) && resolved !== workspaceRoot) {
+    throw new Error("Path traversal detected — access denied");
+  }
+
+  return resolved;
+}
+
+export async function executeReadFile(relativePath: string): Promise<string> {
+  const absPath = resolveWorkspacePath(relativePath);
+  const ext = pathModule.extname(absPath).toLowerCase();
+
+  try {
+    if (ext === ".pdf") {
+      // For PDFs, try to extract text via pdf-parse (optional dep).
+      try {
+        // Dynamic require to avoid type errors when pdf-parse isn't installed
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
+        const buffer = await fs.readFile(absPath);
+        const data = await pdfParse(buffer);
+        let text = data.text || "";
+        if (text.length > MAX_CONTENT_LENGTH) {
+          text = text.slice(0, MAX_CONTENT_LENGTH) + "\n\n[Content truncated]";
+        }
+        return text || "PDF appears to be empty or contains only images.";
+      } catch {
+        // pdf-parse not installed — return file info
+        const stat = await fs.stat(absPath);
+        return `[PDF file: ${pathModule.basename(absPath)}, ${(stat.size / 1024).toFixed(1)}KB. Install pdf-parse for text extraction.]`;
+      }
+    }
+
+    // Text-based formats
+    const content = await fs.readFile(absPath, "utf-8");
+    if (content.length > MAX_CONTENT_LENGTH) {
+      return content.slice(0, MAX_CONTENT_LENGTH) + "\n\n[Content truncated]";
+    }
+    return content || "File is empty.";
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return `File not found: ${relativePath}`;
+    }
+    throw err;
+  }
+}
+
+export async function executeWriteFile(
+  relativePath: string,
+  content: string,
+): Promise<string> {
+  // Only allow writing to deals/ directory
+  if (!relativePath.startsWith("deals/")) {
+    return "Error: Can only write files to the deals/ directory.";
+  }
+
+  const absPath = resolveWorkspacePath(relativePath);
+
+  // Create directory if needed
+  await fs.mkdir(pathModule.dirname(absPath), { recursive: true });
+  await fs.writeFile(absPath, content, "utf-8");
+
+  return `File written: ${relativePath} (${content.length} characters)`;
+}
+
 // --- Executor dispatcher ---
 
 export async function executeTool(
@@ -251,6 +335,13 @@ export async function executeTool(
     case "fetch_url":
       if (!args.url) return "Error: url is required for fetch_url";
       return executeFetchUrl(args.url);
+    case "read_file":
+      if (!args.path) return "Error: path is required for read_file";
+      return executeReadFile(args.path);
+    case "write_file":
+      if (!args.path) return "Error: path is required for write_file";
+      if (!args.content) return "Error: content is required for write_file";
+      return executeWriteFile(args.path, args.content);
     default:
       return `Unknown tool: ${name}`;
   }
