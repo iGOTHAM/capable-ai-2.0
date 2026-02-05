@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
             where: { id: deployment.id },
             data: { cloudflareRecordId: recordId },
           });
-        } else if (deployment.dropletIp && deployment.dropletIp !== currentIp) {
-          // IP changed — update the existing DNS record
+        } else if (deployment.dropletIp !== currentIp) {
+          // IP changed (or was null after reset) — update the existing DNS record
           await updateDnsRecord(deployment.cloudflareRecordId, currentIp);
         }
       }
