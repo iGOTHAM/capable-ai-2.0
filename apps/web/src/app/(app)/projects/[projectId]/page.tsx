@@ -242,7 +242,7 @@ export default async function ProjectDetailPage({
             <CardTitle className="text-base">
               {project.deployment?.status === "ACTIVE" ? (
                 <div className="flex items-center gap-2">
-                  <Badge>Live</Badge>
+                  <Badge className="bg-green-600">Live</Badge>
                   {dashboardUrl && (
                     <a
                       href={dashboardUrl}
@@ -254,6 +254,21 @@ export default async function ProjectDetailPage({
                       Open
                     </a>
                   )}
+                </div>
+              ) : project.deployment?.status === "PROVISIONING" ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="animate-pulse">
+                    Provisioning...
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    ~3-5 min
+                  </span>
+                </div>
+              ) : project.deployment?.status === "PENDING" ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="animate-pulse">
+                    Setting up...
+                  </Badge>
                 </div>
               ) : (
                 <Badge variant="outline">
