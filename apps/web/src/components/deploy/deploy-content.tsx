@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -145,12 +145,35 @@ export function DeployContent(props: DeployContentProps) {
     const res = await fetch(`/api/deployments/${props.projectId}/status`);
     if (res.ok) {
       const data = await res.json();
+      const prevStatus = status;
       setStatus(data.status);
       setLastHb(data.lastHeartbeatAt);
       setIp(data.dropletIp);
       if (data.dashboardPassword) setPassword(data.dashboardPassword);
+
+      // Show notification when deployment becomes ACTIVE
+      if (prevStatus !== "ACTIVE" && data.status === "ACTIVE") {
+        setShowReadyBanner(true);
+      }
     }
   };
+
+  // Track previous status for notifications
+  const prevStatusRef = useRef(status);
+  const [showReadyBanner, setShowReadyBanner] = useState(false);
+
+  // Auto-poll while provisioning or pending
+  useEffect(() => {
+    if (status !== "PROVISIONING" && status !== "PENDING") return;
+
+    const interval = setInterval(refreshStatus, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, [status, props.projectId]);
+
+  // Update ref when status changes
+  useEffect(() => {
+    prevStatusRef.current = status;
+  }, [status]);
 
   const handleDeploy = () => {
     setError(null);
@@ -211,6 +234,26 @@ export function DeployContent(props: DeployContentProps) {
               https://{props.subdomain}.capable.ai
             </strong>
           </span>
+        </div>
+      )}
+
+      {/* Deployment ready banner */}
+      {showReadyBanner && status === "ACTIVE" && (
+        <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950">
+          <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
+            <Check className="h-4 w-4" />
+            <span>
+              <strong>Your dashboard is ready!</strong> You can now access it at the URL below.
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-green-800 hover:bg-green-100 dark:text-green-200 dark:hover:bg-green-900"
+            onClick={() => setShowReadyBanner(false)}
+          >
+            Dismiss
+          </Button>
         </div>
       )}
 
