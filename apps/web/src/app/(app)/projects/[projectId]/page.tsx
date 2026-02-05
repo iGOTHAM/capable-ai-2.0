@@ -17,6 +17,7 @@ import {
   Monitor,
   Globe,
   AlertTriangle,
+  Settings,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -113,12 +114,21 @@ export default async function ProjectDetailPage({
           {hasActiveSub && (
             <>
               <RegenerateButton projectId={projectId} />
-              <Button asChild>
-                <Link href={`/projects/${projectId}/deploy`}>
-                  <Rocket className="mr-2 h-4 w-4" />
-                  Deploy
-                </Link>
-              </Button>
+              {project.deployment?.status === "ACTIVE" ? (
+                <Button variant="outline" asChild>
+                  <Link href={`/projects/${projectId}/deploy`}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Manage
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild>
+                  <Link href={`/projects/${projectId}/deploy`}>
+                    <Rocket className="mr-2 h-4 w-4" />
+                    Deploy
+                  </Link>
+                </Button>
+              )}
             </>
           )}
           {!hasActiveSub && !isCanceled && (
