@@ -68,7 +68,7 @@ function htmlToText(html: string): string {
   return text.trim();
 }
 
-// --- Web Search (DuckDuckGo HTML) ---
+// --- Web Search ---
 
 interface SearchResult {
   title: string;
@@ -76,50 +76,107 @@ interface SearchResult {
   snippet: string;
 }
 
-export async function executeWebSearch(query: string): Promise<string> {
-  const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+// SearXNG public instances (JSON API, datacenter-friendly)
+const SEARXNG_INSTANCES = [
+  "https://search.sapti.me",
+  "https://searxng.site",
+  "https://search.bus-hit.me",
+  "https://searx.tiekoetter.com",
+];
 
-  const res = await fetch(ddgUrl, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; CapableBot/1.0)",
-    },
-  });
+async function searchSearXNG(query: string): Promise<SearchResult[]> {
+  // Try each instance until one works
+  for (const instance of SEARXNG_INSTANCES) {
+    try {
+      const url = `${instance}/search?q=${encodeURIComponent(query)}&format=json&categories=general`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
-  if (!res.ok) {
-    throw new Error(`DuckDuckGo search failed: ${res.status}`);
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        },
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) continue;
+
+      const data = (await res.json()) as {
+        results?: Array<{ title?: string; url?: string; content?: string }>;
+      };
+
+      if (!data.results?.length) continue;
+
+      return data.results.slice(0, 8).map((r) => ({
+        title: r.title || "",
+        url: r.url || "",
+        snippet: r.content || "",
+      }));
+    } catch {
+      continue;
+    }
   }
+  return [];
+}
 
-  const html = await res.text();
+async function searchDDGLite(query: string): Promise<SearchResult[]> {
+  try {
+    const ddgUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
-  // Parse results from DuckDuckGo HTML response
-  const results: SearchResult[] = [];
-  const resultRegex = /<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-  const snippetRegex = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+    const res = await fetch(ddgUrl, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      },
+    });
+    clearTimeout(timeout);
 
-  const titleMatches = [...html.matchAll(resultRegex)];
-  const snippetMatches = [...html.matchAll(snippetRegex)];
+    if (!res.ok) return [];
 
-  for (let i = 0; i < Math.min(titleMatches.length, 8); i++) {
-    const titleMatch = titleMatches[i];
-    const snippetMatch = snippetMatches[i];
-    if (!titleMatch?.[1] || !titleMatch[2]) continue;
+    const html = await res.text();
 
-    // DuckDuckGo wraps URLs in a redirect — extract the actual URL
-    let url = titleMatch[1];
-    const uddgMatch = url.match(/[?&]uddg=([^&]+)/);
-    if (uddgMatch?.[1]) {
-      url = decodeURIComponent(uddgMatch[1]);
+    // DDG Lite has a simpler format: result links in <a class="result-link">
+    const results: SearchResult[] = [];
+
+    // Parse the lite results table
+    const rowRegex = /<a[^>]+rel="nofollow"[^>]+class="result-link"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRegex = /<td[^>]+class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
+
+    const linkMatches = [...html.matchAll(rowRegex)];
+    const snippetMatches = [...html.matchAll(snippetRegex)];
+
+    for (let i = 0; i < Math.min(linkMatches.length, 8); i++) {
+      const linkMatch = linkMatches[i];
+      const snippetMatch = snippetMatches[i];
+      if (!linkMatch?.[1] || !linkMatch[2]) continue;
+
+      results.push({
+        title: htmlToText(linkMatch[2]),
+        url: linkMatch[1],
+        snippet: snippetMatch?.[1] ? htmlToText(snippetMatch[1]) : "",
+      });
     }
 
-    results.push({
-      title: htmlToText(titleMatch[2]),
-      url,
-      snippet: snippetMatch?.[1] ? htmlToText(snippetMatch[1]) : "",
-    });
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+export async function executeWebSearch(query: string): Promise<string> {
+  // Try SearXNG first (best for datacenter IPs), fall back to DDG Lite
+  let results = await searchSearXNG(query);
+
+  if (results.length === 0) {
+    results = await searchDDGLite(query);
   }
 
   if (results.length === 0) {
-    return "No search results found.";
+    return "No search results found. The search engines may be temporarily unavailable.";
   }
 
   return results
