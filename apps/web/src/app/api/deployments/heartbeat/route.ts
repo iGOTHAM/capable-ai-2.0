@@ -13,6 +13,7 @@ const heartbeatSchema = z.object({
   packVersion: z.number().optional(),
   status: z.enum(["active", "stopping"]).default("active"),
   dashboardPassword: z.string().optional(),
+  adminSecret: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { projectToken, dropletIp, packVersion, status, dashboardPassword } =
+  const { projectToken, dropletIp, packVersion, status, dashboardPassword, adminSecret } =
     parsed.data;
 
   const deployment = await db.deployment.findUnique({
@@ -48,9 +49,10 @@ export async function POST(request: NextRequest) {
   const newStatus = status === "stopping" ? "DEACTIVATED" : "ACTIVE";
   const currentIp = dropletIp ?? deployment.dropletIp;
 
-  // Preserve existing dashboard password if not provided in this heartbeat
+  // Preserve existing credentials if not provided in this heartbeat
   const existingData = deployment.heartbeatData as Record<string, unknown> | null;
   const password = dashboardPassword ?? existingData?.dashboardPassword ?? null;
+  const secret = adminSecret ?? existingData?.adminSecret ?? null;
 
   // Update deployment record first
   await db.deployment.update({
@@ -65,6 +67,7 @@ export async function POST(request: NextRequest) {
         reportedStatus: status,
         ip: dropletIp,
         ...(password ? { dashboardPassword: password } : {}),
+        ...(secret ? { adminSecret: secret } : {}),
       },
     },
   });

@@ -176,6 +176,7 @@ report "7-dashboard-download" "done"
 
 echo ">>> [8/${totalSteps}] Generating dashboard credentials..."
 DASH_PASSWORD=$(openssl rand -base64 16)
+ADMIN_SECRET=$(openssl rand -hex 32)
 DROPLET_IP=$(curl -4 -s ifconfig.me)
 
 cat > /root/dashboard-credentials.txt << CREDENTIALS
@@ -183,9 +184,15 @@ Capable Dashboard Credentials
 ==============================
 URL:      ${dashboardUrl}
 Password: $DASH_PASSWORD
+Admin:    $ADMIN_SECRET
 Created:  $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 CREDENTIALS
 chmod 600 /root/dashboard-credentials.txt
+
+# Store admin secret separately for env file
+echo "AUTH_PASSWORD=$DASH_PASSWORD" > /etc/capable-dashboard.env
+echo "ADMIN_SECRET=$ADMIN_SECRET" >> /etc/capable-dashboard.env
+chmod 600 /etc/capable-dashboard.env
 
 echo ">>> [9/${totalSteps}] Starting dashboard..."
 # Create systemd service for the dashboard
@@ -200,10 +207,10 @@ WorkingDirectory=/opt/capable-ai/apps/dashboard
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=5
+EnvironmentFile=/etc/capable-dashboard.env
 Environment=NODE_ENV=production
 Environment=PORT=3100
 Environment=HOSTNAME=0.0.0.0
-Environment=AUTH_PASSWORD=$DASH_PASSWORD
 Environment=DATA_DIR=/data/activity
 Environment=OPENCLAW_CONFIG=/root/.openclaw/openclaw.json
 Environment=OPENCLAW_DIR=/root/.openclaw
@@ -221,10 +228,10 @@ echo ">>> [10/${totalSteps}] Setting up heartbeat..."
 # Save IP for cron reuse
 echo "$DROPLET_IP" > /etc/capable-droplet-ip
 
-# Send initial heartbeat (includes dashboard password so user can see it in the UI)
+# Send initial heartbeat (includes password + admin secret so web app can manage the dashboard)
 curl -sf -X POST ${appUrl}/api/deployments/heartbeat \\
   -H "Content-Type: application/json" \\
-  -d '{"projectToken":"${projectToken}","dropletIp":"'"$DROPLET_IP"'","packVersion":${packVersion},"status":"active","dashboardPassword":"'"$DASH_PASSWORD"'"}' || true
+  -d '{"projectToken":"${projectToken}","dropletIp":"'"$DROPLET_IP"'","packVersion":${packVersion},"status":"active","dashboardPassword":"'"$DASH_PASSWORD"'","adminSecret":"'"$ADMIN_SECRET"'"}' || true
 
 # Set up recurring heartbeat every 5 minutes (no password — only sent once)
 cat > /etc/cron.d/capable-heartbeat << 'CRON'

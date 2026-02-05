@@ -24,6 +24,7 @@ import { RegenerateButton } from "@/components/regenerate-button";
 import { PackDownloadButton } from "@/components/pack-download-button";
 import { DeleteProjectButton } from "@/components/delete-project-button";
 import { PackFilesViewer } from "@/components/pack-files-viewer";
+import { DashboardAccessCard } from "@/components/dashboard-access-card";
 import { getActiveSubscription, getSubscription } from "@/lib/subscription-guard";
 import { templateLabel, modeLabel, MODE_DESCRIPTIONS } from "@/lib/labels";
 
@@ -62,6 +63,12 @@ export default async function ProjectDetailPage({
     : project.deployment?.dropletIp
       ? `http://${project.deployment.dropletIp}:3100`
       : null;
+
+  // Extract heartbeat data for dashboard access
+  const heartbeatData = project.deployment?.heartbeatData as {
+    dashboardPassword?: string;
+    adminSecret?: string;
+  } | null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -251,6 +258,18 @@ export default async function ProjectDetailPage({
           </CardHeader>
         </Card>
       </div>
+
+      {/* Dashboard Access — shown when deployed */}
+      {project.deployment?.status === "ACTIVE" && (
+        <DashboardAccessCard
+          projectId={projectId}
+          subdomain={project.deployment.subdomain}
+          dropletIp={project.deployment.dropletIp}
+          password={heartbeatData?.dashboardPassword ?? null}
+          adminSecret={heartbeatData?.adminSecret ?? null}
+          status={project.deployment.status}
+        />
+      )}
 
       {/* Personality info (if set) */}
       {project.personality && (
