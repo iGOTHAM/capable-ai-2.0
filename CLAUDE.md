@@ -1,5 +1,24 @@
 # Capable.ai — Claude Code Instructions
 
+## ⚠️ NEW SESSION STARTUP (Do This First)
+
+At the start of every new session, run these commands silently before doing anything else:
+
+```bash
+# 1. Read TODO.md to understand current state and what to work on
+cat "C:\Users\kingc\.claude\projects\capable-ai.2.0\TODO.md"
+
+# 2. Copy .env.local if in a worktree (contains all production credentials)
+cp "C:\Users\kingc\.claude\projects\capable-ai.2.0\.env.local" ".env.local" 2>/dev/null || true
+
+# 3. Install deps if needed
+[ ! -d "node_modules" ] && pnpm install
+```
+
+This gives you: project context, all env vars (DATABASE_URL, ENCRYPTION_KEY, STRIPE keys, DO credentials, Cloudflare token), and working dependencies.
+
+---
+
 ## Working Style
 
 - **Be autonomous.** Prefer action over asking. Only ask the user when genuinely blocked — e.g., need external credentials, account access, or a product direction judgment call.
@@ -75,8 +94,25 @@ Types: run.started, run.finished, plan.created, tool.called, tool.result, approv
 ## Session Continuity
 
 - **TODO.md** (gitignored) tracks progress, next steps, infrastructure refs, and gotchas across sessions
+- **Canonical path**: `C:\Users\kingc\.claude\projects\capable-ai.2.0\TODO.md` — always use this path, even when working in a worktree
 - **Update TODO.md after each completed task** — not at the end of the session, because sessions can freeze unexpectedly
 - At the start of a new session, read TODO.md first to pick up where the last session left off
+
+## Environment Setup
+
+Production credentials live in `.env.local` (gitignored) in the main repo. At session start:
+
+1. If working in a worktree, copy `.env.local` from main repo:
+   ```bash
+   cp "C:\Users\kingc\.claude\projects\capable-ai.2.0\.env.local" ".env.local"
+   ```
+2. If `.env.local` is missing or stale, pull from Vercel:
+   ```bash
+   vercel env pull .env.local --environment=production
+   ```
+3. Run `pnpm install` if `node_modules` is missing
+
+This ensures access to: DATABASE_URL, ENCRYPTION_KEY, DO_CLIENT_ID, DO_CLIENT_SECRET, CLOUDFLARE_API_TOKEN, STRIPE_SECRET_KEY, etc.
 
 ## Security
 
