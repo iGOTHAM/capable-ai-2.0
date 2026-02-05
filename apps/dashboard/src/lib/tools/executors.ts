@@ -1,6 +1,6 @@
 /**
  * Tool executors for web_search and fetch_url.
- * No API keys required — uses DuckDuckGo HTML and built-in fetch.
+ * No API keys required — uses Brave Search HTML scraping + SearXNG fallback.
  */
 
 const MAX_CONTENT_LENGTH = 12000; // chars — keep tool results reasonable for context window
@@ -76,16 +76,67 @@ interface SearchResult {
   snippet: string;
 }
 
-// SearXNG public instances (JSON API, datacenter-friendly)
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/** Brave Search HTML scraping — works reliably from datacenter IPs */
+async function searchBrave(query: string): Promise<SearchResult[]> {
+  try {
+    const braveUrl = `https://search.brave.com/search?q=${encodeURIComponent(query)}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const res = await fetch(braveUrl, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": BROWSER_UA,
+        Accept: "text/html",
+      },
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return [];
+
+    const html = await res.text();
+    const results: SearchResult[] = [];
+
+    // Split HTML by snippet blocks (Brave uses Svelte classes)
+    const parts = html.split(/class="snippet\s+svelte/);
+
+    for (let i = 1; i < parts.length && results.length < 8; i++) {
+      const part = parts[i];
+      if (!part) continue;
+      const block = part.slice(0, 3000);
+
+      // Extract title from snippet-title's title attribute
+      const titleMatch = block.match(/snippet-title[^"]*"[^>]*title="([^"]+)"/);
+      if (!titleMatch?.[1]) continue;
+
+      // Extract first external URL in the block
+      const urlMatch = block.match(/href="(https?:\/\/(?!search\.brave|brave\.com|cdn\.brave)[^"]+)"/);
+      if (!urlMatch?.[1]) continue;
+
+      results.push({
+        title: htmlToText(titleMatch[1]),
+        url: urlMatch[1].replace(/&amp;/g, "&"),
+        snippet: "",
+      });
+    }
+
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+/** SearXNG public instances as fallback (JSON API) */
 const SEARXNG_INSTANCES = [
   "https://search.sapti.me",
   "https://searxng.site",
   "https://search.bus-hit.me",
-  "https://searx.tiekoetter.com",
 ];
 
 async function searchSearXNG(query: string): Promise<SearchResult[]> {
-  // Try each instance until one works
   for (const instance of SEARXNG_INSTANCES) {
     try {
       const url = `${instance}/search?q=${encodeURIComponent(query)}&format=json&categories=general`;
@@ -96,7 +147,7 @@ async function searchSearXNG(query: string): Promise<SearchResult[]> {
         signal: controller.signal,
         headers: {
           Accept: "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "User-Agent": BROWSER_UA,
         },
       });
       clearTimeout(timeout);
@@ -121,58 +172,12 @@ async function searchSearXNG(query: string): Promise<SearchResult[]> {
   return [];
 }
 
-async function searchDDGLite(query: string): Promise<SearchResult[]> {
-  try {
-    const ddgUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const res = await fetch(ddgUrl, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      },
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) return [];
-
-    const html = await res.text();
-
-    // DDG Lite has a simpler format: result links in <a class="result-link">
-    const results: SearchResult[] = [];
-
-    // Parse the lite results table
-    const rowRegex = /<a[^>]+rel="nofollow"[^>]+class="result-link"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-    const snippetRegex = /<td[^>]+class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
-
-    const linkMatches = [...html.matchAll(rowRegex)];
-    const snippetMatches = [...html.matchAll(snippetRegex)];
-
-    for (let i = 0; i < Math.min(linkMatches.length, 8); i++) {
-      const linkMatch = linkMatches[i];
-      const snippetMatch = snippetMatches[i];
-      if (!linkMatch?.[1] || !linkMatch[2]) continue;
-
-      results.push({
-        title: htmlToText(linkMatch[2]),
-        url: linkMatch[1],
-        snippet: snippetMatch?.[1] ? htmlToText(snippetMatch[1]) : "",
-      });
-    }
-
-    return results;
-  } catch {
-    return [];
-  }
-}
-
 export async function executeWebSearch(query: string): Promise<string> {
-  // Try SearXNG first (best for datacenter IPs), fall back to DDG Lite
-  let results = await searchSearXNG(query);
+  // Try Brave Search first (best for datacenter IPs), then SearXNG
+  let results = await searchBrave(query);
 
   if (results.length === 0) {
-    results = await searchDDGLite(query);
+    results = await searchSearXNG(query);
   }
 
   if (results.length === 0) {
@@ -180,7 +185,7 @@ export async function executeWebSearch(query: string): Promise<string> {
   }
 
   return results
-    .map((r, i) => `${i + 1}. **${r.title}**\n   ${r.url}\n   ${r.snippet}`)
+    .map((r, i) => `${i + 1}. **${r.title}**\n   ${r.url}${r.snippet ? `\n   ${r.snippet}` : ""}`)
     .join("\n\n");
 }
 
