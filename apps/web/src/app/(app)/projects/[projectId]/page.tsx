@@ -26,6 +26,7 @@ import { PackDownloadButton } from "@/components/pack-download-button";
 import { DeleteProjectButton } from "@/components/delete-project-button";
 import { PackFilesViewer } from "@/components/pack-files-viewer";
 import { DashboardAccessCard } from "@/components/dashboard-access-card";
+import { DeploymentManagementCard } from "@/components/deployment-management-card";
 import { getActiveSubscription, getSubscription } from "@/lib/subscription-guard";
 import { templateLabel, modeLabel, MODE_DESCRIPTIONS } from "@/lib/labels";
 
@@ -291,6 +292,18 @@ export default async function ProjectDetailPage({
           subdomain={project.deployment.subdomain}
           dropletIp={project.deployment.dropletIp}
           password={heartbeatData?.dashboardPassword ?? null}
+          adminSecret={heartbeatData?.adminSecret ?? null}
+          status={project.deployment.status}
+        />
+      )}
+
+      {/* Deployment Management — shown when deployed and admin secret available */}
+      {project.deployment?.status === "ACTIVE" && (
+        <DeploymentManagementCard
+          projectId={projectId}
+          activePackVer={project.deployment.activePackVer}
+          latestPackVer={project.packVersions[0]?.version ?? null}
+          currentMode={project.mode as "DRAFT_ONLY" | "ASK_FIRST"}
           adminSecret={heartbeatData?.adminSecret ?? null}
           status={project.deployment.status}
         />
