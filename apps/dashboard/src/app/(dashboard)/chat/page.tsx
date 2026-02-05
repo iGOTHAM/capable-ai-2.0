@@ -3,12 +3,53 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, ChevronDown, ChevronRight, Globe, Link } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+interface ToolCall {
+  name: string;
+  args: Record<string, string>;
+}
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   ts: string;
+  toolCalls?: ToolCall[];
+}
+
+function ToolCallBadge({ toolCall }: { toolCall: ToolCall }) {
+  const [expanded, setExpanded] = useState(false);
+  const icon = toolCall.name === "web_search" ? Globe : Link;
+  const Icon = icon;
+  const label =
+    toolCall.name === "web_search"
+      ? `Searched: ${toolCall.args.query || "..."}`
+      : `Fetched: ${toolCall.args.url || "..."}`;
+
+  return (
+    <button
+      onClick={() => setExpanded(!expanded)}
+      className="flex items-center gap-1.5 rounded-md border border-input bg-muted/50 px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors text-left w-full"
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      <span className="truncate flex-1">{label}</span>
+      {expanded ? (
+        <ChevronDown className="h-3 w-3 shrink-0" />
+      ) : (
+        <ChevronRight className="h-3 w-3 shrink-0" />
+      )}
+    </button>
+  );
+}
+
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-2 prose-blockquote:my-2">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
+  );
 }
 
 export default function ChatPage() {
@@ -73,6 +114,7 @@ export default function ChatPage() {
             role: "assistant",
             content: data.response,
             ts: new Date().toISOString(),
+            toolCalls: data.toolCalls,
           },
         ]);
       }
@@ -123,7 +165,20 @@ export default function ChatPage() {
                         : "bg-muted"
                     }`}
                   >
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <>
+                        {msg.toolCalls && msg.toolCalls.length > 0 && (
+                          <div className="flex flex-col gap-1 mb-2">
+                            {msg.toolCalls.map((tc, j) => (
+                              <ToolCallBadge key={j} toolCall={tc} />
+                            ))}
+                          </div>
+                        )}
+                        <MarkdownContent content={msg.content} />
+                      </>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}
