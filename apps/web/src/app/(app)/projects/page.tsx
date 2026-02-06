@@ -13,7 +13,7 @@ import { FolderPlus, Bot } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getActiveSubscription } from "@/lib/subscription-guard";
-import { templateLabel, modeLabel } from "@/lib/labels";
+import { templateLabel } from "@/lib/labels";
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Live",
@@ -94,9 +94,6 @@ export default async function ProjectsPage() {
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">
                           {templateLabel(project.templateId)}
-                        </Badge>
-                        <Badge variant="secondary">
-                          {modeLabel(project.mode)}
                         </Badge>
                         <Badge
                           variant={

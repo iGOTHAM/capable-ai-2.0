@@ -13,7 +13,6 @@ import {
 
 interface GeneratePackInput {
   templateId: TemplateId;
-  mode: "DRAFT_ONLY" | "ASK_FIRST";
   description: string;
   neverRules: string[];
   botName?: string;
@@ -68,7 +67,6 @@ function interpolate(template: string, vars: Record<string, string | boolean | u
 export function generatePackFiles(input: GeneratePackInput): Record<string, string> {
   const {
     templateId,
-    mode,
     description,
     neverRules,
     botName,
@@ -109,12 +107,7 @@ export function generatePackFiles(input: GeneratePackInput): Record<string, stri
 
   // ─── AGENTS.md ────────────────────────────────────────────────────────────
 
-  const agentsCtx: Record<string, string | boolean | undefined> = {
-    modeName: mode === "ASK_FIRST" ? "Do It — Ask Me First" : "Draft Only",
-    askFirst: mode === "ASK_FIRST" ? "true" : "",
-  };
-
-  let agentsMd = interpolate(AGENTS_TEMPLATE, agentsCtx);
+  let agentsMd = AGENTS_TEMPLATE;
 
   // Append never rules
   if (neverRules.length > 0) {
@@ -138,7 +131,7 @@ export function generatePackFiles(input: GeneratePackInput): Record<string, stri
       runId: "bootstrap",
       type: "bootstrap.completed",
       summary: "Capable Pack applied successfully. Dashboard started.",
-      details: { packVersion: 1, template: templateId, mode },
+      details: { packVersion: 1, template: templateId },
     }),
     JSON.stringify({
       ts: now,

@@ -1,14 +1,11 @@
 export type TemplateId = "pe" | "legal" | "healthcare" | "general";
 
-export type ProjectMode = "draft_only" | "ask_first";
-
 export type PersonalityTone = "professional" | "casual" | "direct" | "friendly";
 
 export interface PackManifest {
   projectId: string;
   version: number;
   templateId: TemplateId;
-  mode: ProjectMode;
   createdAt: string;
   files: string[];
 }
@@ -58,7 +55,3 @@ export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   general: "General",
 };
 
-export const MODE_NAMES: Record<ProjectMode, string> = {
-  draft_only: "Draft Only",
-  ask_first: "Do It — Ask Me First",
-};

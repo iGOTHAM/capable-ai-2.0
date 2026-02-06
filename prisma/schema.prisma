@@ -57,23 +57,20 @@ model VerificationToken {
 // PROJECTS & PACKS
 // ─────────────────────────────────────────────
 
-enum ProjectMode {
-  DRAFT_ONLY
-  ASK_FIRST
-}
-
 model Project {
-  id          String      @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
   name        String
-  description String      @db.Text
+  description String   @db.Text
   templateId  String
-  mode        ProjectMode @default(DRAFT_ONLY)
+  mode        String   @default("AUTONOMOUS")
   neverRules  String[]
   botName     String?
   userName    String?
   userRole    String?
   personality     String?
+  provider        String?
+  aiModel         String?
   businessContext Json?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

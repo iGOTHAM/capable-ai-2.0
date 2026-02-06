@@ -31,8 +31,9 @@ const createProjectSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
   templateId: z.enum(["pe", "legal", "healthcare", "general"]),
-  mode: z.enum(["DRAFT_ONLY", "ASK_FIRST"]),
   neverRules: z.array(z.string()),
+  provider: z.enum(["anthropic", "openai"]).optional(),
+  model: z.string().optional(),
   businessContext: z.record(z.string()).optional(),
   customKnowledge: z
     .array(z.object({ filename: z.string(), content: z.string() }))
@@ -52,8 +53,9 @@ export async function createProject(data: {
   name: string;
   description: string;
   templateId: string;
-  mode: string;
   neverRules: string[];
+  provider?: string;
+  model?: string;
   businessContext?: Record<string, string>;
   customKnowledge?: { filename: string; content: string }[];
 }): Promise<CreateProjectResult> {
@@ -88,12 +90,13 @@ export async function createProject(data: {
       name: parsed.data.name,
       description: parsed.data.description,
       templateId: parsed.data.templateId,
-      mode: parsed.data.mode,
       neverRules: parsed.data.neverRules,
       botName: parsed.data.botName,
       userName: parsed.data.userName || null,
       userRole: parsed.data.userRole || null,
       personality: parsed.data.personality,
+      provider: parsed.data.provider ?? null,
+      aiModel: parsed.data.model ?? null,
       businessContext: parsed.data.businessContext ?? undefined,
     },
   });
@@ -101,7 +104,6 @@ export async function createProject(data: {
   // Generate pack v1 inline (no more payment gating)
   const files = generatePackFiles({
     templateId: parsed.data.templateId as TemplateId,
-    mode: parsed.data.mode,
     description: parsed.data.description,
     neverRules: parsed.data.neverRules,
     botName: parsed.data.botName,

@@ -13,20 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Settings,
   Upload,
-  RefreshCw,
   AlertCircle,
   Check,
   Loader2,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Collapsible,
   CollapsibleContent,
@@ -37,7 +29,6 @@ interface DeploymentManagementCardProps {
   projectId: string;
   activePackVer: number | null;
   latestPackVer: number | null;
-  currentMode: "DRAFT_ONLY" | "ASK_FIRST";
   adminSecret: string | null;
   status: string;
 }
@@ -46,20 +37,16 @@ export function DeploymentManagementCard({
   projectId,
   activePackVer,
   latestPackVer,
-  currentMode,
   adminSecret,
   status,
 }: DeploymentManagementCardProps) {
   const [pushingPack, setPushingPack] = useState(false);
-  const [updatingMode, setUpdatingMode] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<"DRAFT_ONLY" | "ASK_FIRST">(currentMode);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
 
   const canManage = !!adminSecret && status === "ACTIVE";
   const hasPackUpdate = latestPackVer && activePackVer && latestPackVer > activePackVer;
-  const modeChanged = selectedMode !== currentMode;
 
   const handlePushPack = async () => {
     if (!canManage) return;
@@ -88,39 +75,6 @@ export function DeploymentManagementCard({
       setError(err instanceof Error ? err.message : "Failed to push pack");
     } finally {
       setPushingPack(false);
-    }
-  };
-
-  const handleUpdateMode = async () => {
-    if (!canManage || !modeChanged) return;
-
-    setUpdatingMode(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const res = await fetch(`/api/deployments/${projectId}/update-config`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: selectedMode }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update mode");
-      }
-
-      setSuccess(`Mode changed to ${selectedMode === "DRAFT_ONLY" ? "Draft Only" : "Ask First"}`);
-      setTimeout(() => setSuccess(null), 5000);
-
-      // Refresh to show updated mode
-      window.location.reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update mode");
-      // Reset selection on error
-      setSelectedMode(currentMode);
-    } finally {
-      setUpdatingMode(false);
     }
   };
 
@@ -209,70 +163,9 @@ export function DeploymentManagementCard({
                     </Button>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      ✓ Running the latest pack version
+                      Running the latest pack version
                     </p>
                   )}
-                </div>
-
-                <div className="border-t" />
-
-                {/* Agent Mode Section */}
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="text-sm font-medium">Agent Mode</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Control how the AI handles external actions
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <Select
-                      value={selectedMode}
-                      onValueChange={(v) => setSelectedMode(v as "DRAFT_ONLY" | "ASK_FIRST")}
-                    >
-                      <SelectTrigger className="w-full sm:w-[200px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DRAFT_ONLY">
-                          <div className="flex flex-col">
-                            <span>Draft Only</span>
-                            <span className="text-xs text-muted-foreground">
-                              AI drafts actions, you review
-                            </span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="ASK_FIRST">
-                          <div className="flex flex-col">
-                            <span>Ask First</span>
-                            <span className="text-xs text-muted-foreground">
-                              AI asks before external actions
-                            </span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {modeChanged && (
-                      <Button
-                        size="sm"
-                        onClick={handleUpdateMode}
-                        disabled={updatingMode}
-                      >
-                        {updatingMode ? (
-                          <>
-                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                            Applying...
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="mr-2 h-3 w-3" />
-                            Apply Change
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
                 </div>
 
                 {/* Success message */}

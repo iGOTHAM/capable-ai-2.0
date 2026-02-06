@@ -50,7 +50,6 @@ export async function fulfillPayment(
     if (!existingPack) {
       const files = generatePackFiles({
         templateId: project.templateId as TemplateId,
-        mode: project.mode,
         description: project.description,
         neverRules: project.neverRules,
       });
