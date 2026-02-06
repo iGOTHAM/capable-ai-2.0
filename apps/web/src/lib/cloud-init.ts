@@ -120,7 +120,8 @@ fi
 report "4-pack" "done"
 
 echo ">>> [5/${totalSteps}] Installing OpenClaw..."
-npm install -g openclaw@latest
+curl -fsSL https://openclaw.ai/install.sh | bash
+export PATH="/root/.openclaw/bin:$PATH"
 
 # Write OpenClaw config — full capabilities enabled
 # Provider and apiKey left empty — set via admin endpoint after deployment
@@ -221,11 +222,12 @@ After=network.target capable-dashboard.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/npx openclaw gateway
+ExecStart=/root/.openclaw/bin/openclaw gateway
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
 Environment=HOME=/root
+Environment=PATH=/root/.openclaw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 [Install]
 WantedBy=multi-user.target
