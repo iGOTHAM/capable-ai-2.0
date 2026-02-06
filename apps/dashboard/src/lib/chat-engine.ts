@@ -137,17 +137,8 @@ export function buildSystemPrompt(
   if (agents) parts.push(agents);
   if (memory) parts.push(memory);
   if (knowledge) parts.push(`# Knowledge Base\n\n${knowledge}`);
-  if (fileList) parts.push(`# Workspace Files\n\nThese files are available via the read_file tool:\n\n${fileList}`);
-  parts.push(
-    "You have access to tools:\n" +
-      "- web_search: Search the internet for current information\n" +
-      "- fetch_url: Read web pages\n" +
-      "- read_file: Read uploaded files and deal documents (e.g. read_file({path: 'uploads/report.pdf'}))\n" +
-      "- write_file: Save analysis outputs to deal folders (e.g. write_file({path: 'deals/acme/notes.md', content: '...'}))\n\n" +
-      "Use web_search and fetch_url for current information. Always cite your sources.\n" +
-      "Use read_file to analyze documents the user has uploaded.\n" +
-      "Use write_file to save analysis, memos, and notes to deal folders.",
-  );
+  if (fileList) parts.push(`# Workspace Files\n\nThese files are available in your workspace:\n\n${fileList}`);
+  // Tool descriptions are now in AGENTS.md — no hardcoded block needed
   return parts.join("\n\n---\n\n");
 }
 

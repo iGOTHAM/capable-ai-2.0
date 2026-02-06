@@ -16,7 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ArrowLeft, ArrowRight, Loader2, Check, X, Eye } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Check, X, Eye, Upload, FileText, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { createProject } from "@/lib/project-actions";
 import { KNOWLEDGE_TEMPLATES } from "@capable-ai/shared";
@@ -34,19 +34,19 @@ const templates = [
     id: "legal",
     name: "Legal",
     description:
-      "Optimized for contract review, compliance research, and regulatory analysis. Comes with legal document templates, clause libraries, and jurisdiction-aware workflows.",
+      "Contract review frameworks, compliance research, regulatory analysis, and due diligence checklists. Comes with risk allocation tables, IP provisions, and memo formats.",
   },
   {
     id: "healthcare",
     name: "Healthcare",
     description:
-      "Built for clinical research support, patient workflow management, and regulatory compliance. Includes medical terminology knowledge and HIPAA-aware operating boundaries.",
+      "Clinical research assessment, FDA regulatory pathways, quality metrics, and compliance checkpoints. Includes evidence hierarchy, study evaluation frameworks, and HIPAA-aware boundaries.",
   },
   {
     id: "general",
     name: "General",
     description:
-      "A flexible starting point for any workflow or domain. Your agent comes with a clean knowledge base you can customize through the dashboard after deployment.",
+      "Research frameworks, analysis templates (SWOT, cost-benefit, risk assessment), project planning, and writing templates. A solid foundation for any domain.",
   },
 ];
 
@@ -94,11 +94,50 @@ const personalities = [
   },
 ];
 
+// Business context field definitions per template
+const businessContextFields: Record<string, { key: string; label: string; placeholder: string; type: "text" | "textarea" | "select"; options?: string[] }[]> = {
+  pe: [
+    { key: "fundName", label: "Fund name", placeholder: "e.g., Apex Capital Partners", type: "text" },
+    { key: "targetEbitda", label: "Target EBITDA range", placeholder: "e.g., $5M – $25M", type: "text" },
+    { key: "sectors", label: "Target sectors", placeholder: "e.g., Healthcare services, B2B software, industrial manufacturing", type: "text" },
+    { key: "geography", label: "Geographic focus", placeholder: "e.g., North America, with preference for Midwest", type: "text" },
+    { key: "thesis", label: "Investment thesis", placeholder: "e.g., Platform buildouts in fragmented industries with buy-and-build potential", type: "textarea" },
+  ],
+  legal: [
+    { key: "firmName", label: "Firm / practice name", placeholder: "e.g., Smith & Associates LLP", type: "text" },
+    { key: "practiceAreas", label: "Primary practice areas", placeholder: "e.g., M&A, IP licensing, employment law", type: "text" },
+    { key: "jurisdictions", label: "Jurisdictions", placeholder: "e.g., Delaware, New York, California", type: "text" },
+    { key: "clientTypes", label: "Client types", placeholder: "e.g., PE sponsors, portfolio companies, founders", type: "text" },
+  ],
+  healthcare: [
+    { key: "organizationName", label: "Organization name", placeholder: "e.g., Mercy Health System", type: "text" },
+    { key: "organizationType", label: "Organization type", placeholder: "Select...", type: "select", options: ["Hospital System", "Medical Practice", "Research Institution", "Payer", "Health Tech", "Other"] },
+    { key: "specialtyFocus", label: "Specialty focus", placeholder: "e.g., Cardiology, oncology, primary care", type: "text" },
+    { key: "patientPopulation", label: "Patient population", placeholder: "e.g., Medicare Advantage, commercial, Medicaid", type: "text" },
+  ],
+  general: [
+    { key: "companyName", label: "Company / organization", placeholder: "e.g., Acme Corp", type: "text" },
+    { key: "industry", label: "Industry", placeholder: "e.g., Technology, manufacturing, consulting", type: "text" },
+    { key: "focusArea", label: "Your focus area", placeholder: "e.g., Product management, strategy, operations", type: "text" },
+    { key: "teamContext", label: "Team context", placeholder: "e.g., I lead a 5-person strategy team advising executive leadership", type: "textarea" },
+  ],
+};
+
+// Better description placeholders per template
+const descriptionPlaceholders: Record<string, string> = {
+  pe: "e.g., I need an agent that can screen inbound deals quickly, produce First Look memos for our IC, track our pipeline, and help with due diligence workstreams.",
+  legal: "e.g., I need an agent that can review NDAs and vendor contracts, flag non-standard terms, track contract deadlines, and prepare due diligence checklists.",
+  healthcare: "e.g., I need an agent that can review clinical trial data, summarize FDA guidance, track regulatory timelines, and help prepare submissions.",
+  general: "e.g., I need an agent that can research topics quickly, draft briefing documents, track project status, and help prepare presentations.",
+};
+
+const TOTAL_STEPS = 7;
+
 function getStepFromUrl(): number {
   if (typeof window === "undefined") return 0;
   const params = new URLSearchParams(window.location.search);
   const raw = Number(params.get("step") ?? "0");
-  return Number.isNaN(raw) ? 0 : Math.max(0, Math.min(raw, 5));
+  return Number.isNaN(raw) ? 0 : Math.max(0, Math.min(raw, TOTAL_STEPS - 1));
 }
 
 function NewProjectWizard() {
@@ -134,6 +173,8 @@ function NewProjectWizard() {
 
   const [description, setDescription] = useState("");
   const [templateId, setTemplateId] = useState("pe");
+  const [businessContext, setBusinessContext] = useState<Record<string, string>>({});
+  const [customKnowledge, setCustomKnowledge] = useState<{ filename: string; content: string }[]>([]);
   const [mode, setMode] = useState("DRAFT_ONLY");
   const [neverRules, setNeverRules] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,6 +185,7 @@ function NewProjectWizard() {
     "Personality",
     "Describe",
     "Knowledge",
+    "Business Context",
     "Autonomy",
     "Review",
   ];
@@ -185,6 +227,29 @@ function NewProjectWizard() {
     return () => clearTimeout(timer);
   }, [botName, checkSubdomain]);
 
+  // Handle knowledge file upload
+  const handleKnowledgeUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    for (const file of Array.from(files)) {
+      // Validate: only .md and .txt, max 500KB
+      if (!file.name.endsWith(".md") && !file.name.endsWith(".txt")) continue;
+      if (file.size > 500 * 1024) continue;
+      if (customKnowledge.length >= 5) break;
+
+      const content = await file.text();
+      setCustomKnowledge((prev) => {
+        if (prev.length >= 5) return prev;
+        if (prev.some((f) => f.filename === file.name)) return prev;
+        return [...prev, { filename: file.name, content }];
+      });
+    }
+
+    // Reset input so same file can be re-uploaded
+    e.target.value = "";
+  }, [customKnowledge.length]);
+
   const canProceed = () => {
     switch (step) {
       case 0:
@@ -196,8 +261,10 @@ function NewProjectWizard() {
       case 3:
         return !!templateId;
       case 4:
-        return !!mode;
+        return true; // Business context is optional
       case 5:
+        return !!mode;
+      case 6:
         return true;
       default:
         return false;
@@ -364,16 +431,16 @@ function NewProjectWizard() {
           <CardHeader>
             <CardTitle>Describe your agent</CardTitle>
             <CardDescription>
-              Tell us what you want your AI agent to do. This shapes its persona,
-              knowledge, and operating style. You can always refine this later by
-              regenerating your pack.
+              Tell us what you want your AI agent to do. This becomes the
+              agent&apos;s mission statement — its north star for how to
+              prioritize and approach tasks.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g., A PE analyst that sources deals, performs due diligence, and generates investment memos..."
+              placeholder={descriptionPlaceholders[templateId] || descriptionPlaceholders.general}
               className="flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               rows={4}
             />
@@ -381,7 +448,7 @@ function NewProjectWizard() {
         </Card>
       )}
 
-      {/* Step 3: Template */}
+      {/* Step 3: Knowledge Template + Custom Upload */}
       {step === 3 && (
         <div className="flex flex-col gap-4">
           <Card className="border-0 bg-transparent shadow-none">
@@ -390,8 +457,8 @@ function NewProjectWizard() {
                 Choose a knowledge template
               </CardTitle>
               <CardDescription>
-                Templates pre-load your agent with domain-specific knowledge,
-                workflows, and document templates. Pick the one closest to your
+                Templates pre-load your agent with domain-specific frameworks,
+                checklists, and reference material. Pick the one closest to your
                 use case — you can customize everything after deployment.
               </CardDescription>
             </CardHeader>
@@ -448,11 +515,146 @@ function NewProjectWizard() {
               );
             })}
           </div>
+
+          {/* Custom Knowledge Upload */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Add your own knowledge{" "}
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </CardTitle>
+              <CardDescription>
+                Upload .md or .txt files with your firm&apos;s frameworks,
+                checklists, or reference materials. These are added alongside
+                the template knowledge.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input p-4 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
+                <Upload className="h-4 w-4" />
+                <span>Upload files (.md, .txt — max 500KB each, up to 5)</span>
+                <input
+                  type="file"
+                  accept=".md,.txt"
+                  multiple
+                  className="hidden"
+                  onChange={handleKnowledgeUpload}
+                />
+              </label>
+              {customKnowledge.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {customKnowledge.map((f) => (
+                    <div
+                      key={f.filename}
+                      className="flex items-center justify-between rounded-md bg-muted px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2 text-sm">
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{f.filename}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({(f.content.length / 1024).toFixed(1)}KB)
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() =>
+                          setCustomKnowledge((prev) =>
+                            prev.filter((k) => k.filename !== f.filename),
+                          )
+                        }
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {/* Step 4: Mode */}
+      {/* Step 4: Business Context */}
       {step === 4 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {templateId === "pe"
+                ? "Tell us about your fund"
+                : templateId === "legal"
+                  ? "Tell us about your practice"
+                  : templateId === "healthcare"
+                    ? "Tell us about your organization"
+                    : "Tell us about your work"}
+            </CardTitle>
+            <CardDescription>
+              This context helps your agent understand your priorities and
+              criteria from day one. All fields are optional — your agent will
+              learn more through conversation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {(businessContextFields[templateId] ?? businessContextFields.general ?? []).map((field) => (
+              <div key={field.key} className="flex flex-col gap-2">
+                <label className="text-sm font-medium">
+                  {field.label}{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </label>
+                {field.type === "textarea" ? (
+                  <textarea
+                    value={businessContext[field.key] || ""}
+                    onChange={(e) =>
+                      setBusinessContext((prev) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }))
+                    }
+                    placeholder={field.placeholder}
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    rows={3}
+                  />
+                ) : field.type === "select" && field.options ? (
+                  <select
+                    value={businessContext[field.key] || ""}
+                    onChange={(e) =>
+                      setBusinessContext((prev) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }))
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Select...</option>
+                    {field.options.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={businessContext[field.key] || ""}
+                    onChange={(e) =>
+                      setBusinessContext((prev) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }))
+                    }
+                    placeholder={field.placeholder}
+                    className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 5: Mode */}
+      {step === 5 && (
         <div className="flex flex-col gap-4">
           <Card className="border-0 bg-transparent shadow-none">
             <CardHeader className="px-0 pt-0">
@@ -509,8 +711,8 @@ function NewProjectWizard() {
         </div>
       )}
 
-      {/* Step 5: Review */}
-      {step === 5 && (
+      {/* Step 6: Review */}
+      {step === 6 && (
         <Card>
           <CardHeader>
             <CardTitle>Review &amp; create</CardTitle>
@@ -576,8 +778,37 @@ function NewProjectWizard() {
               </p>
               <p className="text-sm">
                 {templates.find((t) => t.id === templateId)?.name}
+                {customKnowledge.length > 0 && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    + {customKnowledge.length} custom{" "}
+                    {customKnowledge.length === 1 ? "file" : "files"}
+                  </span>
+                )}
               </p>
             </div>
+            {/* Business context summary */}
+            {Object.values(businessContext).some((v) => v && v.trim()) && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Business context
+                </p>
+                <div className="text-sm">
+                  {Object.entries(businessContext)
+                    .filter(([, v]) => v && v.trim())
+                    .map(([k, v]) => {
+                      const fields = businessContextFields[templateId] ?? businessContextFields.general ?? [];
+                      const field = fields.find((f: { key: string }) => f.key === k);
+                      return (
+                        <p key={k}>
+                          <span className="text-muted-foreground">{field?.label || k}:</span>{" "}
+                          {v}
+                        </p>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
             <div>
               <p className="text-sm font-medium text-muted-foreground">
                 Operating mode
@@ -624,7 +855,7 @@ function NewProjectWizard() {
             onClick={() => navigateToStep(step + 1)}
             disabled={!canProceed()}
           >
-            Next
+            {step === 4 ? "Skip" : "Next"}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         ) : (
@@ -639,6 +870,11 @@ function NewProjectWizard() {
                   .map((r) => r.trim())
                   .filter(Boolean);
 
+                // Filter empty business context values
+                const filteredContext = Object.fromEntries(
+                  Object.entries(businessContext).filter(([, v]) => v && v.trim()),
+                );
+
                 const result = await createProject({
                   botName,
                   userName: userName || undefined,
@@ -649,6 +885,12 @@ function NewProjectWizard() {
                   templateId,
                   mode,
                   neverRules: rules,
+                  businessContext:
+                    Object.keys(filteredContext).length > 0
+                      ? filteredContext
+                      : undefined,
+                  customKnowledge:
+                    customKnowledge.length > 0 ? customKnowledge : undefined,
                 });
 
                 if (result.error) {

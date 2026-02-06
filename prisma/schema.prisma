@@ -73,9 +73,10 @@ model Project {
   botName     String?
   userName    String?
   userRole    String?
-  personality String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  personality     String?
+  businessContext Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   packVersions PackVersion[]

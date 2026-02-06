@@ -33,6 +33,10 @@ const createProjectSchema = z.object({
   templateId: z.enum(["pe", "legal", "healthcare", "general"]),
   mode: z.enum(["DRAFT_ONLY", "ASK_FIRST"]),
   neverRules: z.array(z.string()),
+  businessContext: z.record(z.string()).optional(),
+  customKnowledge: z
+    .array(z.object({ filename: z.string(), content: z.string() }))
+    .optional(),
 });
 
 export type CreateProjectResult = {
@@ -50,6 +54,8 @@ export async function createProject(data: {
   templateId: string;
   mode: string;
   neverRules: string[];
+  businessContext?: Record<string, string>;
+  customKnowledge?: { filename: string; content: string }[];
 }): Promise<CreateProjectResult> {
   const user = await getCurrentUser();
   if (!user) {
@@ -88,6 +94,7 @@ export async function createProject(data: {
       userName: parsed.data.userName || null,
       userRole: parsed.data.userRole || null,
       personality: parsed.data.personality,
+      businessContext: parsed.data.businessContext ?? undefined,
     },
   });
 
@@ -101,6 +108,8 @@ export async function createProject(data: {
     userName: parsed.data.userName,
     userRole: parsed.data.userRole,
     personality: parsed.data.personality as PersonalityTone,
+    businessContext: parsed.data.businessContext,
+    customKnowledge: parsed.data.customKnowledge,
   });
 
   await db.packVersion.create({
