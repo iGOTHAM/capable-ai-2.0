@@ -120,18 +120,16 @@ fi
 report "4-pack" "done"
 
 echo ">>> [5/${totalSteps}] Installing OpenClaw..."
-curl -fsSL https://openclaw.ai/install.sh | bash
-# Locate the installed binary (install.sh uses npm global, path varies)
-OPENCLAW_BIN=$(which openclaw 2>/dev/null || echo "/usr/bin/openclaw")
+npm install -g openclaw@latest
+# Verify install & find binary
+OPENCLAW_BIN=$(npm prefix -g)/bin/openclaw
 echo "  OpenClaw binary: $OPENCLAW_BIN"
+ls -la "$OPENCLAW_BIN" || { echo "ERROR: openclaw binary not found"; report "5-openclaw" "failed" "binary not found at $OPENCLAW_BIN"; }
 
 # Write OpenClaw config — full capabilities enabled
-# Provider and apiKey left empty — set via admin endpoint after deployment
+# Provider and apiKey omitted — set via admin endpoint after deployment
 jq -n '{
     workspace: "/root/.openclaw/workspace",
-    provider: "",
-    apiKey: "",
-    model: "",
     gateway: {
       controlUi: { basePath: "/chat" }
     },
@@ -238,6 +236,16 @@ SYSTEMD
 systemctl daemon-reload
 systemctl enable capable-openclaw
 systemctl start capable-openclaw
+
+# Verify OpenClaw is running (give it a few seconds to start)
+sleep 5
+if systemctl is-active --quiet capable-openclaw; then
+  echo "  OpenClaw service is running"
+else
+  echo "  WARNING: OpenClaw service failed to start"
+  journalctl -u capable-openclaw --no-pager -n 20
+  report "9-openclaw-start" "failed" "$(journalctl -u capable-openclaw --no-pager -n 5 | head -c 400)"
+fi
 report "9-dashboard-started" "done"
 
 echo ">>> [10/${totalSteps}] Setting up heartbeat..."
