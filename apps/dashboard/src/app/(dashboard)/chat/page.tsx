@@ -65,11 +65,7 @@ export default function ChatPage() {
             </div>
           </div>
           <Button asChild>
-            <a
-              href="http://localhost:18789"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href="/chat/">
               Open Chat
               <ExternalLink className="ml-2 h-4 w-4" />
             </a>

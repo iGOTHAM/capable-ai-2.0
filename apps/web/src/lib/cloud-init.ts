@@ -26,7 +26,16 @@ apt-get install -y caddy
 echo ">>> [12/${totalSteps}] Configuring Caddy for ${subdomain}.capable.ai..."
 cat > /etc/caddy/Caddyfile << 'CADDY'
 ${subdomain}.capable.ai {
-    reverse_proxy localhost:3100
+    # OpenClaw Web UI — served at /chat (basePath configured in openclaw.json)
+    @openclaw path /chat /chat/*
+    handle @openclaw {
+        reverse_proxy localhost:18789
+    }
+
+    # Dashboard — everything else
+    handle {
+        reverse_proxy localhost:3100
+    }
 }
 CADDY
 
@@ -55,11 +64,6 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-# Inject SSH key for debugging (allows SSH from deploy machine)
-mkdir -p /root/.ssh
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGC2NAsP/kqtML11T09G6ZCI9QqVCmlZTVqnqrQsvmnk kingc@2026DesktopKC" >> /root/.ssh/authorized_keys
-chmod 700 /root/.ssh
-chmod 600 /root/.ssh/authorized_keys
 # Disable forced password change (DO sets this when no SSH key is on the account)
 chage -d $(date +%Y-%m-%d) root
 
@@ -125,6 +129,9 @@ jq -n '{
     provider: "",
     apiKey: "",
     model: "",
+    gateway: {
+      controlUi: { basePath: "/chat" }
+    },
     compaction: { memoryFlush: { enabled: true } },
     memorySearch: { experimental: { sessionMemory: true }, sources: ["memory","sessions"] },
     skills: {
@@ -205,6 +212,27 @@ SYSTEMD
 systemctl daemon-reload
 systemctl enable capable-dashboard
 systemctl start capable-dashboard
+
+# Create systemd service for OpenClaw agent
+cat > /etc/systemd/system/capable-openclaw.service << SYSTEMD
+[Unit]
+Description=OpenClaw Agent
+After=network.target capable-dashboard.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/npx openclaw start --config /root/.openclaw/openclaw.json
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMD
+
+systemctl daemon-reload
+systemctl enable capable-openclaw
+systemctl start capable-openclaw
 report "9-dashboard-started" "done"
 
 echo ">>> [10/${totalSteps}] Setting up heartbeat..."
@@ -227,6 +255,7 @@ echo "========================================="
 echo "  Capable.ai deployment complete!"
 echo "========================================="
 echo "  Dashboard: ${dashboardUrl}"
+echo "  Chat:      ${dashboardUrl}/chat/"
 echo "  Password:  $DASH_PASSWORD"
 echo ""
 echo "  Your AI provider will be configured"

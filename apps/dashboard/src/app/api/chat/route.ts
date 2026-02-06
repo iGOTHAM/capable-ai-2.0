@@ -18,7 +18,7 @@ export async function GET() {
 /**
  * POST /api/chat — Stub.
  * The custom chat engine has been removed. Chat is now handled
- * natively by OpenClaw's Web UI on port 18789.
+ * natively by OpenClaw's Web UI at /chat.
  */
 export async function POST() {
   const authed = await verifyAuth();
@@ -29,7 +29,7 @@ export async function POST() {
   return NextResponse.json(
     {
       error: "Chat is now handled by OpenClaw. Use the OpenClaw Web UI.",
-      redirect: "http://localhost:18789",
+      redirect: "/chat/",
     },
     { status: 410 },
   );

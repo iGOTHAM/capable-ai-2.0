@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { promises as fs } from "fs";
+import { exec } from "child_process";
 import path from "path";
 
 const setKeySchema = z.object({
@@ -92,6 +93,11 @@ export async function POST(req: NextRequest) {
     } catch {
       // Marker doesn't exist, that's fine
     }
+
+    // Restart OpenClaw service so it picks up the new config
+    exec("systemctl restart capable-openclaw", (err) => {
+      if (err) console.error("Failed to restart OpenClaw service:", err.message);
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {
