@@ -89,10 +89,13 @@ export function generatePackFiles(input: GeneratePackInput): Record<string, stri
     description: description || "",
     // Flatten business context into top-level vars
     ...(businessContext || {}),
-    // Flag for conditional context block
-    hasContext: businessContext
-      ? String(Object.values(businessContext).some((v) => v && v.trim() !== ""))
-      : "",
+    // Flag for conditional context block — empty string means false for {{#if}}
+    hasContext:
+      businessContext &&
+      Object.keys(businessContext).length > 0 &&
+      Object.values(businessContext).some((v) => v && v.trim() !== "")
+        ? "true"
+        : "",
   };
 
   // ─── SOUL.md ──────────────────────────────────────────────────────────────
