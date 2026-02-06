@@ -28,7 +28,7 @@ import { PackFilesViewer } from "@/components/pack-files-viewer";
 import { DashboardAccessCard } from "@/components/dashboard-access-card";
 import { DeploymentManagementCard } from "@/components/deployment-management-card";
 import { getActiveSubscription, getSubscription } from "@/lib/subscription-guard";
-import { templateLabel, modeLabel, MODE_DESCRIPTIONS } from "@/lib/labels";
+import { templateLabel } from "@/lib/labels";
 
 export default async function ProjectDetailPage({
   params,
@@ -217,24 +217,13 @@ export default async function ProjectDetailPage({
       })()}
 
       {/* Project Info */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Template</CardDescription>
             <CardTitle className="text-base">
               {templateLabel(project.templateId)}
             </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Mode</CardDescription>
-            <CardTitle className="text-base">
-              <Badge variant="secondary">{modeLabel(project.mode)}</Badge>
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {MODE_DESCRIPTIONS[project.mode]}
-            </p>
           </CardHeader>
         </Card>
         <Card>
@@ -303,7 +292,6 @@ export default async function ProjectDetailPage({
           projectId={projectId}
           activePackVer={project.deployment.activePackVer}
           latestPackVer={project.packVersions[0]?.version ?? null}
-          currentMode={project.mode as "DRAFT_ONLY" | "ASK_FIRST"}
           adminSecret={heartbeatData?.adminSecret ?? null}
           status={project.deployment.status}
         />

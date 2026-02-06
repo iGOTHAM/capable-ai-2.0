@@ -10,13 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ArrowLeft, ArrowRight, Loader2, Check, X, Eye, Upload, FileText, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, ArrowRight, Loader2, Check, X, Eye, Upload, FileText, Trash2, Key } from "lucide-react";
 import Link from "next/link";
 import { createProject } from "@/lib/project-actions";
 import { KNOWLEDGE_TEMPLATES } from "@capable-ai/shared";
@@ -47,23 +47,6 @@ const templates = [
     name: "General",
     description:
       "Research frameworks, analysis templates (SWOT, cost-benefit, risk assessment), project planning, and writing templates. A solid foundation for any domain.",
-  },
-];
-
-const modes = [
-  {
-    id: "DRAFT_ONLY",
-    name: "Draft Only",
-    description:
-      "Your agent drafts everything — emails, memos, analyses — but never sends or publishes anything on its own. You review each output and decide what to do with it. Best for getting started or high-stakes workflows.",
-    badge: "Safe default",
-  },
-  {
-    id: "ASK_FIRST",
-    name: "Do It — Ask Me First",
-    description:
-      "Your agent can take actions like sending emails or updating records, but it always asks for your approval first through the dashboard. You'll see a notification, review the action, and approve or reject it in real time.",
-    badge: "Supervised",
   },
 ];
 
@@ -131,6 +114,22 @@ const descriptionPlaceholders: Record<string, string> = {
   general: "e.g., I need an agent that can research topics quickly, draft briefing documents, track project status, and help prepare presentations.",
 };
 
+const AI_MODELS: Record<string, { id: string; name: string; badge?: string }[]> = {
+  anthropic: [
+    { id: "claude-sonnet-4-5-20251101", name: "Claude Sonnet 4.5", badge: "Recommended" },
+    { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
+    { id: "claude-opus-4-20250514", name: "Claude Opus 4" },
+    { id: "claude-haiku-4-20250414", name: "Claude Haiku 4" },
+  ],
+  openai: [
+    { id: "gpt-5.2", name: "GPT-5.2", badge: "Recommended" },
+    { id: "gpt-5-mini", name: "GPT-5 Mini" },
+    { id: "gpt-4.1", name: "GPT-4.1" },
+    { id: "gpt-4.1-mini", name: "GPT-4.1 Mini" },
+    { id: "o4-mini", name: "o4-mini" },
+  ],
+};
+
 const TOTAL_STEPS = 7;
 
 function getStepFromUrl(): number {
@@ -175,8 +174,14 @@ function NewProjectWizard() {
   const [templateId, setTemplateId] = useState("pe");
   const [businessContext, setBusinessContext] = useState<Record<string, string>>({});
   const [customKnowledge, setCustomKnowledge] = useState<{ filename: string; content: string }[]>([]);
-  const [mode, setMode] = useState("DRAFT_ONLY");
   const [neverRules, setNeverRules] = useState("");
+  const [aiProvider, setAiProvider] = useState("anthropic");
+  const [aiApiKey, setAiApiKey] = useState("");
+  const [aiModel, setAiModel] = useState("claude-sonnet-4-5-20251101");
+  const [keyValidation, setKeyValidation] = useState<{
+    status: "idle" | "validating" | "valid" | "invalid";
+    error?: string;
+  }>({ status: "idle" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -186,9 +191,39 @@ function NewProjectWizard() {
     "Describe",
     "Knowledge",
     "Business Context",
-    "Autonomy",
+    "Connect Your AI",
     "Review",
   ];
+
+  // Reset model when provider changes
+  const handleProviderChange = (provider: string) => {
+    setAiProvider(provider);
+    const models = AI_MODELS[provider];
+    if (models && models.length > 0) {
+      setAiModel(models[0]!.id);
+    }
+    setKeyValidation({ status: "idle" });
+  };
+
+  const validateApiKey = async () => {
+    if (!aiApiKey) return;
+    setKeyValidation({ status: "validating" });
+    try {
+      const res = await fetch("/api/ai/validate-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: aiProvider, apiKey: aiApiKey }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setKeyValidation({ status: "valid" });
+      } else {
+        setKeyValidation({ status: "invalid", error: data.error || "Invalid key" });
+      }
+    } catch {
+      setKeyValidation({ status: "invalid", error: "Validation failed" });
+    }
+  };
 
   // Debounced subdomain check
   const checkSubdomain = useCallback(async (name: string) => {
@@ -263,9 +298,9 @@ function NewProjectWizard() {
       case 4:
         return true; // Business context is optional
       case 5:
-        return !!mode;
+        return !!aiProvider && !!aiApiKey && !!aiModel;
       case 6:
-        return true;
+        return true; // Review
       default:
         return false;
     }
@@ -578,6 +613,7 @@ function NewProjectWizard() {
 
       {/* Step 4: Business Context */}
       {step === 4 && (
+        <div className="flex flex-col gap-4">
         <Card>
           <CardHeader>
             <CardTitle>
@@ -651,41 +687,6 @@ function NewProjectWizard() {
             ))}
           </CardContent>
         </Card>
-      )}
-
-      {/* Step 5: Mode */}
-      {step === 5 && (
-        <div className="flex flex-col gap-4">
-          <Card className="border-0 bg-transparent shadow-none">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-base">
-                How should your agent operate?
-              </CardTitle>
-              <CardDescription>
-                This controls how much autonomy your agent has. You interact with
-                your agent through a private dashboard on your server — chatting,
-                reviewing its timeline of work, and approving actions when
-                needed.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          {modes.map((m) => (
-            <Card
-              key={m.id}
-              className={`cursor-pointer transition-colors hover:border-primary/50 ${
-                mode === m.id ? "border-primary ring-1 ring-primary" : ""
-              }`}
-              onClick={() => setMode(m.id)}
-            >
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-base">{m.name}</CardTitle>
-                  <Badge variant="secondary">{m.badge}</Badge>
-                </div>
-                <CardDescription>{m.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
 
           <Card>
             <CardHeader>
@@ -693,9 +694,8 @@ function NewProjectWizard() {
                 Safety boundaries (optional)
               </CardTitle>
               <CardDescription>
-                Define hard rules your agent must never break — things it should
-                never do regardless of mode. These are baked into your
-                agent&apos;s operating rules and enforced at all times.
+                Define hard rules your agent must never break. These are baked
+                into your agent&apos;s operating rules and enforced at all times.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -706,6 +706,140 @@ function NewProjectWizard() {
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 rows={3}
               />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Step 5: Connect Your AI */}
+      {step === 5 && (
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                Connect your AI provider
+              </CardTitle>
+              <CardDescription>
+                Your API key is sent directly to your server after deployment — it
+                never passes through or is stored on capable.ai. You bring your own
+                AI, we provide the infrastructure.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-6">
+              {/* Provider selection */}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Provider</label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    { id: "anthropic", name: "Anthropic", desc: "Claude models" },
+                    { id: "openai", name: "OpenAI", desc: "GPT models" },
+                  ].map((p) => (
+                    <div
+                      key={p.id}
+                      className={`cursor-pointer rounded-md border p-3 transition-colors hover:border-primary/50 ${
+                        aiProvider === p.id
+                          ? "border-primary ring-1 ring-primary"
+                          : ""
+                      }`}
+                      onClick={() => handleProviderChange(p.id)}
+                    >
+                      <p className="text-sm font-medium">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{p.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* API Key input */}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">API Key</label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={aiApiKey}
+                    onChange={(e) => {
+                      setAiApiKey(e.target.value);
+                      setKeyValidation({ status: "idle" });
+                    }}
+                    placeholder={aiProvider === "anthropic" ? "sk-ant-..." : "sk-..."}
+                    className="flex h-10 flex-1 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={validateApiKey}
+                    disabled={!aiApiKey || keyValidation.status === "validating"}
+                  >
+                    {keyValidation.status === "validating" ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : keyValidation.status === "valid" ? (
+                      <Check className="mr-1 h-3 w-3 text-green-500" />
+                    ) : null}
+                    {keyValidation.status === "valid" ? "Valid" : "Validate"}
+                  </Button>
+                </div>
+                {keyValidation.status === "valid" && (
+                  <p className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                    <Check className="h-3 w-3" />
+                    API key is valid
+                  </p>
+                )}
+                {keyValidation.status === "invalid" && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <X className="h-3 w-3" />
+                    {keyValidation.error || "Invalid API key"}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Get your API key from{" "}
+                  {aiProvider === "anthropic" ? (
+                    <a
+                      href="https://console.anthropic.com/settings/keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      console.anthropic.com
+                    </a>
+                  ) : (
+                    <a
+                      href="https://platform.openai.com/api-keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      platform.openai.com
+                    </a>
+                  )}
+                </p>
+              </div>
+
+              {/* Model selection */}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Model</label>
+                <div className="flex flex-col gap-2">
+                  {(AI_MODELS[aiProvider] ?? []).map((m) => (
+                    <div
+                      key={m.id}
+                      className={`cursor-pointer rounded-md border px-3 py-2 text-sm transition-colors hover:border-primary/50 ${
+                        aiModel === m.id
+                          ? "border-primary ring-1 ring-primary"
+                          : ""
+                      }`}
+                      onClick={() => setAiModel(m.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{m.name}</span>
+                        {m.badge && (
+                          <Badge variant="secondary" className="text-xs">
+                            {m.badge}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -811,14 +945,11 @@ function NewProjectWizard() {
             )}
             <div>
               <p className="text-sm font-medium text-muted-foreground">
-                Operating mode
+                AI Provider
               </p>
               <p className="text-sm">
-                {modes.find((m) => m.id === mode)?.name}{" "}
-                <span className="text-muted-foreground">
-                  — {modes.find((m) => m.id === mode)?.description.split(".")[0]}
-                  .
-                </span>
+                {aiProvider === "anthropic" ? "Anthropic" : "OpenAI"} ·{" "}
+                {(AI_MODELS[aiProvider] ?? []).find((m) => m.id === aiModel)?.name || aiModel}
               </p>
             </div>
             {neverRules && (
@@ -883,8 +1014,9 @@ function NewProjectWizard() {
                   name: botName,
                   description,
                   templateId,
-                  mode,
                   neverRules: rules,
+                  provider: aiProvider,
+                  model: aiModel,
                   businessContext:
                     Object.keys(filteredContext).length > 0
                       ? filteredContext
@@ -900,6 +1032,20 @@ function NewProjectWizard() {
                 }
 
                 if (result.projectId) {
+                  // Save API key to sessionStorage for deploy page to send to droplet
+                  // Key is NEVER stored in our database — only passed to the user's droplet
+                  try {
+                    sessionStorage.setItem(
+                      "capable_ai_key",
+                      JSON.stringify({
+                        provider: aiProvider,
+                        apiKey: aiApiKey,
+                        model: aiModel,
+                      })
+                    );
+                  } catch {
+                    // sessionStorage unavailable — user will need to enter key manually on deploy page
+                  }
                   router.push(`/projects/${result.projectId}`);
                 }
               } catch {

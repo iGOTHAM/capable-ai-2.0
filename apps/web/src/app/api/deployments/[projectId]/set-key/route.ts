@@ -3,29 +3,21 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
-const updateConfigSchema = z.object({
-  skills: z
-    .object({
-      enabled: z.array(z.string()).optional(),
-      disabled: z.array(z.string()).optional(),
-    })
-    .optional(),
+const setKeySchema = z.object({
+  provider: z.enum(["anthropic", "openai"]),
+  apiKey: z.string().min(1),
+  model: z.string().min(1),
 });
 
 /**
- * POST /api/deployments/[projectId]/update-config
+ * POST /api/deployments/[projectId]/set-key
  *
- * Updates configuration on the running deployment.
- * - Skills: Updates enabled/disabled skills
+ * Proxy route: browser → our server → droplet.
+ * Forwards LLM credentials to the dashboard's admin endpoint.
+ * The API key passes through but is NOT stored in our database.
  *
- * Body: { skills?: { enabled: [...], disabled: [...] } }
- *
- * Response:
- *   200: { success: true, changes: [...] }
- *   400: { error: "..." }
- *   401: { error: "Unauthorized" }
- *   404: { error: "..." }
- *   500: { error: "..." }
+ * Body: { provider, apiKey, model }
+ * Response: { success: true } or { error: string }
  */
 export async function POST(
   req: NextRequest,
@@ -36,7 +28,6 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Parse and validate request body
   let body: unknown;
   try {
     body = await req.json();
@@ -44,7 +35,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const parsed = updateConfigSchema.safeParse(body);
+  const parsed = setKeySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.errors[0]?.message ?? "Invalid input" },
@@ -52,15 +43,7 @@ export async function POST(
     );
   }
 
-  const { skills } = parsed.data;
   const { projectId } = await params;
-
-  if (!skills) {
-    return NextResponse.json(
-      { error: "No changes specified" },
-      { status: 400 }
-    );
-  }
 
   // Find the project and deployment
   const project = await db.project.findFirst({
@@ -74,7 +57,7 @@ export async function POST(
 
   if (!project.deployment) {
     return NextResponse.json(
-      { error: "No deployment found for this project" },
+      { error: "No deployment found" },
       { status: 404 }
     );
   }
@@ -83,12 +66,12 @@ export async function POST(
 
   if (deployment.status !== "ACTIVE") {
     return NextResponse.json(
-      { error: "Deployment is not active" },
+      { error: "Deployment is not active yet" },
       { status: 400 }
     );
   }
 
-  // Check for admin secret
+  // Get admin secret from heartbeat data
   const heartbeatData = deployment.heartbeatData as {
     adminSecret?: string;
   } | null;
@@ -96,15 +79,12 @@ export async function POST(
   const adminSecret = heartbeatData?.adminSecret;
   if (!adminSecret) {
     return NextResponse.json(
-      {
-        error:
-          "Config update not available. Redeploy to enable this feature.",
-      },
+      { error: "Admin secret not available. Redeploy to enable this feature." },
       { status: 400 }
     );
   }
 
-  // Determine the dashboard URL
+  // Determine dashboard URL
   const dashboardUrl = deployment.subdomain
     ? `https://${deployment.subdomain}.capable.ai`
     : deployment.dropletIp
@@ -118,18 +98,16 @@ export async function POST(
     );
   }
 
-  // Call the dashboard's admin endpoint to update config
-  let changes: string[] = [];
+  // Forward the key to the dashboard's admin endpoint
   try {
-    const response = await fetch(`${dashboardUrl}/api/admin/update-config`, {
+    const response = await fetch(`${dashboardUrl}/api/admin/set-key`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-Admin-Secret": adminSecret,
       },
-      body: JSON.stringify({ skills }),
-      // Timeout after 10 seconds
-      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify(parsed.data),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
@@ -139,10 +117,9 @@ export async function POST(
       );
     }
 
-    const data = await response.json();
-    changes = data.changes || [];
+    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Failed to update config on dashboard:", err);
+    console.error("Failed to set key on dashboard:", err);
     return NextResponse.json(
       {
         error:
@@ -153,6 +130,4 @@ export async function POST(
       { status: 500 }
     );
   }
-
-  return NextResponse.json({ success: true, changes });
 }

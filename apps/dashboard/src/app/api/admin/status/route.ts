@@ -13,7 +13,6 @@ import path from "path";
  *   200: {
  *     packVersion: number | null,
  *     dashboardVersion: string,
- *     mode: "DRAFT_ONLY" | "ASK_FIRST" | "UNKNOWN",
  *     uptime: number (seconds),
  *     workspaceFiles: string[]
  *   }
@@ -69,21 +68,6 @@ export async function GET(req: NextRequest) {
       // Fallback
     }
 
-    // Detect mode from AGENTS.md content
-    let mode: "DRAFT_ONLY" | "ASK_FIRST" | "UNKNOWN" = "UNKNOWN";
-    try {
-      const agentsPath = path.join(workspaceDir, "AGENTS.md");
-      const agentsContent = await fs.readFile(agentsPath, "utf-8");
-
-      if (agentsContent.includes("# Agent Rules — Active Mode")) {
-        mode = "DRAFT_ONLY";
-      } else if (agentsContent.includes("# Agent Rules — Do It — Ask Me First")) {
-        mode = "ASK_FIRST";
-      }
-    } catch {
-      // AGENTS.md doesn't exist
-    }
-
     // Calculate uptime
     const uptime = Math.floor((Date.now() - startTime) / 1000);
 
@@ -99,7 +83,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       packVersion,
       dashboardVersion,
-      mode,
       uptime,
       workspaceFiles,
     });

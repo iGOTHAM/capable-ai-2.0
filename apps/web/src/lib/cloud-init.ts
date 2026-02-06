@@ -84,8 +84,8 @@ swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 report "1-swap" "done"
 
-echo ">>> [2/${totalSteps}] Installing Node.js 20..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+echo ">>> [2/${totalSteps}] Installing Node.js 22..."
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs curl ufw jq
 report "2-nodejs" "done"
 
@@ -116,46 +116,29 @@ fi
 report "4-pack" "done"
 
 echo ">>> [5/${totalSteps}] Installing OpenClaw..."
-npm install -g openclaw
+npm install -g openclaw@latest
 
-# Write base OpenClaw config — merges configPatch.json from pack
-# Provider and apiKey left empty — the dashboard setup wizard fills those in
-if [ -f "/root/.openclaw/workspace/configPatch.json" ]; then
-  CONFIG_PATCH=$(cat /root/.openclaw/workspace/configPatch.json)
-else
-  CONFIG_PATCH='{}'
-fi
-
-# Build the base openclaw.json config using jq (no python3 needed)
-COMPACTION=$(echo "$CONFIG_PATCH" | jq -r '.compaction // {"memoryFlush":{"enabled":true}}')
-MEMORY_SEARCH=$(echo "$CONFIG_PATCH" | jq -r '.memorySearch // {"experimental":{"sessionMemory":true},"sources":["memory","sessions"]}')
-
-jq -n \\
-  --argjson compaction "$COMPACTION" \\
-  --argjson memorySearch "$MEMORY_SEARCH" \\
-  '{
+# Write OpenClaw config — full capabilities enabled
+# Provider and apiKey left empty — set via admin endpoint after deployment
+jq -n '{
     workspace: "/root/.openclaw/workspace",
     provider: "",
     apiKey: "",
     model: "",
-    compaction: $compaction,
-    memorySearch: $memorySearch,
+    compaction: { memoryFlush: { enabled: true } },
+    memorySearch: { experimental: { sessionMemory: true }, sources: ["memory","sessions"] },
     skills: {
-      enabled: ["web-search","file-reader","memory","calendar","notes"],
-      disabled: ["exec","shell","file-writer","browser-automation"]
+      enabled: ["web-search","file-reader","file-writer","memory","exec","browser-automation","calendar","notes"],
+      disabled: []
     },
     security: {
-      execPolicy: "disabled",
-      sandboxMode: "strict",
-      allowExternalUrls: false,
-      dmPairingRequired: true
+      execPolicy: "allow",
+      sandboxMode: "relaxed",
+      allowExternalUrls: true
     },
     channels: {}
   }' > /root/.openclaw/openclaw.json
 chmod 600 /root/.openclaw/openclaw.json
-
-# Mark as needing setup — dashboard wizard will complete configuration
-touch /root/.openclaw/.setup-pending
 report "5-openclaw-config" "done"
 
 echo ">>> [6/${totalSteps}] Applying security hardening..."
@@ -246,8 +229,8 @@ echo "========================================="
 echo "  Dashboard: ${dashboardUrl}"
 echo "  Password:  $DASH_PASSWORD"
 echo ""
-echo "  Next step: Visit your dashboard to"
-echo "  complete the setup wizard."
+echo "  Your AI provider will be configured"
+echo "  automatically from the deploy page."
 echo ""
 echo "  Credentials saved to:"
 echo "  /root/dashboard-credentials.txt"
