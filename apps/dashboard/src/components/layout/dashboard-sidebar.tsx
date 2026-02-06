@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   Clock,
@@ -9,6 +9,7 @@ import {
   MessageSquare,
   FileText,
   Settings,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,14 +24,20 @@ const navItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await fetch("/api/auth", { method: "DELETE" });
+    router.push("/login");
+  };
 
   return (
-    <aside className="hidden w-56 shrink-0 border-r bg-sidebar lg:block">
+    <aside className="hidden w-56 shrink-0 border-r bg-sidebar lg:flex lg:flex-col">
       <div className="flex h-14 items-center border-b px-4">
         <span className="text-lg font-semibold">Capable</span>
         <span className="ml-1 text-xs text-muted-foreground">Dashboard</span>
       </div>
-      <nav className="flex flex-col gap-1 p-3">
+      <nav className="flex flex-1 flex-col gap-1 p-3">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -51,6 +58,18 @@ export function DashboardSidebar() {
             </Link>
           );
         })}
+        <button
+          onClick={handleLogout}
+          className={cn(
+            "mt-auto flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+            "text-sidebar-foreground/70",
+          )}
+        >
+          <LogOut className="h-4 w-4" />
+          Log out
+        </button>
       </nav>
     </aside>
   );
