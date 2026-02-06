@@ -221,10 +221,11 @@ After=network.target capable-dashboard.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/npx openclaw start --config /root/.openclaw/openclaw.json
+ExecStart=/usr/bin/npx openclaw gateway
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+Environment=HOME=/root
 
 [Install]
 WantedBy=multi-user.target
