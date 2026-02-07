@@ -126,11 +126,14 @@ export async function GET(req: NextRequest) {
       const { stdout: curl } = await execAsync("curl -sf --connect-timeout 3 http://127.0.0.1:18789/ 2>&1 || echo 'CURL_FAILED'").catch(() => ({ stdout: "exec failed" }));
       curlLocalhost = curl.slice(0, 500);
     } catch { curlLocalhost = "exec failed"; }
-    // Try running openclaw directly to capture crash output
+    // Check openclaw binary and available commands
     let openclawDirect = "";
     try {
-      const { stdout, stderr } = await execAsync("timeout 5 /usr/bin/openclaw gateway --allow-unconfigured --port 18789 2>&1 || true", { timeout: 8000 }).catch((e) => ({ stdout: String(e?.stdout || ""), stderr: String(e?.stderr || e?.message || "") }));
-      openclawDirect = (stdout + "\n" + stderr).slice(0, 3000);
+      const { stdout: helpOut } = await execAsync("/usr/bin/openclaw --help 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+      const { stdout: versionOut } = await execAsync("/usr/bin/openclaw --version 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+      const { stdout: gwHelp } = await execAsync("/usr/bin/openclaw gateway --help 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+      const { stdout: whichOut } = await execAsync("which openclaw && file /usr/bin/openclaw 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+      openclawDirect = `VERSION: ${versionOut.trim()}\n\nHELP: ${helpOut.slice(0, 1000)}\n\nGATEWAY HELP: ${gwHelp.slice(0, 1000)}\n\nWHICH: ${whichOut.trim()}`;
     } catch (e) { openclawDirect = "exec failed: " + String(e); }
 
     return NextResponse.json({
