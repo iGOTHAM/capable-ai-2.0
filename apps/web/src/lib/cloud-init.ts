@@ -26,14 +26,11 @@ apt-get install -y caddy
 echo ">>> [12/${totalSteps}] Configuring Caddy for ${subdomain}.capable.ai..."
 cat > /etc/caddy/Caddyfile << 'CADDY'
 ${subdomain}.capable.ai {
-    # OpenClaw Web UI — strip /chat prefix before proxying
-    # e.g. /chat/foo → OpenClaw receives /foo
-    handle_path /chat/* {
+    # OpenClaw Web UI — preserve /chat prefix (OpenClaw uses basePath=/chat)
+    # e.g. /chat/foo → OpenClaw receives /chat/foo
+    handle /chat* {
         reverse_proxy localhost:18789
     }
-
-    # Bare /chat → redirect to /chat/ (trailing slash required by OpenClaw)
-    redir /chat /chat/ permanent
 
     # Dashboard — everything else
     handle {
