@@ -14,9 +14,18 @@ export type Provider = "anthropic" | "openai";
 
 export interface OpenClawConfig {
   workspace: string;
+  // Legacy fields (old schema — may be deleted by set-key endpoint)
   provider: string;
   apiKey: string;
   model: string;
+  // New OpenClaw schema fields
+  env: Record<string, string>;
+  agents: {
+    defaults: {
+      model: { primary: string };
+    };
+  };
+  gateway: Record<string, unknown>;
   compaction: {
     memoryFlush: {
       enabled: boolean;
@@ -97,11 +106,24 @@ export async function getSetupState(): Promise<SetupState> {
   if (markerExists) return "pending";
 
   const config = await readConfig();
-  if (!config || !config.provider || !config.apiKey) return "pending";
+  if (!config) return "pending";
 
-  // The dashboard itself IS the agent runtime — if config has
-  // provider + apiKey + model, the agent is ready to handle chat.
-  if (config.model) return "running";
+  // Check both old schema (config.provider/apiKey/model) and new OpenClaw schema
+  // (config.env.ANTHROPIC_API_KEY or OPENAI_API_KEY + config.agents.defaults.model.primary)
+  const env = config.env as Record<string, string> | undefined;
+  const hasApiKey =
+    (config.provider && config.apiKey) ||
+    env?.ANTHROPIC_API_KEY ||
+    env?.OPENAI_API_KEY;
+
+  if (!hasApiKey) return "pending";
+
+  const agents = config.agents as Record<string, unknown> | undefined;
+  const defaults = agents?.defaults as Record<string, unknown> | undefined;
+  const modelConfig = defaults?.model as Record<string, unknown> | undefined;
+  const hasModel = config.model || modelConfig?.primary;
+
+  if (hasModel) return "running";
 
   return "configured";
 }
@@ -121,7 +143,21 @@ export async function removeSetupMarker(): Promise<void> {
 
 export async function getDaemonStatus(): Promise<DaemonStatus> {
   const config = await readConfig();
-  if (config?.provider && config?.apiKey && config?.model) {
+  if (!config) return { running: false };
+
+  // Check both old schema and new OpenClaw schema
+  const env = config.env as Record<string, string> | undefined;
+  const hasApiKey =
+    (config.provider && config.apiKey) ||
+    env?.ANTHROPIC_API_KEY ||
+    env?.OPENAI_API_KEY;
+
+  const agents = config.agents as Record<string, unknown> | undefined;
+  const defaults = agents?.defaults as Record<string, unknown> | undefined;
+  const modelConfig = defaults?.model as Record<string, unknown> | undefined;
+  const hasModel = config.model || modelConfig?.primary;
+
+  if (hasApiKey && hasModel) {
     return { running: true, pid: process.pid };
   }
   return { running: false };
