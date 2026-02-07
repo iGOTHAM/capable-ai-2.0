@@ -126,6 +126,12 @@ export async function GET(req: NextRequest) {
       const { stdout: curl } = await execAsync("curl -sf --connect-timeout 3 http://127.0.0.1:18789/ 2>&1 || echo 'CURL_FAILED'").catch(() => ({ stdout: "exec failed" }));
       curlLocalhost = curl.slice(0, 500);
     } catch { curlLocalhost = "exec failed"; }
+    // Try running openclaw directly to capture crash output
+    let openclawDirect = "";
+    try {
+      const { stdout, stderr } = await execAsync("timeout 5 /usr/bin/openclaw gateway --allow-unconfigured --port 18789 2>&1 || true", { timeout: 8000 }).catch((e) => ({ stdout: String(e?.stdout || ""), stderr: String(e?.stderr || e?.message || "") }));
+      openclawDirect = (stdout + "\n" + stderr).slice(0, 3000);
+    } catch (e) { openclawDirect = "exec failed: " + String(e); }
 
     return NextResponse.json({
       packVersion,
@@ -140,6 +146,7 @@ export async function GET(req: NextRequest) {
       openclawConfig,
       openclawUnitFile,
       curlLocalhost,
+      openclawDirect,
     });
   } catch (err) {
     console.error("Failed to get status:", err);
