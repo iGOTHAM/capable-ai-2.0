@@ -218,7 +218,7 @@ After=network.target capable-dashboard.service
 
 [Service]
 Type=simple
-ExecStart=$OPENCLAW_BIN gateway
+ExecStart=$OPENCLAW_BIN gateway --allow-unconfigured --port 18789
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
