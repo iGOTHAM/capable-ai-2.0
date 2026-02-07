@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 /**
  * GET /api/admin/status
@@ -80,11 +84,37 @@ export async function GET(req: NextRequest) {
       // Workspace doesn't exist
     }
 
+    // OpenClaw diagnostics
+    let openclawService = "unknown";
+    let openclawPort = "unknown";
+    let openclawJournal = "";
+    let caddyJournal = "";
+    try {
+      const { stdout: svcStatus } = await execAsync("systemctl is-active capable-openclaw").catch(() => ({ stdout: "inactive" }));
+      openclawService = svcStatus.trim();
+    } catch { /* ignore */ }
+    try {
+      const { stdout: portCheck } = await execAsync("ss -lntp | grep 18789").catch(() => ({ stdout: "none" }));
+      openclawPort = portCheck.trim() || "not listening";
+    } catch { openclawPort = "check failed"; }
+    try {
+      const { stdout: journal } = await execAsync("journalctl -u capable-openclaw --no-pager -n 30").catch(() => ({ stdout: "" }));
+      openclawJournal = journal.slice(0, 3000);
+    } catch { /* ignore */ }
+    try {
+      const { stdout: cj } = await execAsync("journalctl -u caddy --no-pager -n 20").catch(() => ({ stdout: "" }));
+      caddyJournal = cj.slice(0, 2000);
+    } catch { /* ignore */ }
+
     return NextResponse.json({
       packVersion,
       dashboardVersion,
       uptime,
       workspaceFiles,
+      openclawService,
+      openclawPort,
+      openclawJournal,
+      caddyJournal,
     });
   } catch (err) {
     console.error("Failed to get status:", err);
