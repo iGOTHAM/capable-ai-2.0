@@ -129,11 +129,28 @@ export async function GET(req: NextRequest) {
     // Check openclaw binary and available commands
     let openclawDirect = "";
     try {
-      const { stdout: helpOut } = await execAsync("/usr/bin/openclaw --help 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
-      const { stdout: versionOut } = await execAsync("/usr/bin/openclaw --version 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
-      const { stdout: gwHelp } = await execAsync("/usr/bin/openclaw gateway --help 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
-      const { stdout: whichOut } = await execAsync("which openclaw && file /usr/bin/openclaw 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
-      openclawDirect = `VERSION: ${versionOut.trim()}\n\nHELP: ${helpOut.slice(0, 1000)}\n\nGATEWAY HELP: ${gwHelp.slice(0, 1000)}\n\nWHICH: ${whichOut.trim()}`;
+      // Check the actual binary path and contents
+      const { stdout: whichOut } = await execAsync("which openclaw && file $(which openclaw) && ls -la $(which openclaw) 2>&1 || true", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+
+      // Read the openclaw.mjs entry point to understand what it does
+      const { stdout: headMjs } = await execAsync("head -30 /usr/lib/node_modules/openclaw/openclaw.mjs 2>&1 || echo 'file not found'", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+
+      // List the openclaw package directory
+      const { stdout: lsPackage } = await execAsync("ls -la /usr/lib/node_modules/openclaw/ 2>&1 || echo 'dir not found'", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+
+      // Try running the binary with node directly and capture stderr
+      const { stdout: nodeRun } = await execAsync("node /usr/lib/node_modules/openclaw/openclaw.mjs --version 2>&1 || echo 'EXIT_CODE='$?", { timeout: 10000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+
+      // Check openclaw package.json for bin/main fields
+      const { stdout: pkgJson } = await execAsync("cat /usr/lib/node_modules/openclaw/package.json 2>&1 | head -30 || echo 'not found'", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+
+      // Read /var/log/openclaw.log
+      const { stdout: logContent } = await execAsync("cat /var/log/openclaw.log 2>&1 || echo 'no log file'", { timeout: 5000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+
+      // Try npm list -g openclaw to see version
+      const { stdout: npmList } = await execAsync("npm list -g openclaw 2>&1 || true", { timeout: 10000 }).catch((e) => ({ stdout: String(e?.message || "") }));
+
+      openclawDirect = `WHICH: ${whichOut.trim()}\n\nHEAD_MJS: ${headMjs.slice(0, 1000)}\n\nLS_PACKAGE: ${lsPackage.slice(0, 1000)}\n\nNODE_RUN: ${nodeRun.slice(0, 1000)}\n\nPKG_JSON: ${pkgJson.slice(0, 1000)}\n\nLOG_FILE: ${logContent.slice(0, 2000)}\n\nNPM_LIST: ${npmList.trim()}`;
     } catch (e) { openclawDirect = "exec failed: " + String(e); }
 
     return NextResponse.json({

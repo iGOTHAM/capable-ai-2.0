@@ -129,9 +129,22 @@ OPENCLAW_BIN=$(npm prefix -g)/bin/openclaw
 echo "  OpenClaw binary: $OPENCLAW_BIN"
 ls -la "$OPENCLAW_BIN" || { echo "ERROR: openclaw binary not found"; report "5-openclaw" "failed" "binary not found at $OPENCLAW_BIN"; }
 
-# Write minimal OpenClaw config — only fields we're confident about
-# Keep it minimal to avoid schema validation failures (unknown keys cause crash)
-echo '{}' > /root/.openclaw/openclaw.json
+# Run non-interactive onboarding — sets up agents dir, gateway config, auth, systemd daemon
+# --accept-risk acknowledges AI agent permissions
+# --install-daemon creates systemd user service for the gateway
+echo "  Running OpenClaw onboard (non-interactive)..."
+OPENCLAW_GATEWAY_PORT=18789 $OPENCLAW_BIN onboard --non-interactive --accept-risk --install-daemon 2>&1 | tee /var/log/openclaw-onboard.log | tail -30 || {
+  echo "  WARNING: openclaw onboard failed (exit $?)"
+  report "5-openclaw-onboard" "failed" "onboard exit $?. $(tail -5 /var/log/openclaw-onboard.log | head -c 400)"
+}
+
+# Verify config was created
+if [ -f /root/.openclaw/openclaw.json ]; then
+  echo "  OpenClaw config exists: $(cat /root/.openclaw/openclaw.json | head -c 200)"
+else
+  echo "  WARNING: openclaw.json not created by onboard, creating minimal config"
+  echo '{}' > /root/.openclaw/openclaw.json
+fi
 chmod 600 /root/.openclaw/openclaw.json
 
 # Run OpenClaw doctor to check what's missing (diagnostic, non-blocking)
@@ -203,26 +216,45 @@ systemctl daemon-reload
 systemctl enable capable-dashboard
 systemctl start capable-dashboard
 
-# Install OpenClaw gateway as a systemd service
-# Use openclaw's built-in installer first, fall back to manual service
-echo "  Installing OpenClaw gateway service..."
-$OPENCLAW_BIN gateway install 2>&1 | head -20 || true
+# Check if onboard installed a gateway daemon (user or system service)
+# If not, install it via the gateway install command, then fall back to manual
+echo "  Checking OpenClaw gateway service..."
+GATEWAY_INSTALLED=false
 
-# Check if openclaw created a user service; if not, create a system service
+# Check for user-level systemd service (onboard typically creates this)
 if systemctl --user is-enabled openclaw-gateway 2>/dev/null; then
-  echo "  OpenClaw user service installed"
-  systemctl --user start openclaw-gateway || true
-else
-  echo "  Creating system service for OpenClaw gateway..."
-  # Determine the actual node entry point for openclaw
-  OPENCLAW_MAIN=$(node -e "console.log(require.resolve('openclaw/dist/index.js'))" 2>/dev/null || echo "")
+  echo "  Found user-level openclaw-gateway service"
+  systemctl --user start openclaw-gateway 2>&1 || true
+  GATEWAY_INSTALLED=true
+fi
 
-  if [ -n "$OPENCLAW_MAIN" ]; then
-    EXEC_CMD="/usr/bin/node $OPENCLAW_MAIN gateway --port 18789"
-  else
-    EXEC_CMD="$OPENCLAW_BIN gateway --port 18789"
+# Check for system-level service
+if [ "$GATEWAY_INSTALLED" = "false" ] && systemctl is-enabled openclaw-gateway 2>/dev/null; then
+  echo "  Found system-level openclaw-gateway service"
+  systemctl start openclaw-gateway 2>&1 || true
+  GATEWAY_INSTALLED=true
+fi
+
+# Try 'openclaw gateway install' if no service found
+if [ "$GATEWAY_INSTALLED" = "false" ]; then
+  echo "  No gateway service found, trying 'openclaw gateway install'..."
+  $OPENCLAW_BIN gateway install 2>&1 | tee -a /var/log/openclaw-onboard.log | tail -10 || true
+
+  # Check again after install
+  if systemctl --user is-enabled openclaw-gateway 2>/dev/null; then
+    echo "  Gateway service installed (user-level)"
+    systemctl --user start openclaw-gateway 2>&1 || true
+    GATEWAY_INSTALLED=true
+  elif systemctl is-enabled openclaw-gateway 2>/dev/null; then
+    echo "  Gateway service installed (system-level)"
+    systemctl start openclaw-gateway 2>&1 || true
+    GATEWAY_INSTALLED=true
   fi
+fi
 
+# Last resort: create a system service manually
+if [ "$GATEWAY_INSTALLED" = "false" ]; then
+  echo "  Creating manual system service for OpenClaw gateway..."
   cat > /etc/systemd/system/capable-openclaw.service << SYSTEMD
 [Unit]
 Description=OpenClaw Gateway
@@ -230,7 +262,7 @@ After=network.target capable-dashboard.service
 
 [Service]
 Type=simple
-ExecStart=$EXEC_CMD
+ExecStart=$OPENCLAW_BIN gateway --port 18789 --verbose
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
@@ -249,10 +281,13 @@ SYSTEMD
   systemctl start capable-openclaw
 fi
 
+# Check gateway status
+$OPENCLAW_BIN gateway status 2>&1 | head -10 || true
+
 # Verify OpenClaw is running (give it time to start and bind port)
 sleep 8
 OPENCLAW_ACTIVE=false
-for i in 1 2 3; do
+for i in 1 2 3 4 5; do
   if ss -lntp | grep -q 18789; then
     echo "  OpenClaw gateway is listening on port 18789"
     OPENCLAW_ACTIVE=true
@@ -264,13 +299,19 @@ done
 
 if [ "$OPENCLAW_ACTIVE" = "false" ]; then
   echo "  WARNING: OpenClaw gateway is NOT listening on port 18789"
-  echo "  Service status: $(systemctl is-active capable-openclaw 2>/dev/null || echo 'unknown')"
-  echo "  Logs:"
-  cat /var/log/openclaw.log 2>/dev/null | tail -30 || echo "  No logs found"
-  # Also try openclaw's own status
-  $OPENCLAW_BIN gateway status 2>&1 | head -10 || true
-  $OPENCLAW_BIN --version 2>&1 || true
-  report "9-openclaw-start" "failed" "port 18789 not listening. $(cat /var/log/openclaw.log 2>/dev/null | tail -5 | head -c 400)"
+  echo "  --- Service status ---"
+  systemctl is-active capable-openclaw 2>/dev/null || echo "  capable-openclaw: not found"
+  systemctl --user is-active openclaw-gateway 2>/dev/null || echo "  openclaw-gateway (user): not found"
+  echo "  --- Onboard log ---"
+  cat /var/log/openclaw-onboard.log 2>/dev/null | tail -30 || echo "  No onboard log"
+  echo "  --- OpenClaw log ---"
+  cat /var/log/openclaw.log 2>/dev/null | tail -30 || echo "  No openclaw log"
+  echo "  --- Journal ---"
+  journalctl -u capable-openclaw --no-pager -n 20 2>&1 || true
+  journalctl --user-unit openclaw-gateway --no-pager -n 20 2>&1 || true
+  echo "  --- Running gateway manually for error output ---"
+  timeout 10 $OPENCLAW_BIN gateway --port 18789 --verbose 2>&1 | tail -30 || true
+  report "9-openclaw-start" "failed" "port 18789 not listening. onboard: $(tail -3 /var/log/openclaw-onboard.log 2>/dev/null | head -c 200). log: $(tail -3 /var/log/openclaw.log 2>/dev/null | head -c 200)"
 fi
 report "9-dashboard-started" "done"
 
