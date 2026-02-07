@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Loader2, Check, X, Eye, Upload, FileText, Trash2, Key } from "lucide-react";
-import Link from "next/link";
 import { createProject } from "@/lib/project-actions";
 import { KNOWLEDGE_TEMPLATES } from "@capable-ai/shared";
 import type { TemplateId } from "@capable-ai/shared";
@@ -132,31 +131,9 @@ const AI_MODELS: Record<string, { id: string; name: string; badge?: string }[]> 
 
 const TOTAL_STEPS = 7;
 
-function getStepFromUrl(): number {
-  if (typeof window === "undefined") return 0;
-  const params = new URLSearchParams(window.location.search);
-  const raw = Number(params.get("step") ?? "0");
-  return Number.isNaN(raw) ? 0 : Math.max(0, Math.min(raw, TOTAL_STEPS - 1));
-}
-
 function NewProjectWizard() {
   const router = useRouter();
-  const [step, setStep] = useState(getStepFromUrl);
-
-  // Sync step to URL via history API (no Next.js navigation = no remount)
-  const navigateToStep = useCallback((newStep: number) => {
-    setStep(newStep);
-    window.history.pushState(null, "", `/projects/new?step=${newStep}`);
-  }, []);
-
-  // Listen for browser back/forward
-  useEffect(() => {
-    const onPopState = () => {
-      setStep(getStepFromUrl());
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+  const [step, setStep] = useState(0);
 
   // Form state
   const [botName, setBotName] = useState("");
@@ -309,10 +286,18 @@ function NewProjectWizard() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/projects">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            if (step === 0) {
+              router.push("/projects");
+            } else {
+              setStep(step - 1);
+            }
+          }}
+        >
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Create Your AI Agent</h1>
@@ -975,15 +960,21 @@ function NewProjectWizard() {
       <div className="flex justify-between">
         <Button
           variant="outline"
-          onClick={() => navigateToStep(Math.max(0, step - 1))}
-          disabled={step === 0 || isSubmitting}
+          onClick={() => {
+            if (step === 0) {
+              router.push("/projects");
+            } else {
+              setStep(step - 1);
+            }
+          }}
+          disabled={isSubmitting}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
         {step < steps.length - 1 ? (
           <Button
-            onClick={() => navigateToStep(step + 1)}
+            onClick={() => setStep(step + 1)}
             disabled={!canProceed()}
           >
             {step === 4 ? "Skip" : "Next"}
