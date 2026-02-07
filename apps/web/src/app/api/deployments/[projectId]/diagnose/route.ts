@@ -63,12 +63,17 @@ export async function POST(
       }
 
       if (action === "upgrade") {
+        const tarballUrl = "https://github.com/iGOTHAM/capable-ai-2.0/releases/download/dashboard-latest/dashboard-standalone.tar.gz";
         const resp = await fetch(`${baseUrl}/api/admin/upgrade-dashboard`, {
           method: "POST",
-          headers: { "X-Admin-Secret": adminSecret },
+          headers: {
+            "X-Admin-Secret": adminSecret,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ tarballUrl }),
           signal: AbortSignal.timeout(60000),
         });
-        const data = await resp.json();
+        const data = await resp.json().catch(() => ({ rawStatus: resp.status }));
         return NextResponse.json({ url: baseUrl, ...data });
       }
 
