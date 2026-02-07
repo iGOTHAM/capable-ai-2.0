@@ -285,26 +285,11 @@ function NewProjectWizard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (step === 0) {
-              router.push("/projects");
-            } else {
-              setStep(step - 1);
-            }
-          }}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Create Your AI Agent</h1>
-          <p className="text-sm text-muted-foreground">
-            Step {step + 1} of {steps.length}: {steps[step]}
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Create Your AI Agent</h1>
+        <p className="text-sm text-muted-foreground">
+          Step {step + 1} of {steps.length}: {steps[step]}
+        </p>
       </div>
 
       {/* Step indicators */}
