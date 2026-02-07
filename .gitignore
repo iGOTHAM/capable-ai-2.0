@@ -44,4 +44,5 @@ TODO.md
 
 .vercel
 .env*.local
-nul
+
+.env*.local
