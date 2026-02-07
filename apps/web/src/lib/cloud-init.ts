@@ -42,10 +42,10 @@ CADDY
 systemctl restart caddy
 systemctl enable caddy
 
-# Open HTTP (80) + HTTPS (443) for Caddy / Let's Encrypt, close direct 3100
+# Open HTTP (80) + HTTPS (443) for Caddy / Let's Encrypt
+# Keep 3100 open as fallback for admin API (set-key, push-pack, etc.)
 ufw allow 80/tcp
 ufw allow 443/tcp
-ufw delete allow 3100/tcp
 `
     : "";
 

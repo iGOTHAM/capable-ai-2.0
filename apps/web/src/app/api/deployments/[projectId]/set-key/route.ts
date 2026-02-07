@@ -84,50 +84,57 @@ export async function POST(
     );
   }
 
-  // Determine dashboard URL
-  const dashboardUrl = deployment.subdomain
-    ? `https://${deployment.subdomain}.capable.ai`
-    : deployment.dropletIp
-      ? `http://${deployment.dropletIp}:3100`
-      : null;
+  // Determine dashboard URLs to try (HTTPS subdomain first, then direct IP fallback)
+  const urls: string[] = [];
+  if (deployment.subdomain) {
+    urls.push(`https://${deployment.subdomain}.capable.ai`);
+  }
+  if (deployment.dropletIp) {
+    urls.push(`http://${deployment.dropletIp}:3100`);
+  }
 
-  if (!dashboardUrl) {
+  if (urls.length === 0) {
     return NextResponse.json(
       { error: "Cannot determine dashboard URL" },
       { status: 500 }
     );
   }
 
-  // Forward the key to the dashboard's admin endpoint
-  try {
-    const response = await fetch(`${dashboardUrl}/api/admin/set-key`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Secret": adminSecret,
-      },
-      body: JSON.stringify(parsed.data),
-      signal: AbortSignal.timeout(15000),
-    });
+  // Forward the key to the dashboard's admin endpoint (try each URL)
+  let lastError: unknown;
+  for (const dashboardUrl of urls) {
+    try {
+      const response = await fetch(`${dashboardUrl}/api/admin/set-key`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Secret": adminSecret,
+        },
+        body: JSON.stringify(parsed.data),
+        signal: AbortSignal.timeout(10000),
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(
-        data.error || `Dashboard returned ${response.status}`
-      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.error || `Dashboard returned ${response.status}`
+        );
+      }
+
+      return NextResponse.json({ success: true });
+    } catch (err) {
+      console.error(`Failed to set key via ${dashboardUrl}:`, err);
+      lastError = err;
     }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("Failed to set key on dashboard:", err);
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to contact dashboard. Is it running?",
-      },
-      { status: 500 }
-    );
   }
+
+  return NextResponse.json(
+    {
+      error:
+        lastError instanceof Error
+          ? lastError.message
+          : "Failed to contact dashboard. Is it running?",
+    },
+    { status: 500 }
+  );
 }
