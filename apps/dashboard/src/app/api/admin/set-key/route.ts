@@ -113,9 +113,13 @@ export async function POST(req: NextRequest) {
         token: crypto.randomBytes(32).toString("hex"),
       };
     }
-    // Set controlUi.basePath for Caddy /chat/ proxy
+    // Set controlUi for Caddy /chat/ proxy — needs basePath + insecure auth
+    // since Caddy connects over localhost HTTP (not HTTPS), the UI needs allowInsecureAuth
     if (!gateway.controlUi) {
-      gateway.controlUi = { basePath: "/chat" };
+      gateway.controlUi = {
+        basePath: "/chat",
+        allowInsecureAuth: true,
+      };
     }
     config.gateway = gateway;
 
