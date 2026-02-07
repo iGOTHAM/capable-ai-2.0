@@ -98,6 +98,14 @@ export async function POST(req: NextRequest) {
     agents.defaults = defaults;
     config.agents = agents;
 
+    // Ensure gateway.mode is set — without this, gateway refuses to start:
+    // "Gateway start blocked: set gateway.mode=local (current: unset)"
+    const gateway = (config.gateway as Record<string, unknown>) ?? {};
+    if (!gateway.mode) {
+      gateway.mode = "local";
+    }
+    config.gateway = gateway;
+
     // Ensure config directory exists
     await fs.mkdir(path.dirname(configPath), { recursive: true });
 

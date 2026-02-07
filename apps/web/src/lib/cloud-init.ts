@@ -138,14 +138,23 @@ OPENCLAW_GATEWAY_PORT=18789 $OPENCLAW_BIN onboard --non-interactive --accept-ris
   report "5-openclaw-onboard" "failed" "onboard exit $?. $(tail -5 /var/log/openclaw-onboard.log | head -c 400)"
 }
 
-# Verify config was created
+# Verify config was created and ensure gateway.mode is set
 if [ -f /root/.openclaw/openclaw.json ]; then
   echo "  OpenClaw config exists: $(cat /root/.openclaw/openclaw.json | head -c 200)"
 else
   echo "  WARNING: openclaw.json not created by onboard, creating minimal config"
   echo '{}' > /root/.openclaw/openclaw.json
 fi
+
+# CRITICAL: Set gateway.mode=local — without this, the gateway refuses to start:
+# "Gateway start blocked: set gateway.mode=local (current: unset) or pass --allow-unconfigured"
+CURRENT_CONFIG=$(cat /root/.openclaw/openclaw.json)
+echo "$CURRENT_CONFIG" | jq '. + {gateway: (.gateway // {} | . + {mode: "local", controlUi: {basePath: "/chat"}})}' > /root/.openclaw/openclaw.json || {
+  # If jq merge fails (e.g., current config isn't valid JSON), write a known-good config
+  echo '{"gateway":{"mode":"local","controlUi":{"basePath":"/chat"}}}' > /root/.openclaw/openclaw.json
+}
 chmod 600 /root/.openclaw/openclaw.json
+echo "  Final config: $(cat /root/.openclaw/openclaw.json | head -c 300)"
 
 # Run OpenClaw doctor to check what's missing (diagnostic, non-blocking)
 $OPENCLAW_BIN doctor 2>&1 | head -30 || true
