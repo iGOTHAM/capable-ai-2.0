@@ -962,7 +962,7 @@ function NewProjectWizard() {
             onClick={() => setStep(step + 1)}
             disabled={!canProceed()}
           >
-            {step === 4 ? "Skip" : "Next"}
+            Next
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         ) : (

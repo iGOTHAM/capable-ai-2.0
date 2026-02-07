@@ -192,3 +192,70 @@ export async function deleteProject(
 
   return {};
 }
+
+const updateProjectSchema = z.object({
+  description: z.string().min(1, "Description is required").optional(),
+  personality: z
+    .enum(["professional", "casual", "direct", "friendly"])
+    .optional(),
+  userName: z.string().optional(),
+  userRole: z.string().optional(),
+  neverRules: z.array(z.string()).optional(),
+  businessContext: z.record(z.string()).optional(),
+});
+
+export type UpdateProjectResult = {
+  error?: string;
+  success?: boolean;
+};
+
+export async function updateProject(
+  projectId: string,
+  data: {
+    description?: string;
+    personality?: string;
+    userName?: string;
+    userRole?: string;
+    neverRules?: string[];
+    businessContext?: Record<string, string>;
+  },
+): Promise<UpdateProjectResult> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const project = await db.project.findFirst({
+    where: { id: projectId, userId: user.id },
+  });
+
+  if (!project) return { error: "Project not found" };
+
+  const parsed = updateProjectSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.errors[0]?.message ?? "Invalid input" };
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.description !== undefined)
+    updates.description = parsed.data.description;
+  if (parsed.data.personality !== undefined)
+    updates.personality = parsed.data.personality;
+  if (parsed.data.userName !== undefined)
+    updates.userName = parsed.data.userName || null;
+  if (parsed.data.userRole !== undefined)
+    updates.userRole = parsed.data.userRole || null;
+  if (parsed.data.neverRules !== undefined)
+    updates.neverRules = parsed.data.neverRules;
+  if (parsed.data.businessContext !== undefined)
+    updates.businessContext = parsed.data.businessContext;
+
+  if (Object.keys(updates).length === 0) {
+    return { success: true };
+  }
+
+  await db.project.update({
+    where: { id: projectId },
+    data: updates,
+  });
+
+  return { success: true };
+}

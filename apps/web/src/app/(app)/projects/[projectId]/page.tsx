@@ -27,6 +27,7 @@ import { DeleteProjectButton } from "@/components/delete-project-button";
 import { PackFilesViewer } from "@/components/pack-files-viewer";
 import { DashboardAccessCard } from "@/components/dashboard-access-card";
 import { DeploymentManagementCard } from "@/components/deployment-management-card";
+import { EditableProjectDetails } from "@/components/editable-project-details";
 import { getActiveSubscription, getSubscription } from "@/lib/subscription-guard";
 import { templateLabel } from "@/lib/labels";
 
@@ -297,24 +298,19 @@ export default async function ProjectDetailPage({
         />
       )}
 
-      {/* Personality info (if set) */}
-      {project.personality && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Personality</CardDescription>
-            <CardTitle className="text-base capitalize">{project.personality}</CardTitle>
-          </CardHeader>
-          {(project.userName || project.userRole) && (
-            <CardContent className="pt-0">
-              <p className="text-xs text-muted-foreground">
-                {project.userName && <>Owner: {project.userName}</>}
-                {project.userName && project.userRole && <> · </>}
-                {project.userRole && <>Role: {project.userRole}</>}
-              </p>
-            </CardContent>
-          )}
-        </Card>
-      )}
+      {/* Editable project details */}
+      <EditableProjectDetails
+        project={{
+          id: projectId,
+          description: project.description,
+          personality: project.personality,
+          userName: project.userName,
+          userRole: project.userRole,
+          neverRules: project.neverRules,
+          templateId: project.templateId,
+          businessContext: project.businessContext as Record<string, string> | null,
+        }}
+      />
 
       {/* Next Steps — shown before deployment */}
       {hasActiveSub && (!project.deployment || project.deployment.status === "PENDING") && (
