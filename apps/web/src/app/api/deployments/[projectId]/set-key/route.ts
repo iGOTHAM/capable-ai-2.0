@@ -121,7 +121,9 @@ export async function POST(
         );
       }
 
-      return NextResponse.json({ success: true });
+      // Forward the dashboard's full response (includes serviceStatus, journalOutput diagnostics)
+      const responseData = await response.json().catch(() => ({ success: true }));
+      return NextResponse.json(responseData);
     } catch (err) {
       console.error(`Failed to set key via ${dashboardUrl}:`, err);
       lastError = err;
