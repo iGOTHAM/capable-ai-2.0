@@ -73,10 +73,27 @@ export async function POST(req: NextRequest) {
       // Config doesn't exist yet, start fresh
     }
 
-    // Update provider, apiKey, model
-    config.provider = provider;
-    config.apiKey = apiKey;
-    config.model = model;
+    // Update config using OpenClaw's schema format:
+    // - models.providers.<provider>.apiKey  for API key
+    // - agents.defaults.model.primary       for model selection
+    // Also remove any legacy top-level provider/apiKey/model fields
+    delete config.provider;
+    delete config.apiKey;
+    delete config.model;
+
+    // Set models.providers
+    const models = (config.models as Record<string, unknown>) ?? {};
+    const providers = (models.providers as Record<string, unknown>) ?? {};
+    providers[provider] = { apiKey };
+    models.providers = providers;
+    config.models = models;
+
+    // Set agents.defaults.model.primary as "provider/model"
+    const agents = (config.agents as Record<string, unknown>) ?? {};
+    const defaults = (agents.defaults as Record<string, unknown>) ?? {};
+    defaults.model = { primary: `${provider}/${model}` };
+    agents.defaults = defaults;
+    config.agents = agents;
 
     // Ensure config directory exists
     await fs.mkdir(path.dirname(configPath), { recursive: true });

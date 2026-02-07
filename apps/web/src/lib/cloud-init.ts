@@ -126,23 +126,19 @@ OPENCLAW_BIN=$(npm prefix -g)/bin/openclaw
 echo "  OpenClaw binary: $OPENCLAW_BIN"
 ls -la "$OPENCLAW_BIN" || { echo "ERROR: openclaw binary not found"; report "5-openclaw" "failed" "binary not found at $OPENCLAW_BIN"; }
 
-# Write OpenClaw config — full capabilities enabled
-# Provider and apiKey omitted — set via admin endpoint after deployment
+# Write OpenClaw config — matches openclaw.json schema
+# Provider/apiKey omitted — set via admin endpoint after deployment
 jq -n '{
-    workspace: "/root/.openclaw/workspace",
     gateway: {
-      controlUi: { basePath: "/chat" }
+      port: 18789,
+      bind: "0.0.0.0",
+      controlUi: { enabled: true, basePath: "/chat" },
+      auth: { mode: "none" }
     },
-    compaction: { memoryFlush: { enabled: true } },
-    memorySearch: { experimental: { sessionMemory: true }, sources: ["memory","sessions"] },
-    skills: {
-      enabled: ["web-search","file-reader","file-writer","memory","exec","browser-automation","calendar","notes"],
-      disabled: []
-    },
-    security: {
-      execPolicy: "allow",
-      sandboxMode: "relaxed",
-      allowExternalUrls: true
+    agents: {
+      defaults: {
+        workspace: "/root/.openclaw/workspace"
+      }
     },
     channels: {}
   }' > /root/.openclaw/openclaw.json
