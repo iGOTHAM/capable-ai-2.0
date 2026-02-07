@@ -48,6 +48,8 @@ interface DeployContentProps {
   latestPackVersion: number;
   dashboardPassword: string | null;
   gatewayToken: string | null;
+  provider: string | null;
+  aiModel: string | null;
 }
 
 const statusConfig: Record<
@@ -120,9 +122,13 @@ export function DeployContent(props: DeployContentProps) {
   >("idle");
   const [keyConfigError, setKeyConfigError] = useState<string | null>(null);
   const [showKeyForm, setShowKeyForm] = useState(false);
-  const [formProvider, setFormProvider] = useState("anthropic");
+  const [formProvider, setFormProvider] = useState(
+    props.provider || "anthropic",
+  );
   const [formApiKey, setFormApiKey] = useState("");
-  const [formModel, setFormModel] = useState("claude-sonnet-4-5-20251101");
+  const [formModel, setFormModel] = useState(
+    props.aiModel || "claude-sonnet-4-5-20251101",
+  );
 
   const isDeployed =
     status === "ACTIVE" ||
@@ -196,35 +202,63 @@ export function DeployContent(props: DeployContentProps) {
   }, [status]);
 
   // Auto-send API key to droplet when deployment becomes ACTIVE
+  // Flow: check if key already configured → try sessionStorage → show form
   useEffect(() => {
     if (status !== "ACTIVE" || keyConfigStatus !== "idle") return;
 
-    // Check sessionStorage for key from wizard
-    let keyData: { provider: string; apiKey: string; model: string } | null = null;
-    try {
-      const stored = sessionStorage.getItem("capable_ai_key");
-      if (stored) {
-        keyData = JSON.parse(stored);
+    const configureKey = async () => {
+      // Step 1: Check if the droplet already has a key configured
+      try {
+        const statusRes = await fetch(
+          `/api/deployments/${props.projectId}/key-status`,
+        );
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          if (statusData.configured) {
+            // Key already on the droplet — no form needed
+            setKeyConfigStatus("success");
+            try {
+              sessionStorage.removeItem("capable_ai_key");
+            } catch {}
+            return;
+          }
+        }
+      } catch {
+        // key-status check failed — continue with sessionStorage/form flow
       }
-    } catch {
-      // sessionStorage not available
-    }
 
-    if (!keyData) {
-      // No key in sessionStorage — show inline form for manual entry
-      setShowKeyForm(true);
-      return;
-    }
+      // Step 2: Try sessionStorage (set by wizard)
+      let keyData: {
+        provider: string;
+        apiKey: string;
+        model: string;
+      } | null = null;
+      try {
+        const stored = sessionStorage.getItem("capable_ai_key");
+        if (stored) {
+          keyData = JSON.parse(stored);
+        }
+      } catch {
+        // sessionStorage not available
+      }
 
-    // Send key to droplet via proxy
-    const sendKey = async () => {
+      if (!keyData) {
+        // No key anywhere — show inline form for manual entry
+        setShowKeyForm(true);
+        return;
+      }
+
+      // Step 3: Send key from sessionStorage to droplet
       setKeyConfigStatus("sending");
       try {
-        const res = await fetch(`/api/deployments/${props.projectId}/set-key`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(keyData),
-        });
+        const res = await fetch(
+          `/api/deployments/${props.projectId}/set-key`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(keyData),
+          },
+        );
 
         if (res.ok) {
           setKeyConfigStatus("success");
@@ -234,7 +268,9 @@ export function DeployContent(props: DeployContentProps) {
         } else {
           const data = await res.json().catch(() => ({}));
           setKeyConfigStatus("error");
-          setKeyConfigError(data.error || "Failed to configure AI provider");
+          setKeyConfigError(
+            data.error || "Failed to configure AI provider",
+          );
         }
       } catch {
         setKeyConfigStatus("error");
@@ -242,7 +278,7 @@ export function DeployContent(props: DeployContentProps) {
       }
     };
 
-    sendKey();
+    configureKey();
   }, [status, keyConfigStatus, props.projectId]);
 
   // Handle manual key submission
@@ -400,28 +436,39 @@ export function DeployContent(props: DeployContentProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div
-                className={`cursor-pointer rounded-md border p-3 transition-colors ${formProvider === "anthropic" ? "border-primary ring-1 ring-primary" : ""}`}
-                onClick={() => {
-                  setFormProvider("anthropic");
-                  setFormModel("claude-sonnet-4-5-20251101");
-                }}
-              >
-                <p className="text-sm font-medium">Anthropic</p>
-                <p className="text-xs text-muted-foreground">Claude models</p>
+            {/* Show provider/model selectors only if not set from project */}
+            {!props.provider && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div
+                  className={`cursor-pointer rounded-md border p-3 transition-colors ${formProvider === "anthropic" ? "border-primary ring-1 ring-primary" : ""}`}
+                  onClick={() => {
+                    setFormProvider("anthropic");
+                    setFormModel("claude-sonnet-4-5-20251101");
+                  }}
+                >
+                  <p className="text-sm font-medium">Anthropic</p>
+                  <p className="text-xs text-muted-foreground">Claude models</p>
+                </div>
+                <div
+                  className={`cursor-pointer rounded-md border p-3 transition-colors ${formProvider === "openai" ? "border-primary ring-1 ring-primary" : ""}`}
+                  onClick={() => {
+                    setFormProvider("openai");
+                    setFormModel("gpt-5.2");
+                  }}
+                >
+                  <p className="text-sm font-medium">OpenAI</p>
+                  <p className="text-xs text-muted-foreground">GPT models</p>
+                </div>
               </div>
-              <div
-                className={`cursor-pointer rounded-md border p-3 transition-colors ${formProvider === "openai" ? "border-primary ring-1 ring-primary" : ""}`}
-                onClick={() => {
-                  setFormProvider("openai");
-                  setFormModel("gpt-5.2");
-                }}
-              >
-                <p className="text-sm font-medium">OpenAI</p>
-                <p className="text-xs text-muted-foreground">GPT models</p>
-              </div>
-            </div>
+            )}
+            {props.provider && (
+              <p className="text-sm text-muted-foreground">
+                Provider: <span className="font-medium text-foreground capitalize">{props.provider}</span>
+                {props.aiModel && (
+                  <> · Model: <span className="font-medium text-foreground">{props.aiModel}</span></>
+                )}
+              </p>
+            )}
             <input
               type="password"
               value={formApiKey}
@@ -429,28 +476,30 @@ export function DeployContent(props: DeployContentProps) {
               placeholder={formProvider === "anthropic" ? "sk-ant-..." : "sk-..."}
               className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
-            <select
-              value={formModel}
-              onChange={(e) => setFormModel(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              {formProvider === "anthropic" ? (
-                <>
-                  <option value="claude-sonnet-4-5-20251101">Claude Sonnet 4.5</option>
-                  <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                  <option value="claude-opus-4-20250514">Claude Opus 4</option>
-                  <option value="claude-haiku-4-20250414">Claude Haiku 4</option>
-                </>
-              ) : (
-                <>
-                  <option value="gpt-5.2">GPT-5.2</option>
-                  <option value="gpt-5-mini">GPT-5 Mini</option>
-                  <option value="gpt-4.1">GPT-4.1</option>
-                  <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
-                  <option value="o4-mini">o4-mini</option>
-                </>
-              )}
-            </select>
+            {!props.aiModel && (
+              <select
+                value={formModel}
+                onChange={(e) => setFormModel(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                {formProvider === "anthropic" ? (
+                  <>
+                    <option value="claude-sonnet-4-5-20251101">Claude Sonnet 4.5</option>
+                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                    <option value="claude-opus-4-20250514">Claude Opus 4</option>
+                    <option value="claude-haiku-4-20250414">Claude Haiku 4</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="gpt-5.2">GPT-5.2</option>
+                    <option value="gpt-5-mini">GPT-5 Mini</option>
+                    <option value="gpt-4.1">GPT-4.1</option>
+                    <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+                    <option value="o4-mini">o4-mini</option>
+                  </>
+                )}
+              </select>
+            )}
             <Button
               onClick={handleManualKeySubmit}
               disabled={!formApiKey}

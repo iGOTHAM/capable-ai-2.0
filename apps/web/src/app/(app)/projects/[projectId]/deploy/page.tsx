@@ -70,6 +70,8 @@ export default async function DeployPage({
       latestPackVersion={latestVersion}
       dashboardPassword={(heartbeatData?.dashboardPassword as string) ?? null}
       gatewayToken={(heartbeatData?.gatewayToken as string) ?? null}
+      provider={project.provider ?? null}
+      aiModel={project.aiModel ?? null}
     />
   );
 }
