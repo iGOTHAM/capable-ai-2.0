@@ -35,5 +35,6 @@ export async function GET(
     lastHeartbeatAt: deployment.lastHeartbeatAt?.toISOString() ?? null,
     activePackVer: deployment.activePackVer,
     dashboardPassword: (heartbeatData?.dashboardPassword as string) ?? null,
+    gatewayToken: (heartbeatData?.gatewayToken as string) ?? null,
   });
 }

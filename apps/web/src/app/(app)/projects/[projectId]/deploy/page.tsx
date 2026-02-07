@@ -69,6 +69,7 @@ export default async function DeployPage({
       appUrl={appUrl}
       latestPackVersion={latestVersion}
       dashboardPassword={(heartbeatData?.dashboardPassword as string) ?? null}
+      gatewayToken={(heartbeatData?.gatewayToken as string) ?? null}
     />
   );
 }
