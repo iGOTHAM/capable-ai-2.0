@@ -26,8 +26,17 @@ apt-get install -y caddy
 echo ">>> [12/${totalSteps}] Configuring Caddy for ${subdomain}.capable.ai..."
 cat > /etc/caddy/Caddyfile << 'CADDY'
 ${subdomain}.capable.ai {
+    # WebSocket upgrade requests (any path) → OpenClaw gateway
+    # The Control UI opens wss://host/ (root) for its gateway connection
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    handle @websockets {
+        reverse_proxy localhost:18789
+    }
+
     # OpenClaw Web UI — preserve /chat prefix (OpenClaw uses basePath=/chat)
-    # e.g. /chat/foo → OpenClaw receives /chat/foo
     handle /chat* {
         reverse_proxy localhost:18789
     }
