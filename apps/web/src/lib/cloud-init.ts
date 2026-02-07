@@ -24,8 +24,23 @@ apt-get update
 apt-get install -y caddy
 
 echo ">>> [12/${totalSteps}] Configuring Caddy for ${subdomain}.capable.ai..."
+
+# Generate a self-signed origin certificate for Caddy.
+# Cloudflare proxy (orange cloud) terminates public TLS at the edge and connects
+# to our origin over HTTPS in "Full" mode, which accepts any valid server cert.
+# This avoids Let's Encrypt rate limits from repeated rebuilds.
+openssl req -x509 -newkey rsa:2048 \\
+  -keyout /etc/caddy/origin.key -out /etc/caddy/origin.crt \\
+  -days 3650 -nodes \\
+  -subj "/CN=${subdomain}.capable.ai" \\
+  -addext "subjectAltName=DNS:${subdomain}.capable.ai"
+chown caddy:caddy /etc/caddy/origin.key /etc/caddy/origin.crt
+chmod 600 /etc/caddy/origin.key
+
 cat > /etc/caddy/Caddyfile << 'CADDY'
 ${subdomain}.capable.ai {
+    tls /etc/caddy/origin.crt /etc/caddy/origin.key
+
     # WebSocket upgrade requests (any path) → OpenClaw gateway
     # The Control UI opens wss://host/ (root) for its gateway connection
     @websockets {
@@ -51,7 +66,7 @@ CADDY
 systemctl restart caddy
 systemctl enable caddy
 
-# Open HTTP (80) + HTTPS (443) for Caddy / Let's Encrypt
+# Open HTTP (80) + HTTPS (443) for Caddy / Cloudflare proxy
 # Keep 3100 open as fallback for admin API (set-key, push-pack, etc.)
 ufw allow 80/tcp
 ufw allow 443/tcp

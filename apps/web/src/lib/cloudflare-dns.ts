@@ -1,8 +1,9 @@
 /**
  * Cloudflare DNS management for *.capable.ai subdomains.
  *
- * DNS-only mode (proxied: false) so Let's Encrypt HTTP-01 challenge
- * works directly on the user's droplet via Caddy.
+ * Proxied mode (proxied: true) so Cloudflare terminates TLS at the edge.
+ * The origin uses a self-signed cert and Caddy serves HTTPS in "Full" mode.
+ * This avoids Let's Encrypt rate-limit issues from repeated rebuilds.
  */
 
 const CF_API = "https://api.cloudflare.com/client/v4";
@@ -50,8 +51,8 @@ export async function createDnsRecord(
       type: "A",
       name: `${subdomain}.capable.ai`,
       content: ip,
-      ttl: 60, // 1 minute — fast propagation for new deployments
-      proxied: false, // DNS-only so Let's Encrypt HTTP-01 works on the droplet
+      ttl: 1, // Auto TTL when proxied
+      proxied: true, // Cloudflare terminates TLS; origin uses self-signed cert
     }),
   });
 
