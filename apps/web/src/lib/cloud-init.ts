@@ -203,37 +203,74 @@ systemctl daemon-reload
 systemctl enable capable-dashboard
 systemctl start capable-dashboard
 
-# Create systemd service for OpenClaw agent
-cat > /etc/systemd/system/capable-openclaw.service << SYSTEMD
+# Install OpenClaw gateway as a systemd service
+# Use openclaw's built-in installer first, fall back to manual service
+echo "  Installing OpenClaw gateway service..."
+$OPENCLAW_BIN gateway install 2>&1 | head -20 || true
+
+# Check if openclaw created a user service; if not, create a system service
+if systemctl --user is-enabled openclaw-gateway 2>/dev/null; then
+  echo "  OpenClaw user service installed"
+  systemctl --user start openclaw-gateway || true
+else
+  echo "  Creating system service for OpenClaw gateway..."
+  # Determine the actual node entry point for openclaw
+  OPENCLAW_MAIN=$(node -e "console.log(require.resolve('openclaw/dist/index.js'))" 2>/dev/null || echo "")
+
+  if [ -n "$OPENCLAW_MAIN" ]; then
+    EXEC_CMD="/usr/bin/node $OPENCLAW_MAIN gateway --port 18789"
+  else
+    EXEC_CMD="$OPENCLAW_BIN gateway --port 18789"
+  fi
+
+  cat > /etc/systemd/system/capable-openclaw.service << SYSTEMD
 [Unit]
-Description=OpenClaw Agent
+Description=OpenClaw Gateway
 After=network.target capable-dashboard.service
 
 [Service]
 Type=simple
-ExecStart=$OPENCLAW_BIN gateway --allow-unconfigured --port 18789
+ExecStart=$EXEC_CMD
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
 Environment=HOME=/root
+Environment=OPENCLAW_GATEWAY_PORT=18789
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+StandardOutput=append:/var/log/openclaw.log
+StandardError=append:/var/log/openclaw.log
 
 [Install]
 WantedBy=multi-user.target
 SYSTEMD
 
-systemctl daemon-reload
-systemctl enable capable-openclaw
-systemctl start capable-openclaw
+  systemctl daemon-reload
+  systemctl enable capable-openclaw
+  systemctl start capable-openclaw
+fi
 
-# Verify OpenClaw is running (give it a few seconds to start)
-sleep 5
-if systemctl is-active --quiet capable-openclaw; then
-  echo "  OpenClaw service is running"
-else
-  echo "  WARNING: OpenClaw service failed to start"
-  journalctl -u capable-openclaw --no-pager -n 20
-  report "9-openclaw-start" "failed" "$(journalctl -u capable-openclaw --no-pager -n 5 | head -c 400)"
+# Verify OpenClaw is running (give it time to start and bind port)
+sleep 8
+OPENCLAW_ACTIVE=false
+for i in 1 2 3; do
+  if ss -lntp | grep -q 18789; then
+    echo "  OpenClaw gateway is listening on port 18789"
+    OPENCLAW_ACTIVE=true
+    break
+  fi
+  echo "  Waiting for OpenClaw to bind port 18789 (attempt $i)..."
+  sleep 5
+done
+
+if [ "$OPENCLAW_ACTIVE" = "false" ]; then
+  echo "  WARNING: OpenClaw gateway is NOT listening on port 18789"
+  echo "  Service status: $(systemctl is-active capable-openclaw 2>/dev/null || echo 'unknown')"
+  echo "  Logs:"
+  cat /var/log/openclaw.log 2>/dev/null | tail -30 || echo "  No logs found"
+  # Also try openclaw's own status
+  $OPENCLAW_BIN gateway status 2>&1 | head -10 || true
+  $OPENCLAW_BIN --version 2>&1 || true
+  report "9-openclaw-start" "failed" "port 18789 not listening. $(cat /var/log/openclaw.log 2>/dev/null | tail -5 | head -c 400)"
 fi
 report "9-dashboard-started" "done"
 
