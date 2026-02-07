@@ -98,11 +98,24 @@ export async function POST(req: NextRequest) {
     agents.defaults = defaults;
     config.agents = agents;
 
-    // Ensure gateway.mode is set — without this, gateway refuses to start:
-    // "Gateway start blocked: set gateway.mode=local (current: unset)"
+    // Ensure gateway settings are configured — without these, gateway refuses to start
     const gateway = (config.gateway as Record<string, unknown>) ?? {};
+    // gateway.mode=local required: "Gateway start blocked: set gateway.mode=local"
     if (!gateway.mode) {
       gateway.mode = "local";
+    }
+    // gateway.auth required: "Gateway auth is set to token, but no token is configured"
+    // Generate a random token if none exists
+    if (!gateway.auth) {
+      const crypto = await import("crypto");
+      gateway.auth = {
+        mode: "token",
+        token: crypto.randomBytes(32).toString("hex"),
+      };
+    }
+    // Set controlUi.basePath for Caddy /chat/ proxy
+    if (!gateway.controlUi) {
+      gateway.controlUi = { basePath: "/chat" };
     }
     config.gateway = gateway;
 
