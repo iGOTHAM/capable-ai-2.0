@@ -128,12 +128,12 @@ ls -la "$OPENCLAW_BIN" || { echo "ERROR: openclaw binary not found"; report "5-o
 
 # Write OpenClaw config — matches openclaw.json schema
 # Provider/apiKey omitted — set via admin endpoint after deployment
+# mode=local required for gateway to start; bind defaults to loopback
 jq -n '{
     gateway: {
+      mode: "local",
       port: 18789,
-      bind: "0.0.0.0",
-      controlUi: { enabled: true, basePath: "/chat" },
-      auth: { mode: "none" }
+      controlUi: { enabled: true, basePath: "/chat" }
     },
     agents: {
       defaults: {
