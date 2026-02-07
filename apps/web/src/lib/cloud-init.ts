@@ -146,13 +146,18 @@ else
   echo '{}' > /root/.openclaw/openclaw.json
 fi
 
-# CRITICAL: Set gateway.mode=local — without this, the gateway refuses to start:
-# "Gateway start blocked: set gateway.mode=local (current: unset) or pass --allow-unconfigured"
+# CRITICAL: Set gateway config — without these, the gateway refuses to start:
+# 1. "Gateway start blocked: set gateway.mode=local (current: unset)"
+# 2. "Gateway auth is set to token, but no token is configured"
+GATEWAY_TOKEN=$(openssl rand -hex 32)
 CURRENT_CONFIG=$(cat /root/.openclaw/openclaw.json)
-echo "$CURRENT_CONFIG" | jq '. + {gateway: (.gateway // {} | . + {mode: "local", controlUi: {basePath: "/chat"}})}' > /root/.openclaw/openclaw.json || {
+echo "$CURRENT_CONFIG" | jq --arg token "$GATEWAY_TOKEN" '. + {gateway: (.gateway // {} | . + {mode: "local", auth: {mode: "token", token: $token}, controlUi: {basePath: "/chat"}})}' > /root/.openclaw/openclaw.json || {
   # If jq merge fails (e.g., current config isn't valid JSON), write a known-good config
-  echo '{"gateway":{"mode":"local","controlUi":{"basePath":"/chat"}}}' > /root/.openclaw/openclaw.json
+  echo '{"gateway":{"mode":"local","auth":{"mode":"token","token":"'"$GATEWAY_TOKEN"'"},"controlUi":{"basePath":"/chat"}}}' > /root/.openclaw/openclaw.json
 }
+# Save gateway token for reference
+echo "$GATEWAY_TOKEN" > /root/.openclaw/gateway-token
+chmod 600 /root/.openclaw/gateway-token
 chmod 600 /root/.openclaw/openclaw.json
 echo "  Final config: $(cat /root/.openclaw/openclaw.json | head -c 300)"
 
