@@ -5,6 +5,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
+// v2: comprehensive diagnostics for OpenClaw 502 debugging
 
 /**
  * GET /api/admin/status
