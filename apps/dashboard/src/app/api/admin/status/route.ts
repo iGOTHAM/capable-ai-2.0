@@ -89,22 +89,42 @@ export async function GET(req: NextRequest) {
     let openclawPort = "unknown";
     let openclawJournal = "";
     let caddyJournal = "";
+    let allPorts = "";
+    let openclawConfig = "";
+    let openclawUnitFile = "";
+    let curlLocalhost = "";
     try {
       const { stdout: svcStatus } = await execAsync("systemctl is-active capable-openclaw").catch(() => ({ stdout: "inactive" }));
       openclawService = svcStatus.trim();
     } catch { /* ignore */ }
     try {
       const { stdout: portCheck } = await execAsync("ss -lntp | grep 18789").catch(() => ({ stdout: "none" }));
-      openclawPort = portCheck.trim() || "not listening";
+      openclawPort = portCheck.trim() || "not listening on 18789";
     } catch { openclawPort = "check failed"; }
     try {
-      const { stdout: journal } = await execAsync("journalctl -u capable-openclaw --no-pager -n 30").catch(() => ({ stdout: "" }));
-      openclawJournal = journal.slice(0, 3000);
+      const { stdout: ap } = await execAsync("ss -lntp").catch(() => ({ stdout: "" }));
+      allPorts = ap.slice(0, 2000);
     } catch { /* ignore */ }
     try {
-      const { stdout: cj } = await execAsync("journalctl -u caddy --no-pager -n 20").catch(() => ({ stdout: "" }));
+      const { stdout: journal } = await execAsync("journalctl -u capable-openclaw --no-pager -n 50 2>&1").catch(() => ({ stdout: "" }));
+      openclawJournal = journal.slice(0, 4000);
+    } catch { /* ignore */ }
+    try {
+      const { stdout: cj } = await execAsync("journalctl -u caddy --no-pager -n 20 2>&1").catch(() => ({ stdout: "" }));
       caddyJournal = cj.slice(0, 2000);
     } catch { /* ignore */ }
+    try {
+      const cfg = await fs.readFile("/root/.openclaw/openclaw.json", "utf-8");
+      openclawConfig = cfg.slice(0, 1000);
+    } catch { openclawConfig = "not found"; }
+    try {
+      const { stdout: unit } = await execAsync("cat /etc/systemd/system/capable-openclaw.service 2>&1").catch(() => ({ stdout: "" }));
+      openclawUnitFile = unit.slice(0, 1000);
+    } catch { /* ignore */ }
+    try {
+      const { stdout: curl } = await execAsync("curl -sf --connect-timeout 3 http://127.0.0.1:18789/ 2>&1 || echo 'CURL_FAILED'").catch(() => ({ stdout: "exec failed" }));
+      curlLocalhost = curl.slice(0, 500);
+    } catch { curlLocalhost = "exec failed"; }
 
     return NextResponse.json({
       packVersion,
@@ -113,8 +133,12 @@ export async function GET(req: NextRequest) {
       workspaceFiles,
       openclawService,
       openclawPort,
+      allPorts,
       openclawJournal,
       caddyJournal,
+      openclawConfig,
+      openclawUnitFile,
+      curlLocalhost,
     });
   } catch (err) {
     console.error("Failed to get status:", err);
