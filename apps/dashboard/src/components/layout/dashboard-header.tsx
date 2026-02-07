@@ -20,7 +20,7 @@ const navItems = [
   { href: "/now", label: "Now", icon: Activity },
   { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck },
-  { href: "/chat", label: "Chat", icon: MessageSquare },
+  { href: "/open-chat", label: "Chat", icon: MessageSquare },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

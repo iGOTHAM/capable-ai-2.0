@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, MessageSquare } from "lucide-react";
+import { ExternalLink, MessageSquare, Loader2 } from "lucide-react";
 
 interface HistoryMessage {
   role: "user" | "assistant";
@@ -11,19 +11,37 @@ interface HistoryMessage {
   ts: string;
 }
 
-/**
- * This page is NOT reachable when Caddy is running —
- * Caddy routes /chat* to OpenClaw. It exists only as a fallback
- * for local development or if Caddy is bypassed.
- *
- * The actual "Chat" sidebar link goes to /open-chat, which
- * auto-redirects to /chat/?token=xxx (OpenClaw with auth).
- */
 export default function ChatPage() {
   const [messages, setMessages] = useState<HistoryMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [redirecting, setRedirecting] = useState(true);
+  const [tokenError, setTokenError] = useState(false);
 
-  // Load chat history on mount
+  // On mount, try to fetch gateway token and auto-redirect to OpenClaw UI
+  useEffect(() => {
+    const tryRedirect = async () => {
+      try {
+        const res = await fetch("/api/gateway-token");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.token) {
+            // Full navigation — Caddy routes /chat/ to OpenClaw on port 18789
+            window.location.href = `/chat/?token=${data.token}`;
+            return; // Don't set redirecting=false; page is navigating away
+          }
+        }
+      } catch {
+        // Token fetch failed
+      }
+      // If we get here, redirect failed — show the fallback UI
+      setRedirecting(false);
+      setTokenError(true);
+    };
+
+    tryRedirect();
+  }, []);
+
+  // Load chat history (runs alongside the redirect attempt)
   useEffect(() => {
     fetch("/api/chat")
       .then((res) => res.json())
@@ -49,6 +67,18 @@ export default function ChatPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Show loading spinner while trying to redirect
+  if (redirecting) {
+    return (
+      <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Opening chat...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
       <div>
@@ -66,9 +96,9 @@ export default function ChatPage() {
             <div>
               <p className="font-semibold">OpenClaw Web UI</p>
               <p className="text-sm text-muted-foreground">
-                Your AI assistant runs natively through OpenClaw with
-                full capabilities — web search, file I/O, exec, browser
-                automation, and more.
+                {tokenError
+                  ? "Could not auto-open chat. Click below to open it manually."
+                  : "Your AI assistant runs natively through OpenClaw with full capabilities — web search, file I/O, exec, browser automation, and more."}
               </p>
             </div>
           </div>

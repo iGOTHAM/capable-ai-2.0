@@ -49,7 +49,7 @@ export default function SetupPage() {
           status.setupState === "running" ||
           status.setupState === "configured"
         ) {
-          window.location.href = "/chat";
+          window.location.href = "/open-chat";
         } else {
           setChecking(false);
         }
