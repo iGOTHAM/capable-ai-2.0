@@ -73,20 +73,23 @@ export async function POST(req: NextRequest) {
       // Config doesn't exist yet, start fresh
     }
 
-    // Update config using OpenClaw's schema format:
-    // - models.providers.<provider>.apiKey  for API key
-    // - agents.defaults.model.primary       for model selection
-    // Also remove any legacy top-level provider/apiKey/model fields
+    // Update config using OpenClaw's documented schema format:
+    // - env.ANTHROPIC_API_KEY or env.OPENAI_API_KEY for API keys
+    // - agents.defaults.model.primary for model selection (e.g. "anthropic/claude-sonnet-4-5")
+    // Remove any legacy fields from previous config attempts
     delete config.provider;
     delete config.apiKey;
     delete config.model;
+    delete config.models; // Remove old models.providers format
 
-    // Set models.providers
-    const models = (config.models as Record<string, unknown>) ?? {};
-    const providers = (models.providers as Record<string, unknown>) ?? {};
-    providers[provider] = { apiKey };
-    models.providers = providers;
-    config.models = models;
+    // Set env with provider API key
+    const env = (config.env as Record<string, string>) ?? {};
+    if (provider === "anthropic") {
+      env.ANTHROPIC_API_KEY = apiKey;
+    } else if (provider === "openai") {
+      env.OPENAI_API_KEY = apiKey;
+    }
+    config.env = env;
 
     // Set agents.defaults.model.primary as "provider/model"
     const agents = (config.agents as Record<string, unknown>) ?? {};
@@ -112,25 +115,42 @@ export async function POST(req: NextRequest) {
     }
 
     // Restart OpenClaw service so it picks up the new config
-    // Wait for restart to complete and check status
+    // Try multiple service names (onboard creates openclaw-gateway, manual creates capable-openclaw)
     const { promisify } = await import("util");
     const execPromise = promisify(exec);
 
     let serviceStatus = "unknown";
     let journalOutput = "";
-    try {
-      await execPromise("systemctl restart capable-openclaw");
-      // Give it a few seconds to start (or fail)
-      await new Promise(r => setTimeout(r, 5000));
-      const { stdout: status } = await execPromise("systemctl is-active capable-openclaw").catch(() => ({ stdout: "inactive" }));
-      serviceStatus = status.trim();
-      if (serviceStatus !== "active") {
-        const { stdout: journal } = await execPromise("journalctl -u capable-openclaw --no-pager -n 30").catch(() => ({ stdout: "" }));
-        journalOutput = journal.slice(0, 2000);
+
+    // Try restarting both possible service names
+    const serviceNames = ["capable-openclaw", "openclaw-gateway"];
+    for (const svcName of serviceNames) {
+      try {
+        // Try system-level first
+        await execPromise(`systemctl restart ${svcName} 2>/dev/null || systemctl --user restart ${svcName} 2>/dev/null`);
+        break;
+      } catch {
+        // Service might not exist under this name, try next
       }
-    } catch (restartErr) {
-      serviceStatus = "restart-failed";
-      console.error("Failed to restart OpenClaw service:", restartErr);
+    }
+
+    // Give it time to start
+    await new Promise(r => setTimeout(r, 5000));
+
+    // Check if port 18789 is now listening
+    try {
+      const { stdout: portCheck } = await execPromise("ss -lntp | grep 18789 || echo 'not listening'");
+      serviceStatus = portCheck.includes("18789") ? "active" : "inactive";
+
+      if (serviceStatus !== "active") {
+        // Gather diagnostics
+        const { stdout: journal } = await execPromise(
+          "journalctl -u capable-openclaw --no-pager -n 20 2>&1; journalctl --user-unit openclaw-gateway --no-pager -n 20 2>&1; cat /var/log/openclaw.log 2>/dev/null | tail -20"
+        ).catch(() => ({ stdout: "" }));
+        journalOutput = journal.slice(0, 3000);
+      }
+    } catch {
+      serviceStatus = "check-failed";
     }
 
     return NextResponse.json({ success: true, serviceStatus, journalOutput: journalOutput || undefined });
