@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { generatePackFiles } from "@/lib/pack-generator";
 import { DEFAULT_CONFIG_PATCH } from "@capable-ai/shared";
-import type { TemplateId } from "@capable-ai/shared";
+import type { TemplateId, PersonalityTone } from "@capable-ai/shared";
 import type { Prisma } from "@prisma/client";
 import crypto from "crypto";
 
@@ -52,6 +52,12 @@ export async function fulfillPayment(
         templateId: project.templateId as TemplateId,
         description: project.description,
         neverRules: project.neverRules,
+        botName: project.botName ?? undefined,
+        userName: project.userName ?? undefined,
+        userRole: project.userRole ?? undefined,
+        personality: (project.personality as PersonalityTone) ?? undefined,
+        businessContext:
+          (project.businessContext as Record<string, string>) ?? undefined,
       });
 
       await db.packVersion.create({

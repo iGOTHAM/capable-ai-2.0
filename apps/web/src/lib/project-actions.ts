@@ -30,7 +30,7 @@ const createProjectSchema = z.object({
     .default("professional"),
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
-  templateId: z.enum(["pe", "legal", "healthcare", "general"]),
+  templateId: z.enum(["pe", "realestate", "general"]),
   neverRules: z.array(z.string()),
   provider: z.enum(["anthropic", "openai"]).optional(),
   model: z.string().optional(),

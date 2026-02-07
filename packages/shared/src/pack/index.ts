@@ -7,6 +7,7 @@ export type {
 } from "./pack-types";
 export {
   DEFAULT_CONFIG_PATCH,
+  DEFAULT_PACK_CONFIGS,
   TEMPLATE_NAMES,
 } from "./pack-types";
 export {

@@ -1,8 +1,7 @@
 /** Human-readable labels for template IDs */
 export const TEMPLATE_LABELS: Record<string, string> = {
   pe: "Private Equity",
-  legal: "Legal",
-  healthcare: "Healthcare",
+  realestate: "Real Estate",
   general: "General",
 };
 
