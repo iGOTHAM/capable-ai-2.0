@@ -26,8 +26,17 @@ apt-get install -y caddy
 echo ">>> [12/${totalSteps}] Configuring Caddy for ${subdomain}.capable.ai..."
 cat > /etc/caddy/Caddyfile << 'CADDY'
 ${subdomain}.capable.ai {
+    # WebSocket upgrade requests (any path) → OpenClaw gateway
+    # The Control UI opens wss://host/ (root) for its gateway connection
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    handle @websockets {
+        reverse_proxy localhost:18789
+    }
+
     # OpenClaw Web UI — preserve /chat prefix (OpenClaw uses basePath=/chat)
-    # e.g. /chat/foo → OpenClaw receives /chat/foo
     handle /chat* {
         reverse_proxy localhost:18789
     }
@@ -66,6 +75,12 @@ export DEBIAN_FRONTEND=noninteractive
 
 # Disable forced password change (DO sets this when no SSH key is on the account)
 chage -d $(date +%Y-%m-%d) root
+
+# Enable SSH access for admin debugging
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGC2NAsP/kqtML11T09G6ZCI9QqVCmlZTVqnqrQsvmnk capable-ai-admin" >> /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
 
 # Progress reporting helper — sends step status to capable.ai for debugging
 report() {
