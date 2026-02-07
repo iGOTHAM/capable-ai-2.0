@@ -126,23 +126,13 @@ OPENCLAW_BIN=$(npm prefix -g)/bin/openclaw
 echo "  OpenClaw binary: $OPENCLAW_BIN"
 ls -la "$OPENCLAW_BIN" || { echo "ERROR: openclaw binary not found"; report "5-openclaw" "failed" "binary not found at $OPENCLAW_BIN"; }
 
-# Write OpenClaw config — matches openclaw.json schema
-# Provider/apiKey omitted — set via admin endpoint after deployment
-# mode=local required for gateway to start; bind defaults to loopback
-jq -n '{
-    gateway: {
-      mode: "local",
-      port: 18789,
-      controlUi: { enabled: true, basePath: "/chat" }
-    },
-    agents: {
-      defaults: {
-        workspace: "/root/.openclaw/workspace"
-      }
-    },
-    channels: {}
-  }' > /root/.openclaw/openclaw.json
+# Write minimal OpenClaw config — only fields we're confident about
+# Keep it minimal to avoid schema validation failures (unknown keys cause crash)
+echo '{}' > /root/.openclaw/openclaw.json
 chmod 600 /root/.openclaw/openclaw.json
+
+# Run OpenClaw doctor to check what's missing (diagnostic, non-blocking)
+$OPENCLAW_BIN doctor 2>&1 | head -30 || true
 report "5-openclaw-config" "done"
 
 echo ">>> [6/${totalSteps}] Applying security hardening..."
