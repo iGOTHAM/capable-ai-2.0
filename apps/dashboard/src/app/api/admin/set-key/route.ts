@@ -112,11 +112,28 @@ export async function POST(req: NextRequest) {
     }
 
     // Restart OpenClaw service so it picks up the new config
-    exec("systemctl restart capable-openclaw", (err) => {
-      if (err) console.error("Failed to restart OpenClaw service:", err.message);
-    });
+    // Wait for restart to complete and check status
+    const { promisify } = await import("util");
+    const execPromise = promisify(exec);
 
-    return NextResponse.json({ success: true });
+    let serviceStatus = "unknown";
+    let journalOutput = "";
+    try {
+      await execPromise("systemctl restart capable-openclaw");
+      // Give it a few seconds to start (or fail)
+      await new Promise(r => setTimeout(r, 5000));
+      const { stdout: status } = await execPromise("systemctl is-active capable-openclaw").catch(() => ({ stdout: "inactive" }));
+      serviceStatus = status.trim();
+      if (serviceStatus !== "active") {
+        const { stdout: journal } = await execPromise("journalctl -u capable-openclaw --no-pager -n 30").catch(() => ({ stdout: "" }));
+        journalOutput = journal.slice(0, 2000);
+      }
+    } catch (restartErr) {
+      serviceStatus = "restart-failed";
+      console.error("Failed to restart OpenClaw service:", restartErr);
+    }
+
+    return NextResponse.json({ success: true, serviceStatus, journalOutput: journalOutput || undefined });
   } catch (err) {
     console.error("Failed to set key:", err);
     return NextResponse.json(
