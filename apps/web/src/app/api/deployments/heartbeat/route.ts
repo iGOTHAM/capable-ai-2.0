@@ -14,6 +14,7 @@ const heartbeatSchema = z.object({
   status: z.enum(["active", "stopping"]).default("active"),
   dashboardPassword: z.string().optional(),
   adminSecret: z.string().optional(),
+  gatewayToken: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { projectToken, dropletIp, packVersion, status, dashboardPassword, adminSecret } =
+  const { projectToken, dropletIp, packVersion, status, dashboardPassword, adminSecret, gatewayToken } =
     parsed.data;
 
   const deployment = await db.deployment.findUnique({
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
   const existingData = deployment.heartbeatData as Record<string, unknown> | null;
   const password = dashboardPassword ?? existingData?.dashboardPassword ?? null;
   const secret = adminSecret ?? existingData?.adminSecret ?? null;
+  const gwToken = gatewayToken ?? existingData?.gatewayToken ?? null;
 
   // Update deployment record first
   await db.deployment.update({
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
         ip: dropletIp,
         ...(password ? { dashboardPassword: password } : {}),
         ...(secret ? { adminSecret: secret } : {}),
+        ...(gwToken ? { gatewayToken: gwToken } : {}),
       },
     },
   });

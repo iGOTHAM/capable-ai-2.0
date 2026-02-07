@@ -47,6 +47,7 @@ interface DeployContentProps {
   appUrl: string;
   latestPackVersion: number;
   dashboardPassword: string | null;
+  gatewayToken: string | null;
 }
 
 const statusConfig: Record<
@@ -106,6 +107,7 @@ export function DeployContent(props: DeployContentProps) {
   const [lastHb, setLastHb] = useState(props.lastHeartbeat);
   const [ip, setIp] = useState(props.dropletIp);
   const [password, setPassword] = useState(props.dashboardPassword);
+  const [gwToken, setGwToken] = useState(props.gatewayToken);
   const [showManual, setShowManual] = useState(false);
   const [region, setRegion] = useState("nyc1");
   const [size, setSize] = useState("s-1vcpu-2gb");
@@ -145,6 +147,13 @@ export function DeployContent(props: DeployContentProps) {
       ? `http://${ipForUrl}:3100`
       : null;
 
+  // Chat URL with gateway auth token (auto-authenticates the Control UI)
+  const chatUrl = dashboardUrl && gwToken
+    ? `${dashboardUrl}/chat/?token=${gwToken}`
+    : dashboardUrl
+      ? `${dashboardUrl}/chat/`
+      : null;
+
   const handleCopy = async () => {
     await navigator.clipboard.writeText(cloudInit);
     setCopied(true);
@@ -160,6 +169,7 @@ export function DeployContent(props: DeployContentProps) {
       setLastHb(data.lastHeartbeatAt);
       setIp(data.dropletIp);
       if (data.dashboardPassword) setPassword(data.dashboardPassword);
+      if (data.gatewayToken) setGwToken(data.gatewayToken);
 
       // Show notification when deployment becomes ACTIVE
       if (prevStatus !== "ACTIVE" && data.status === "ACTIVE") {
@@ -570,14 +580,26 @@ export function DeployContent(props: DeployContentProps) {
                 />
                 <span className="text-sm font-medium">{s.label}</span>
                 {status === "ACTIVE" && dashboardUrl && (
-                  <a
-                    href={dashboardUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Open Dashboard →
-                  </a>
+                  <>
+                    <a
+                      href={dashboardUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Open Dashboard →
+                    </a>
+                    {chatUrl && (
+                      <a
+                        href={chatUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Open Chat →
+                      </a>
+                    )}
+                  </>
                 )}
               </div>
               {status === "ACTIVE" && dashboardUrl && (
@@ -790,14 +812,26 @@ export function DeployContent(props: DeployContentProps) {
                   />
                   <span className="text-sm font-medium">{s.label}</span>
                   {status === "ACTIVE" && dashboardUrl && (
-                    <a
-                      href={dashboardUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline"
-                    >
-                      Open Dashboard →
-                    </a>
+                    <>
+                      <a
+                        href={dashboardUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Open Dashboard →
+                      </a>
+                      {chatUrl && (
+                        <a
+                          href={chatUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Open Chat →
+                        </a>
+                      )}
+                    </>
                   )}
                 </div>
                 {lastHb && (
