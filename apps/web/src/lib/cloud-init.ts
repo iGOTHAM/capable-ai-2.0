@@ -151,9 +151,9 @@ fi
 # 2. "Gateway auth is set to token, but no token is configured"
 GATEWAY_TOKEN=$(openssl rand -hex 32)
 CURRENT_CONFIG=$(cat /root/.openclaw/openclaw.json)
-echo "$CURRENT_CONFIG" | jq --arg token "$GATEWAY_TOKEN" '. + {gateway: (.gateway // {} | . + {mode: "local", auth: {mode: "token", token: $token}, controlUi: {basePath: "/chat"}})}' > /root/.openclaw/openclaw.json || {
+echo "$CURRENT_CONFIG" | jq --arg token "$GATEWAY_TOKEN" '. + {gateway: (.gateway // {} | . + {mode: "local", auth: {mode: "token", token: $token}, controlUi: {basePath: "/chat", allowInsecureAuth: true}})}' > /root/.openclaw/openclaw.json || {
   # If jq merge fails (e.g., current config isn't valid JSON), write a known-good config
-  echo '{"gateway":{"mode":"local","auth":{"mode":"token","token":"'"$GATEWAY_TOKEN"'"},"controlUi":{"basePath":"/chat"}}}' > /root/.openclaw/openclaw.json
+  echo '{"gateway":{"mode":"local","auth":{"mode":"token","token":"'"$GATEWAY_TOKEN"'"},"controlUi":{"basePath":"/chat","allowInsecureAuth":true}}}' > /root/.openclaw/openclaw.json
 }
 # Save gateway token for reference
 echo "$GATEWAY_TOKEN" > /root/.openclaw/gateway-token
