@@ -118,9 +118,15 @@ swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 report "1-swap" "done"
 
-echo ">>> [2/${totalSteps}] Installing Node.js 22..."
+echo ">>> [2/${totalSteps}] Installing Node.js 22 + Chromium..."
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y nodejs curl ufw jq
+apt-get install -y nodejs curl ufw jq chromium-browser
+
+# Set Chromium path for OpenClaw's browser tool
+# --no-sandbox is required when running as root on a server
+export CHROME_PATH=$(which chromium-browser)
+echo "export CHROME_PATH=$CHROME_PATH" >> /root/.bashrc
+echo "  Chromium installed: $CHROME_PATH"
 report "2-nodejs" "done"
 
 echo ">>> [3/${totalSteps}] Creating directories..."
@@ -200,7 +206,11 @@ echo "$CURRENT_CONFIG" | jq --arg token "$GATEWAY_TOKEN" '. + {gateway: (.gatewa
 echo "$GATEWAY_TOKEN" > /root/.openclaw/gateway-token
 chmod 600 /root/.openclaw/gateway-token
 chmod 600 /root/.openclaw/openclaw.json
-echo "  Final config: $(cat /root/.openclaw/openclaw.json | head -c 300)"
+
+# Add browser config — use system Chromium with --no-sandbox (required for root)
+BROWSER_CONFIG=$(cat /root/.openclaw/openclaw.json)
+echo "$BROWSER_CONFIG" | jq '. + {browser: {executablePath: "/usr/bin/chromium-browser", args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]}}' > /root/.openclaw/openclaw.json || true
+echo "  Final config: $(cat /root/.openclaw/openclaw.json | head -c 400)"
 
 # Run OpenClaw doctor to check what's missing (diagnostic, non-blocking)
 $OPENCLAW_BIN doctor 2>&1 | head -30 || true
@@ -323,6 +333,9 @@ RestartSec=5
 Environment=NODE_ENV=production
 Environment=HOME=/root
 Environment=OPENCLAW_GATEWAY_PORT=18789
+Environment=CHROME_PATH=/usr/bin/chromium-browser
+Environment=PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+Environment=PUPPETEER_CHROMIUM_REVISION=skip
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 StandardOutput=append:/var/log/openclaw.log
 StandardError=append:/var/log/openclaw.log
