@@ -49,7 +49,7 @@ export default function SetupPage() {
           status.setupState === "running" ||
           status.setupState === "configured"
         ) {
-          window.location.href = "/open-chat";
+          window.location.href = "/tasks";
         } else {
           setChecking(false);
         }

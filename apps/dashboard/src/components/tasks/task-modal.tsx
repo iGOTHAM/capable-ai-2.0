@@ -25,10 +25,18 @@ const PRIORITY_STYLES: Record<string, string> = {
   low: "border-gray-500 bg-gray-500/10 text-gray-600 dark:text-gray-400",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: "To Do",
+  "in-progress": "In Progress",
+  done: "Done",
+  archived: "Archive",
+};
+
 interface TaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  task?: Task | null; // null = create mode
+  task?: Task | null;
+  defaultStatus?: Task["status"];
   onSave: (data: {
     title: string;
     notes?: string;
@@ -42,6 +50,7 @@ export function TaskModal({
   open,
   onOpenChange,
   task,
+  defaultStatus = "pending",
   onSave,
   onDelete,
 }: TaskModalProps) {
@@ -50,7 +59,6 @@ export function TaskModal({
   const [notes, setNotes] = useState("");
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
 
-  // Sync form when task changes
   useEffect(() => {
     if (task) {
       setTitle(task.title);
@@ -69,6 +77,7 @@ export function TaskModal({
       title: title.trim(),
       notes: notes.trim() || undefined,
       priority,
+      status: isEdit ? undefined : defaultStatus,
     });
     onOpenChange(false);
   };
@@ -81,7 +90,7 @@ export function TaskModal({
           <DialogDescription>
             {isEdit
               ? "Update task details below."
-              : "Add a new task to your board."}
+              : `Adding to: ${STATUS_LABELS[defaultStatus] || defaultStatus}`}
           </DialogDescription>
         </DialogHeader>
 

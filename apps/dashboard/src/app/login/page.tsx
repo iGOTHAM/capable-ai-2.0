@@ -25,7 +25,7 @@ export default function LoginPage() {
     });
 
     if (res.ok) {
-      window.location.href = "/now";
+      window.location.href = "/tasks";
     } else {
       setError("Invalid password");
     }
