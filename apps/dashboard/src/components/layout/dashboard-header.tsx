@@ -6,10 +6,11 @@ import { usePathname } from "next/navigation";
 import {
   Menu,
   X,
-  Activity,
-  Clock,
-  ShieldCheck,
+  LayoutDashboard,
+  CheckSquare,
+  FileText,
   MessageSquare,
+  Clock,
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,11 +18,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/now", label: "Now", icon: Activity },
-  { href: "/timeline", label: "Timeline", icon: Clock },
-  { href: "/approvals", label: "Approvals", icon: ShieldCheck },
+  { href: "/now", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/docs", label: "Docs", icon: FileText },
   { href: "/open-chat", label: "Chat", icon: MessageSquare },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/timeline", label: "Activity", icon: Clock },
 ];
 
 type AgentStatus = "running" | "stopped" | "pending";

@@ -3,23 +3,23 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Activity,
-  Clock,
-  ShieldCheck,
-  MessageSquare,
+  LayoutDashboard,
+  CheckSquare,
   FileText,
+  MessageSquare,
+  Clock,
   Settings,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 const navItems = [
-  { href: "/now", label: "Now", icon: Activity },
-  { href: "/timeline", label: "Timeline", icon: Clock },
-  { href: "/approvals", label: "Approvals", icon: ShieldCheck },
+  { href: "/now", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/docs", label: "Docs", icon: FileText },
   { href: "/open-chat", label: "Chat", icon: MessageSquare },
-  { href: "/files", label: "Files", icon: FileText },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/timeline", label: "Activity", icon: Clock },
 ];
 
 export function DashboardSidebar() {
@@ -39,7 +39,9 @@ export function DashboardSidebar() {
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            pathname === item.href ||
+            (item.href === "/now" && pathname === "/");
           return (
             <Link
               key={item.href}
@@ -58,18 +60,35 @@ export function DashboardSidebar() {
             </Link>
           );
         })}
-        <button
-          onClick={handleLogout}
-          className={cn(
-            "mt-auto flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-            "text-sidebar-foreground/70",
-          )}
-        >
-          <LogOut className="h-4 w-4" />
-          Log out
-        </button>
+
+        {/* Spacer + Advanced section */}
+        <div className="mt-auto flex flex-col gap-1">
+          <Separator className="my-2" />
+          <a
+            href="/chat/"
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              "text-sidebar-foreground/50",
+            )}
+            title="Open the OpenClaw native interface for advanced settings"
+          >
+            <Settings className="h-4 w-4" />
+            Advanced
+          </a>
+          <button
+            onClick={handleLogout}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+              "text-sidebar-foreground/70",
+            )}
+          >
+            <LogOut className="h-4 w-4" />
+            Log out
+          </button>
+        </div>
       </nav>
     </aside>
   );
