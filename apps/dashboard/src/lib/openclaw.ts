@@ -251,33 +251,93 @@ export async function launchSetup(
   params: SetupLaunchParams,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // 1. Write provider, API key, and model to config
-    const configPatch: Partial<OpenClawConfig> = {
-      provider: params.provider,
-      apiKey: params.apiKey,
-      model: params.model,
-    };
+    // 1. Read existing config and update using OpenClaw's documented schema:
+    //    - env.ANTHROPIC_API_KEY or env.OPENAI_API_KEY for API keys
+    //    - agents.defaults.model.primary for model selection
+    //    This matches the format used by the admin set-key endpoint.
+    const existing = (await readConfig()) || ({} as Partial<OpenClawConfig>);
+
+    // Remove legacy top-level fields
+    delete existing.provider;
+    delete existing.apiKey;
+    delete existing.model;
+
+    // Set env with provider API key
+    const env = (existing.env as Record<string, string>) ?? {};
+    if (params.provider === "anthropic") {
+      env.ANTHROPIC_API_KEY = params.apiKey;
+    } else if (params.provider === "openai") {
+      env.OPENAI_API_KEY = params.apiKey;
+    }
+    existing.env = env;
+
+    // Set agents.defaults.model.primary as "provider/model"
+    const agents = (existing.agents as Record<string, unknown>) ?? {};
+    const defaults = (agents.defaults as Record<string, unknown>) ?? {};
+    defaults.model = { primary: `${params.provider}/${params.model}` };
+    agents.defaults = defaults;
+    existing.agents = agents as OpenClawConfig["agents"];
+
+    // Ensure gateway settings are configured
+    const gateway = (existing.gateway as Record<string, unknown>) ?? {};
+    if (!gateway.mode) {
+      gateway.mode = "local";
+    }
+    if (!gateway.auth) {
+      const { randomBytes } = await import("crypto");
+      gateway.auth = {
+        mode: "token",
+        token: randomBytes(32).toString("hex"),
+      };
+    }
+    if (!gateway.controlUi) {
+      gateway.controlUi = {
+        basePath: "/chat",
+        allowInsecureAuth: true,
+      };
+    }
+    existing.gateway = gateway;
 
     // 2. Add Telegram channel if provided
     if (params.telegramToken) {
-      configPatch.channels = {
-        telegram: {
-          enabled: true,
-          botToken: params.telegramToken,
-        },
+      const channels = (existing.channels as Record<string, unknown>) ?? {};
+      channels.telegram = {
+        enabled: true,
+        botToken: params.telegramToken,
       };
+      existing.channels = channels;
     }
 
-    await writeConfig(configPatch);
+    // Write the full config (not a shallow merge — we already merged above)
+    await writeFile(OPENCLAW_CONFIG, JSON.stringify(existing, null, 2), "utf-8");
+    await chmod(OPENCLAW_CONFIG, 0o600);
 
     // 3. Remove setup marker
     await removeSetupMarker();
 
-    // 4. The dashboard IS the agent runtime — no separate daemon to start.
-    // Once config is written, the chat API will use it to call the LLM.
-    // Verify the config is readable.
+    // 4. Restart OpenClaw service so it picks up the new config
+    try {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execPromise = promisify(exec);
+      const serviceNames = ["capable-openclaw", "openclaw-gateway"];
+      for (const svcName of serviceNames) {
+        try {
+          await execPromise(`systemctl restart ${svcName} 2>/dev/null || systemctl --user restart ${svcName} 2>/dev/null`);
+          break;
+        } catch {
+          // Service might not exist under this name, try next
+        }
+      }
+    } catch {
+      // Best-effort restart — gateway may need manual restart
+    }
+
+    // 5. Verify the config is readable
     const config = await readConfig();
-    if (config?.provider && config?.apiKey && config?.model) {
+    const verifyEnv = config?.env as Record<string, string> | undefined;
+    const hasKey = verifyEnv?.ANTHROPIC_API_KEY || verifyEnv?.OPENAI_API_KEY;
+    if (hasKey) {
       return { success: true };
     }
 
