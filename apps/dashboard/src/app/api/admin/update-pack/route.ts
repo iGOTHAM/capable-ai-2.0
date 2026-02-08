@@ -8,7 +8,7 @@ import {
   cpSync,
   readdirSync,
 } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, resolve, normalize } from "path";
 
 /**
  * POST /api/admin/update-pack
@@ -97,7 +97,19 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const filePath = join(workspacePath, filename);
+      // Prevent path traversal attacks — reject filenames with ".." or absolute paths
+      const normalized = normalize(filename);
+      if (normalized.startsWith("..") || normalized.includes("/../") || filename.startsWith("/")) {
+        console.error(`Rejecting suspicious filename: ${filename}`);
+        continue;
+      }
+
+      const filePath = resolve(join(workspacePath, filename));
+      // Double-check the resolved path is still inside the workspace
+      if (!filePath.startsWith(resolve(workspacePath))) {
+        console.error(`Path traversal blocked: ${filename} resolved to ${filePath}`);
+        continue;
+      }
       const fileDir = dirname(filePath);
 
       // Ensure directory exists

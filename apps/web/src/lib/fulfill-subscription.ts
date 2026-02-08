@@ -135,8 +135,15 @@ export async function handleSubscriptionCanceled(
   // Deactivate all user deployments, destroy droplets, and clean up DNS
   for (const project of subscription.user.projects) {
     if (project.deployment) {
-      // Destroy DigitalOcean droplet if one exists
-      if (project.deployment.dropletId && doToken) {
+      // Skip already-deactivated deployments
+      if (project.deployment.status === "DEACTIVATED") continue;
+
+      // Only destroy auto-deployed droplets (not manually managed ones)
+      if (
+        project.deployment.dropletId &&
+        doToken &&
+        project.deployment.deployMethod === "auto"
+      ) {
         try {
           await destroyDroplet(doToken, project.deployment.dropletId);
         } catch (err) {
@@ -165,6 +172,7 @@ export async function handleSubscriptionCanceled(
           status: "DEACTIVATED",
           cloudflareRecordId: null,
           dropletId: null,
+          dropletIp: null,
         },
       });
     }

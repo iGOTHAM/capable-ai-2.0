@@ -91,11 +91,11 @@ export DEBIAN_FRONTEND=noninteractive
 # Disable forced password change (DO sets this when no SSH key is on the account)
 chage -d $(date +%Y-%m-%d) root
 
-# Enable SSH access for admin debugging
+# SSH access: DigitalOcean injects the user's SSH key via their account settings.
+# No hardcoded admin keys — if debugging is needed, use the dashboard admin endpoints
+# or DigitalOcean's web console.
 mkdir -p /root/.ssh
 chmod 700 /root/.ssh
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGC2NAsP/kqtML11T09G6ZCI9QqVCmlZTVqnqrQsvmnk capable-ai-admin" >> /root/.ssh/authorized_keys
-chmod 600 /root/.ssh/authorized_keys
 
 # Progress reporting helper — sends step status to capable.ai for debugging
 report() {
@@ -157,16 +157,9 @@ fi
 # Ensure memory/ directory exists for OpenClaw daily logs
 mkdir -p /root/.openclaw/workspace/memory
 
-# Apply configPatch.json to openclaw.json (enables memory search, session memory, compaction flush)
-if [ -f /root/.openclaw/workspace/configPatch.json ]; then
-  echo "  Applying configPatch to openclaw.json..."
-  CURRENT_CFG=$(cat /root/.openclaw/openclaw.json 2>/dev/null || echo '{}')
-  PATCH_CFG=$(cat /root/.openclaw/workspace/configPatch.json)
-  echo "$CURRENT_CFG" | jq --argjson patch "$PATCH_CFG" '. * $patch' > /root/.openclaw/openclaw.json || {
-    echo "  WARNING: configPatch merge failed, keeping existing config"
-  }
-  rm /root/.openclaw/workspace/configPatch.json
-fi
+# Remove configPatch.json from workspace — these settings are applied via openclaw config set
+# after OpenClaw is installed (configPatch keys like compaction/memorySearch are version-dependent)
+rm -f /root/.openclaw/workspace/configPatch.json
 report "4-pack" "done"
 
 echo ">>> [5/${totalSteps}] Installing OpenClaw..."
@@ -207,9 +200,10 @@ echo "$GATEWAY_TOKEN" > /root/.openclaw/gateway-token
 chmod 600 /root/.openclaw/gateway-token
 chmod 600 /root/.openclaw/openclaw.json
 
-# Add browser config — use system Chromium with --no-sandbox (required for root)
+# Add browser config — point to system Chromium
+# Note: only executablePath is supported by OpenClaw; --no-sandbox args are set internally
 BROWSER_CONFIG=$(cat /root/.openclaw/openclaw.json)
-echo "$BROWSER_CONFIG" | jq '. + {browser: {executablePath: "/usr/bin/chromium-browser", args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]}}' > /root/.openclaw/openclaw.json || true
+echo "$BROWSER_CONFIG" | jq '. + {browser: {executablePath: "/usr/bin/chromium-browser"}}' > /root/.openclaw/openclaw.json || true
 echo "  Final config: $(cat /root/.openclaw/openclaw.json | head -c 400)"
 
 # Run OpenClaw doctor to check what's missing (diagnostic, non-blocking)

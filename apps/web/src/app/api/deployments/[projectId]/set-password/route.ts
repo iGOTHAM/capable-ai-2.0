@@ -93,62 +93,68 @@ export async function POST(
     );
   }
 
-  // Determine the dashboard URL
-  const dashboardUrl = deployment.subdomain
-    ? `https://${deployment.subdomain}.capable.ai`
-    : deployment.dropletIp
-      ? `http://${deployment.dropletIp}:3100`
-      : null;
+  // Determine dashboard URLs to try (HTTPS subdomain first, then direct IP fallback)
+  const urls: string[] = [];
+  if (deployment.subdomain) {
+    urls.push(`https://${deployment.subdomain}.capable.ai`);
+  }
+  if (deployment.dropletIp) {
+    urls.push(`http://${deployment.dropletIp}:3100`);
+  }
 
-  if (!dashboardUrl) {
+  if (urls.length === 0) {
     return NextResponse.json(
       { error: "Cannot determine dashboard URL" },
       { status: 500 }
     );
   }
 
-  // Call the dashboard's admin endpoint to set the new password
-  try {
-    const response = await fetch(`${dashboardUrl}/api/admin/set-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Secret": adminSecret,
-      },
-      body: JSON.stringify({ password }),
-      // Timeout after 10 seconds
-      signal: AbortSignal.timeout(10000),
-    });
+  // Call the dashboard's admin endpoint to set the new password (try each URL)
+  let lastError: unknown;
+  for (const dashboardUrl of urls) {
+    try {
+      const response = await fetch(`${dashboardUrl}/api/admin/set-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Secret": adminSecret,
+        },
+        body: JSON.stringify({ password }),
+        signal: AbortSignal.timeout(10000),
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(
-        data.error || `Dashboard returned ${response.status}`
-      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.error || `Dashboard returned ${response.status}`
+        );
+      }
+
+      // Success — update the password in our database
+      await db.deployment.update({
+        where: { id: deployment.id },
+        data: {
+          heartbeatData: {
+            ...heartbeatData,
+            dashboardPassword: password,
+          },
+        },
+      });
+
+      return NextResponse.json({ success: true });
+    } catch (err) {
+      console.error(`Failed to set password via ${dashboardUrl}:`, err);
+      lastError = err;
     }
-  } catch (err) {
-    console.error("Failed to set password on dashboard:", err);
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to contact dashboard. Is it running?",
-      },
-      { status: 500 }
-    );
   }
 
-  // Update the password in our database
-  await db.deployment.update({
-    where: { id: deployment.id },
-    data: {
-      heartbeatData: {
-        ...heartbeatData,
-        dashboardPassword: password,
-      },
+  return NextResponse.json(
+    {
+      error:
+        lastError instanceof Error
+          ? lastError.message
+          : "Failed to contact dashboard. Is it running?",
     },
-  });
-
-  return NextResponse.json({ success: true });
+    { status: 500 }
+  );
 }

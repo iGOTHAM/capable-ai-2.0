@@ -91,14 +91,16 @@ export async function POST(
     );
   }
 
-  // Determine the dashboard URL
-  const dashboardUrl = deployment.subdomain
-    ? `https://${deployment.subdomain}.capable.ai`
-    : deployment.dropletIp
-      ? `http://${deployment.dropletIp}:3100`
-      : null;
+  // Determine dashboard URLs to try (HTTPS subdomain first, then direct IP fallback)
+  const urls: string[] = [];
+  if (deployment.subdomain) {
+    urls.push(`https://${deployment.subdomain}.capable.ai`);
+  }
+  if (deployment.dropletIp) {
+    urls.push(`http://${deployment.dropletIp}:3100`);
+  }
 
-  if (!dashboardUrl) {
+  if (urls.length === 0) {
     return NextResponse.json(
       { error: "Cannot determine dashboard URL" },
       { status: 500 }
@@ -108,51 +110,56 @@ export async function POST(
   // Get pack files
   const files = latestPack.files as Record<string, string>;
 
-  // Call the dashboard's admin endpoint to update the pack
-  try {
-    const response = await fetch(`${dashboardUrl}/api/admin/update-pack`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Secret": adminSecret,
-      },
-      body: JSON.stringify({
-        files,
-        version: latestPack.version,
-      }),
-      // Timeout after 30 seconds (pack files can be large)
-      signal: AbortSignal.timeout(30000),
-    });
+  // Call the dashboard's admin endpoint to update the pack (try each URL)
+  let lastError: unknown;
+  for (const dashboardUrl of urls) {
+    try {
+      const response = await fetch(`${dashboardUrl}/api/admin/update-pack`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Secret": adminSecret,
+        },
+        body: JSON.stringify({
+          files,
+          version: latestPack.version,
+        }),
+        // Timeout after 30 seconds (pack files can be large)
+        signal: AbortSignal.timeout(30000),
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(
-        data.error || `Dashboard returned ${response.status}`
-      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.error || `Dashboard returned ${response.status}`
+        );
+      }
+
+      // Success — update the active pack version in our database
+      await db.deployment.update({
+        where: { id: deployment.id },
+        data: {
+          activePackVer: latestPack.version,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        version: latestPack.version,
+      });
+    } catch (err) {
+      console.error(`Failed to push pack via ${dashboardUrl}:`, err);
+      lastError = err;
     }
-  } catch (err) {
-    console.error("Failed to push pack to dashboard:", err);
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to contact dashboard. Is it running?",
-      },
-      { status: 500 }
-    );
   }
 
-  // Update the active pack version in our database
-  await db.deployment.update({
-    where: { id: deployment.id },
-    data: {
-      activePackVer: latestPack.version,
+  return NextResponse.json(
+    {
+      error:
+        lastError instanceof Error
+          ? lastError.message
+          : "Failed to contact dashboard. Is it running?",
     },
-  });
-
-  return NextResponse.json({
-    success: true,
-    version: latestPack.version,
-  });
+    { status: 500 }
+  );
 }

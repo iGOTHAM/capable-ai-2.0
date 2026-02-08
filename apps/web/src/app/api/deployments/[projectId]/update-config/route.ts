@@ -104,55 +104,60 @@ export async function POST(
     );
   }
 
-  // Determine the dashboard URL
-  const dashboardUrl = deployment.subdomain
-    ? `https://${deployment.subdomain}.capable.ai`
-    : deployment.dropletIp
-      ? `http://${deployment.dropletIp}:3100`
-      : null;
+  // Determine dashboard URLs to try (HTTPS subdomain first, then direct IP fallback)
+  const urls: string[] = [];
+  if (deployment.subdomain) {
+    urls.push(`https://${deployment.subdomain}.capable.ai`);
+  }
+  if (deployment.dropletIp) {
+    urls.push(`http://${deployment.dropletIp}:3100`);
+  }
 
-  if (!dashboardUrl) {
+  if (urls.length === 0) {
     return NextResponse.json(
       { error: "Cannot determine dashboard URL" },
       { status: 500 }
     );
   }
 
-  // Call the dashboard's admin endpoint to update config
-  let changes: string[] = [];
-  try {
-    const response = await fetch(`${dashboardUrl}/api/admin/update-config`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Secret": adminSecret,
-      },
-      body: JSON.stringify({ skills }),
-      // Timeout after 10 seconds
-      signal: AbortSignal.timeout(10000),
-    });
+  // Call the dashboard's admin endpoint to update config (try each URL)
+  let lastError: unknown;
+  for (const dashboardUrl of urls) {
+    try {
+      const response = await fetch(`${dashboardUrl}/api/admin/update-config`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Secret": adminSecret,
+        },
+        body: JSON.stringify({ skills }),
+        signal: AbortSignal.timeout(10000),
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(
-        data.error || `Dashboard returned ${response.status}`
-      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.error || `Dashboard returned ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      const changes = data.changes || [];
+
+      return NextResponse.json({ success: true, changes });
+    } catch (err) {
+      console.error(`Failed to update config via ${dashboardUrl}:`, err);
+      lastError = err;
     }
-
-    const data = await response.json();
-    changes = data.changes || [];
-  } catch (err) {
-    console.error("Failed to update config on dashboard:", err);
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to contact dashboard. Is it running?",
-      },
-      { status: 500 }
-    );
   }
 
-  return NextResponse.json({ success: true, changes });
+  return NextResponse.json(
+    {
+      error:
+        lastError instanceof Error
+          ? lastError.message
+          : "Failed to contact dashboard. Is it running?",
+    },
+    { status: 500 }
+  );
 }

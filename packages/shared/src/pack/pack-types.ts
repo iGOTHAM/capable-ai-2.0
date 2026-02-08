@@ -24,33 +24,15 @@ export interface PackFiles {
   "configPatch.json": string;
 }
 
+// ConfigPatch is reserved for future OpenClaw config overrides.
+// OpenClaw v2026.2.x validates its config strictly — only known keys are allowed.
+// The keys we originally wanted (compaction, memorySearch) are not recognized.
+// When OpenClaw adds support for these features, we can add them back here.
 export interface ConfigPatch {
-  compaction: {
-    memoryFlush: {
-      enabled: boolean;
-    };
-  };
-  memorySearch: {
-    experimental: {
-      sessionMemory: boolean;
-    };
-    sources: string[];
-  };
+  [key: string]: unknown;
 }
 
-export const DEFAULT_CONFIG_PATCH: ConfigPatch = {
-  compaction: {
-    memoryFlush: {
-      enabled: true,
-    },
-  },
-  memorySearch: {
-    experimental: {
-      sessionMemory: true,
-    },
-    sources: ["memory", "sessions", "knowledge"],
-  },
-};
+export const DEFAULT_CONFIG_PATCH: ConfigPatch = {};
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
   pe: "Private Equity",
