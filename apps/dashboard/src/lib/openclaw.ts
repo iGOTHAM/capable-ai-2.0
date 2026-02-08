@@ -296,6 +296,10 @@ export async function launchSetup(
         allowInsecureAuth: true,
       };
     }
+    // Trust Caddy reverse proxy headers (both IPv4 and IPv6 loopback)
+    if (!gateway.trustedProxies) {
+      gateway.trustedProxies = ["127.0.0.1", "::1"];
+    }
     existing.gateway = gateway;
 
     // 2. Add Telegram channel if provided
@@ -320,13 +324,14 @@ export async function launchSetup(
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
       const execPromise = promisify(exec);
+      // Restart ALL possible gateway service names — both may exist
+      // (onboard creates openclaw-gateway, cloud-init creates capable-openclaw)
       const serviceNames = ["capable-openclaw", "openclaw-gateway"];
       for (const svcName of serviceNames) {
         try {
           await execPromise(`systemctl restart ${svcName} 2>/dev/null || systemctl --user restart ${svcName} 2>/dev/null`);
-          break;
         } catch {
-          // Service might not exist under this name, try next
+          // Service might not exist under this name, that's fine
         }
       }
     } catch {

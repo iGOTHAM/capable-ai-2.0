@@ -121,6 +121,12 @@ export async function POST(req: NextRequest) {
         allowInsecureAuth: true,
       };
     }
+    // Trust Caddy reverse proxy headers (both IPv4 and IPv6 loopback)
+    // Without this, OpenClaw logs "Proxy headers detected from untrusted address"
+    // and refuses to treat Caddy-forwarded connections as local
+    if (!gateway.trustedProxies) {
+      gateway.trustedProxies = ["127.0.0.1", "::1"];
+    }
     config.gateway = gateway;
 
     // Ensure config directory exists
@@ -147,15 +153,15 @@ export async function POST(req: NextRequest) {
     let serviceStatus = "unknown";
     let journalOutput = "";
 
-    // Try restarting both possible service names
+    // Restart ALL possible gateway service names — both may exist
+    // (onboard creates openclaw-gateway, cloud-init creates capable-openclaw)
+    // Don't break on first success — restart all to avoid stale processes
     const serviceNames = ["capable-openclaw", "openclaw-gateway"];
     for (const svcName of serviceNames) {
       try {
-        // Try system-level first
         await execPromise(`systemctl restart ${svcName} 2>/dev/null || systemctl --user restart ${svcName} 2>/dev/null`);
-        break;
       } catch {
-        // Service might not exist under this name, try next
+        // Service might not exist under this name, that's fine
       }
     }
 

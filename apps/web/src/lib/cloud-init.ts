@@ -191,9 +191,9 @@ fi
 # 2. "Gateway auth is set to token, but no token is configured"
 GATEWAY_TOKEN=$(openssl rand -hex 32)
 CURRENT_CONFIG=$(cat /root/.openclaw/openclaw.json)
-echo "$CURRENT_CONFIG" | jq --arg token "$GATEWAY_TOKEN" '. + {gateway: (.gateway // {} | . + {mode: "local", auth: {mode: "token", token: $token}, controlUi: {basePath: "/chat", allowInsecureAuth: true}})}' > /root/.openclaw/openclaw.json || {
+echo "$CURRENT_CONFIG" | jq --arg token "$GATEWAY_TOKEN" '. + {gateway: (.gateway // {} | . + {mode: "local", auth: {mode: "token", token: $token}, controlUi: {basePath: "/chat", allowInsecureAuth: true}, trustedProxies: ["127.0.0.1", "::1"]})}' > /root/.openclaw/openclaw.json || {
   # If jq merge fails (e.g., current config isn't valid JSON), write a known-good config
-  echo '{"gateway":{"mode":"local","auth":{"mode":"token","token":"'"$GATEWAY_TOKEN"'"},"controlUi":{"basePath":"/chat","allowInsecureAuth":true}}}' > /root/.openclaw/openclaw.json
+  echo '{"gateway":{"mode":"local","auth":{"mode":"token","token":"'"$GATEWAY_TOKEN"'"},"controlUi":{"basePath":"/chat","allowInsecureAuth":true},"trustedProxies":["127.0.0.1","::1"]}}' > /root/.openclaw/openclaw.json
 }
 # Save gateway token for reference
 echo "$GATEWAY_TOKEN" > /root/.openclaw/gateway-token
@@ -208,6 +208,17 @@ echo "  Final config: $(cat /root/.openclaw/openclaw.json | head -c 400)"
 
 # Run OpenClaw doctor to check what's missing (diagnostic, non-blocking)
 $OPENCLAW_BIN doctor 2>&1 | head -30 || true
+
+# CRITICAL: Restart any gateway that was started by onboard with a DIFFERENT token.
+# The onboard step may have started the gateway with its own default token. We just
+# overwrote the config with OUR token, so the running process has a stale token in memory.
+# Without this restart, the gateway rejects all connections with "token_mismatch".
+echo "  Restarting gateway to pick up final config (token + trustedProxies)..."
+systemctl restart capable-openclaw 2>/dev/null || true
+systemctl --user restart openclaw-gateway 2>/dev/null || true
+# Give the gateway a moment before the port verification loop below
+sleep 3
+
 report "5-openclaw-config" "done"
 
 echo ">>> [6/${totalSteps}] Applying security hardening..."
