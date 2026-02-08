@@ -5,6 +5,10 @@ import {
   KNOWLEDGE_TEMPLATES,
   DEFAULT_CONFIG_PATCH,
   PERSONALITY_TONES,
+  USER_TEMPLATES,
+  DIRECTIVES_TEMPLATE,
+  LESSONS_TEMPLATE,
+  PROACTIVE_WORKFLOWS,
   type TemplateId,
   type PersonalityTone,
 } from "@capable-ai/shared";
@@ -62,6 +66,15 @@ function interpolate(template: string, vars: Record<string, string | boolean | u
   return result.trim();
 }
 
+// ─── Knowledge File Descriptions ────────────────────────────────────────────
+// Human-readable descriptions for the knowledge catalog in MEMORY.md
+
+const KNOWLEDGE_DESCRIPTIONS: Record<TemplateId, string> = {
+  pe: "PE frameworks, First Look memo template, QoE red flags, diligence checklists, pipeline stages",
+  realestate: "RE investment memo template, due diligence checklist, key formulas (Cap Rate, NOI, DSCR, GRM), property type primers",
+  general: "Research framework, analysis templates (SWOT, cost-benefit, decision matrix, risk assessment), writing templates",
+};
+
 // ─── Pack Generation ────────────────────────────────────────────────────────
 
 export function generatePackFiles(input: GeneratePackInput): Record<string, string> {
@@ -85,6 +98,7 @@ export function generatePackFiles(input: GeneratePackInput): Record<string, stri
     userName,
     userRole,
     description: description || "",
+    dateStr,
     // Flatten business context into top-level vars
     ...(businessContext || {}),
     // Flag for conditional context block — empty string means false for {{#if}}
@@ -114,13 +128,118 @@ export function generatePackFiles(input: GeneratePackInput): Record<string, stri
     agentsMd += `\n\n## Never Rules\nThese are absolute prohibitions:\n${neverRules.map((r) => `- ${r}`).join("\n")}`;
   }
 
+  // ─── USER.md ──────────────────────────────────────────────────────────────
+
+  let userMd = interpolate(USER_TEMPLATES[templateId], ctx);
+
+  // Append personality description if available
+  if (personality && PERSONALITY_TONES[personality]) {
+    userMd = userMd.replace(
+      "*(Communication style, timezone, preferred formats — learn through conversation)*",
+      `${PERSONALITY_TONES[personality].soulFragment}\n- *(Timezone, preferred formats — learn through conversation)*`,
+    );
+  }
+
   // ─── MEMORY.md ────────────────────────────────────────────────────────────
 
-  const memoryMd = interpolate(MEMORY_TEMPLATES[templateId], ctx);
+  let memoryMd = interpolate(MEMORY_TEMPLATES[templateId], ctx);
 
   // ─── Knowledge files ──────────────────────────────────────────────────────
 
   const knowledge = KNOWLEDGE_TEMPLATES[templateId];
+
+  // Build knowledge catalog for MEMORY.md
+  const knowledgeEntries: { path: string; description: string }[] = [];
+  knowledgeEntries.push({
+    path: knowledge.filename,
+    description: KNOWLEDGE_DESCRIPTIONS[templateId],
+  });
+
+  // Add custom knowledge files
+  const customKnowledgeFiles: Record<string, string> = {};
+  if (customKnowledge && customKnowledge.length > 0) {
+    for (const file of customKnowledge) {
+      const safeName = file.filename
+        .replace(/[^a-z0-9-_.]/gi, "-")
+        .toLowerCase();
+      customKnowledgeFiles[`knowledge/${safeName}`] = file.content;
+      knowledgeEntries.push({
+        path: `knowledge/${safeName}`,
+        description: `User-uploaded: ${file.filename} (~${Math.round(file.content.length / 1024)}KB)`,
+      });
+    }
+  }
+
+  // Append knowledge catalog to MEMORY.md
+  if (knowledgeEntries.length > 0) {
+    memoryMd += `\n\n## Knowledge Files\n| File | Description |\n|------|-------------|\n`;
+    for (const entry of knowledgeEntries) {
+      memoryMd += `| ${entry.path} | ${entry.description} |\n`;
+    }
+  }
+
+  // Append proactive workflows to MEMORY.md
+  memoryMd += `\n\n${PROACTIVE_WORKFLOWS[templateId]}`;
+
+  // ─── memory/directives.md ─────────────────────────────────────────────────
+
+  const directivesMd = DIRECTIVES_TEMPLATE;
+
+  // ─── memory/YYYY-MM-DD.md (daily log) ──────────────────────────────────────
+
+  const dailyLogMd = `# Daily Log — ${dateStr}
+
+## Status
+Pack deployed. Awaiting first interaction.
+
+## What Changed
+- Capable Pack v1 applied
+- Agent deployed and configured
+- Bootstrap events logged
+
+## Pending
+- Complete onboarding: read knowledge files, set up cron jobs
+- First conversation with user
+
+## Notes
+- This is a fresh deployment. Memory will build over time.
+- Review knowledge/ directory for domain-specific frameworks.`;
+
+  // ─── memory/lessons-learned.md ─────────────────────────────────────────────
+
+  const lessonsLearnedMd = LESSONS_TEMPLATE;
+
+  // ─── tasks.json ────────────────────────────────────────────────────────────
+
+  const tasksJson = JSON.stringify({
+    tasks: [
+      {
+        id: "onboard-001",
+        title: "Get to know the user — ask about goals, workflows, preferences",
+        status: "pending",
+        priority: "high",
+        created: dateStr,
+        context: "First interaction. Learn about the user to be more effective.",
+      },
+      {
+        id: "onboard-002",
+        title: "Read all knowledge files and summarize frameworks in MEMORY.md",
+        status: "pending",
+        priority: "high",
+        created: dateStr,
+        context: "Knowledge files are in knowledge/ — read and internalize them.",
+      },
+      {
+        id: "onboard-003",
+        title: "Set up recommended proactive workflows using cron",
+        status: "pending",
+        priority: "medium",
+        created: dateStr,
+        context: "See 'Suggested Proactive Workflows' in MEMORY.md.",
+      },
+    ],
+    completed: [],
+  }, null, 2);
 
   // ─── Bootstrap events ─────────────────────────────────────────────────────
 
@@ -150,47 +269,23 @@ export function generatePackFiles(input: GeneratePackInput): Record<string, stri
     }),
   ].join("\n");
 
-  // ─── today.md ─────────────────────────────────────────────────────────────
-
-  const todayMd = `# Today — ${dateStr}
-
-## Status
-Pack deployed. Awaiting first interaction.
-
-## What Changed
-- Capable Pack v1 applied
-- Dashboard started
-- Bootstrap events logged
-
-## Pending
-- User to provide initial context and preferences
-- Review reverse prompts in Chat
-
-## Remember
-- This is a fresh deployment. Memory will build over time.`;
-
   // ─── Assemble files ───────────────────────────────────────────────────────
 
   const files: Record<string, string> = {
     "SOUL.md": soulMd,
     "AGENTS.md": agentsMd,
     "MEMORY.md": memoryMd,
+    "USER.md": userMd,
     [knowledge.filename]: knowledge.content,
+    "memory/directives.md": directivesMd,
+    [`memory/${dateStr}.md`]: dailyLogMd,
+    "memory/lessons-learned.md": lessonsLearnedMd,
+    "tasks.json": tasksJson,
     "activity/events.ndjson": bootstrapEvents,
-    "activity/today.md": todayMd,
     "configPatch.json": JSON.stringify(DEFAULT_CONFIG_PATCH, null, 2),
+    // Add custom knowledge files
+    ...customKnowledgeFiles,
   };
-
-  // Add custom knowledge files
-  if (customKnowledge && customKnowledge.length > 0) {
-    for (const file of customKnowledge) {
-      // Sanitize filename: lowercase, alphanumeric + hyphens + dots + underscores
-      const safeName = file.filename
-        .replace(/[^a-z0-9-_.]/gi, "-")
-        .toLowerCase();
-      files[`knowledge/${safeName}`] = file.content;
-    }
-  }
 
   return files;
 }

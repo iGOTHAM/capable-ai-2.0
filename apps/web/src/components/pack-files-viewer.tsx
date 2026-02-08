@@ -16,14 +16,18 @@ interface PackFilesViewerProps {
 /** Files to display, in order. Skip operational files. */
 const FILE_ORDER = [
   "SOUL.md",
+  "USER.md",
   "AGENTS.md",
-  "knowledge/",
   "MEMORY.md",
+  "memory/directives.md",
+  "memory/lessons-learned.md",
+  "tasks.json",
+  "knowledge/",
+  "memory/",
 ];
 
 const SKIP_FILES = [
   "activity/events.ndjson",
-  "activity/today.md",
   "configPatch.json",
 ];
 
@@ -31,6 +35,14 @@ function getDisplayName(filename: string): string {
   if (filename.startsWith("knowledge/")) {
     return `Knowledge — ${filename.replace("knowledge/", "").replace(".md", "")}`;
   }
+  if (filename === "memory/directives.md") return "Standing Orders";
+  if (filename === "memory/lessons-learned.md") return "Lessons Learned";
+  if (filename.startsWith("memory/") && filename.endsWith(".md")) {
+    const dateMatch = filename.match(/memory\/(\d{4}-\d{2}-\d{2})\.md/);
+    if (dateMatch) return `Daily Log — ${dateMatch[1]}`;
+    return filename.replace("memory/", "").replace(".md", "");
+  }
+  if (filename === "tasks.json") return "Tasks";
   return filename.replace(".md", "");
 }
 

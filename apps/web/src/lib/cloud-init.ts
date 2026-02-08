@@ -147,6 +147,20 @@ rm /tmp/pack.json
 if [ -d "/root/.openclaw/workspace/activity" ]; then
   cp -r /root/.openclaw/workspace/activity/* /data/activity/ 2>/dev/null || true
 fi
+
+# Ensure memory/ directory exists for OpenClaw daily logs
+mkdir -p /root/.openclaw/workspace/memory
+
+# Apply configPatch.json to openclaw.json (enables memory search, session memory, compaction flush)
+if [ -f /root/.openclaw/workspace/configPatch.json ]; then
+  echo "  Applying configPatch to openclaw.json..."
+  CURRENT_CFG=$(cat /root/.openclaw/openclaw.json 2>/dev/null || echo '{}')
+  PATCH_CFG=$(cat /root/.openclaw/workspace/configPatch.json)
+  echo "$CURRENT_CFG" | jq --argjson patch "$PATCH_CFG" '. * $patch' > /root/.openclaw/openclaw.json || {
+    echo "  WARNING: configPatch merge failed, keeping existing config"
+  }
+  rm /root/.openclaw/workspace/configPatch.json
+fi
 report "4-pack" "done"
 
 echo ">>> [5/${totalSteps}] Installing OpenClaw..."

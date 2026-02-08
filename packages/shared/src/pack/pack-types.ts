@@ -14,9 +14,13 @@ export interface PackFiles {
   "SOUL.md": string;
   "AGENTS.md": string;
   "MEMORY.md": string;
+  "USER.md": string;
+  "memory/directives.md": string;
+  "memory/lessons-learned.md": string;
+  "tasks.json": string;
   [knowledgePath: `knowledge/${string}.md`]: string;
+  [memoryPath: `memory/${string}.md`]: string;
   "activity/events.ndjson": string;
-  "activity/today.md": string;
   "configPatch.json": string;
 }
 
@@ -44,7 +48,7 @@ export const DEFAULT_CONFIG_PATCH: ConfigPatch = {
     experimental: {
       sessionMemory: true,
     },
-    sources: ["memory", "sessions"],
+    sources: ["memory", "sessions", "knowledge"],
   },
 };
 

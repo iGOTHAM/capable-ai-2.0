@@ -71,9 +71,10 @@ export async function POST(
     );
   }
 
-  // Get admin secret from heartbeat data
+  // Get admin secret and gateway token from heartbeat data
   const heartbeatData = deployment.heartbeatData as {
     adminSecret?: string;
+    gatewayToken?: string;
   } | null;
 
   const adminSecret = heartbeatData?.adminSecret;
@@ -122,8 +123,40 @@ export async function POST(
       }
 
       // Forward the dashboard's full response (includes serviceStatus, journalOutput diagnostics)
-      const responseData = await response.json().catch(() => ({ success: true }));
-      return NextResponse.json(responseData);
+      const responseData = await response.json().catch(() => ({ success: true })) as Record<string, unknown>;
+
+      // Trigger post-install bootstrap message if gateway is active
+      // This makes the agent read its knowledge files, set up cron jobs, and confirm identity
+      if (responseData.serviceStatus === "active" && heartbeatData?.gatewayToken && deployment.subdomain) {
+        const bootstrapMessage = [
+          "You've just been deployed as a new Capable.ai agent. Complete your onboarding:",
+          "",
+          "1. Read all files in your knowledge/ directory and write a summary of key frameworks to MEMORY.md under a new '## Knowledge Summary' section",
+          "2. Review tasks.json — confirm your pending onboarding tasks and mark onboard-002 as in-progress",
+          "3. Review the 'Suggested Proactive Workflows' section in MEMORY.md — set up the recommended cron jobs using the cron tool",
+          "4. Read memory/directives.md and confirm you understand your standing orders",
+          "5. Write a brief 'Day 1' entry to today's daily log (memory/YYYY-MM-DD.md)",
+          "",
+          "Report back with: who you are, who you serve, what knowledge you have, and what cron jobs you've set up.",
+        ].join("\n");
+
+        // Fire and forget — don't block the key set response
+        // Use the OpenClaw gateway chat API
+        const gatewayUrl = `https://${deployment.subdomain}.capable.ai/chat/api/sessions/main/message`;
+        fetch(gatewayUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${heartbeatData.gatewayToken}`,
+          },
+          body: JSON.stringify({ content: bootstrapMessage }),
+          signal: AbortSignal.timeout(15000),
+        }).catch((err) => {
+          console.error("Bootstrap message failed (non-blocking):", err);
+        });
+      }
+
+      return NextResponse.json({ ...responseData, bootstrapTriggered: true });
     } catch (err) {
       console.error(`Failed to set key via ${dashboardUrl}:`, err);
       lastError = err;
