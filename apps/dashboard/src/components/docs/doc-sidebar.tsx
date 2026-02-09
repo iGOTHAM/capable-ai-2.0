@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -177,9 +177,38 @@ export function DocSidebar({
   onNewDoc,
 }: DocSidebarProps) {
   const [search, setSearch] = useState("");
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    () => new Set(docs.filter((d) => d.type === "folder").map((d) => d.path)),
-  );
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const knownFoldersRef = useRef<Set<string>>(new Set());
+
+  // Collect all folder paths recursively
+  function collectFolderPaths(entries: DocEntry[]): string[] {
+    const paths: string[] = [];
+    for (const entry of entries) {
+      if (entry.type === "folder") {
+        paths.push(entry.path);
+        if (entry.children) {
+          paths.push(...collectFolderPaths(entry.children));
+        }
+      }
+    }
+    return paths;
+  }
+
+  // Auto-expand top-level folders on first load, and auto-expand any new folders
+  useEffect(() => {
+    const allFolders = collectFolderPaths(docs);
+    const newFolders = allFolders.filter((p) => !knownFoldersRef.current.has(p));
+    if (newFolders.length > 0) {
+      setExpandedFolders((prev) => {
+        const next = new Set(prev);
+        for (const f of newFolders) {
+          next.add(f);
+        }
+        return next;
+      });
+    }
+    knownFoldersRef.current = new Set(allFolders);
+  }, [docs]);
 
   const toggleFolder = (path: string) => {
     setExpandedFolders((prev) => {
