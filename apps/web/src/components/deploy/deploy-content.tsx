@@ -694,6 +694,21 @@ export function DeployContent(props: DeployContentProps) {
                   Last heartbeat: {new Date(lastHb).toLocaleString()}
                 </p>
               )}
+              {status === "PROVISIONING" && (
+                <div className="rounded-md border bg-muted/30 px-4 py-3">
+                  <p className="text-sm font-medium">What&apos;s happening now:</p>
+                  <ol className="mt-2 list-inside list-decimal space-y-1 text-xs text-muted-foreground">
+                    <li>Creating your DigitalOcean droplet</li>
+                    <li>Installing OpenClaw and your Capable Pack</li>
+                    <li>Setting up HTTPS and your custom subdomain</li>
+                    <li>Configuring your AI agent and dashboard</li>
+                  </ol>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    This typically takes <strong className="text-foreground">3–5 minutes</strong>.
+                    The page will update automatically when your agent is ready — no need to refresh.
+                  </p>
+                </div>
+              )}
               {status !== "ACTIVE" && (
                 <Button variant="outline" size="sm" onClick={refreshStatus}>
                   <RefreshCw className="mr-1 h-3 w-3" />
