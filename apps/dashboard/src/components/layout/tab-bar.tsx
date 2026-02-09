@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const tabs = [
   { href: "/tasks", label: "Dashboard" },
   { href: "/docs", label: "Docs" },
-  { href: "/timeline", label: "Log" },
+  { href: "/timeline", label: "Activity" },
 ];
 
 export function TabBar() {

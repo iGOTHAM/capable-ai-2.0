@@ -80,16 +80,8 @@ export default function DocsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold">Documents</h1>
-        <p className="text-sm text-muted-foreground">
-          Browse and edit workspace documents. Your agent creates deliverables
-          here.
-        </p>
-      </div>
-
-      <div className="flex h-[calc(100vh-12rem)] overflow-hidden rounded-lg border">
+    <div className="-m-6 flex flex-col">
+      <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
         {/* Sidebar */}
         <div className="w-64 shrink-0">
           <DocSidebar

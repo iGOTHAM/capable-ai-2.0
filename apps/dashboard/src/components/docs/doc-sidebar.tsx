@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DocEntry } from "@/lib/docs";
 
@@ -42,18 +42,125 @@ function getDocEmoji(entry: DocEntry): string {
   return "\uD83D\uDCC4";
 }
 
-// Flatten a nested DocEntry tree into a flat list of files
-function flattenDocs(entries: DocEntry[]): DocEntry[] {
+// Flatten all files for search mode
+function flattenFiles(entries: DocEntry[]): DocEntry[] {
   const result: DocEntry[] = [];
   for (const entry of entries) {
     if (entry.type === "file") {
       result.push(entry);
     }
     if (entry.children) {
-      result.push(...flattenDocs(entry.children));
+      result.push(...flattenFiles(entry.children));
     }
   }
   return result;
+}
+
+// Recursive tree item component
+function DocTreeItem({
+  entry,
+  depth,
+  selectedPath,
+  onSelect,
+  expandedFolders,
+  toggleFolder,
+}: {
+  entry: DocEntry;
+  depth: number;
+  selectedPath: string | null;
+  onSelect: (path: string) => void;
+  expandedFolders: Set<string>;
+  toggleFolder: (path: string) => void;
+}) {
+  const isFolder = entry.type === "folder";
+  const isExpanded = expandedFolders.has(entry.path);
+  const isSelected = selectedPath === entry.path;
+  const emoji = getDocEmoji(entry);
+  const badge = CATEGORY_BADGES[entry.category];
+
+  return (
+    <>
+      <button
+        onClick={() => {
+          if (isFolder) {
+            toggleFolder(entry.path);
+          } else {
+            onSelect(entry.path);
+          }
+        }}
+        className={cn(
+          "flex w-full items-center gap-1.5 rounded-md py-1.5 pr-2 text-left transition-colors",
+          isSelected
+            ? "bg-primary/10 text-primary"
+            : "text-foreground/80 hover:bg-muted",
+        )}
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      >
+        {/* Folder chevron or spacer */}
+        {isFolder ? (
+          <ChevronRight
+            className={cn(
+              "h-3 w-3 shrink-0 text-muted-foreground transition-transform",
+              isExpanded && "rotate-90",
+            )}
+          />
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+
+        {/* Emoji */}
+        <span className="text-sm shrink-0">{emoji}</span>
+
+        {/* Name */}
+        <span
+          className={cn(
+            "flex-1 min-w-0 text-xs truncate",
+            isSelected && "font-medium",
+            isFolder && "font-medium",
+          )}
+        >
+          {entry.name}
+        </span>
+
+        {/* Category badge for files */}
+        {!isFolder && badge && (
+          <Badge
+            variant="outline"
+            className={cn(
+              "shrink-0 text-[9px] px-1.5 py-0",
+              badge.className,
+            )}
+          >
+            {badge.label}
+          </Badge>
+        )}
+
+        {/* Child count for folders */}
+        {isFolder && entry.children && entry.children.length > 0 && (
+          <span className="text-[10px] text-muted-foreground/50 shrink-0">
+            {entry.children.length}
+          </span>
+        )}
+      </button>
+
+      {/* Children */}
+      {isFolder && isExpanded && entry.children && (
+        <div>
+          {entry.children.map((child) => (
+            <DocTreeItem
+              key={child.path}
+              entry={child}
+              depth={depth + 1}
+              selectedPath={selectedPath}
+              onSelect={onSelect}
+              expandedFolders={expandedFolders}
+              toggleFolder={toggleFolder}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
 }
 
 interface DocSidebarProps {
@@ -70,24 +177,37 @@ export function DocSidebar({
   onNewDoc,
 }: DocSidebarProps) {
   const [search, setSearch] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    () => new Set(docs.filter((d) => d.type === "folder").map((d) => d.path)),
+  );
 
-  // Flatten and filter
-  const flatDocs = useMemo(() => {
-    const flat = flattenDocs(docs);
-    // Sort by modified date (newest first), then by name
-    return flat.sort((a, b) => {
-      if (a.modified && b.modified) {
-        return new Date(b.modified).getTime() - new Date(a.modified).getTime();
+  const toggleFolder = (path: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
       }
-      return a.name.localeCompare(b.name);
+      return next;
     });
-  }, [docs]);
+  };
 
-  const filteredDocs = useMemo(() => {
-    if (!search.trim()) return flatDocs;
+  // Flat file list for search mode
+  const searchResults = useMemo(() => {
+    if (!search.trim()) return [];
     const term = search.toLowerCase();
-    return flatDocs.filter((doc) => doc.name.toLowerCase().includes(term));
-  }, [flatDocs, search]);
+    return flattenFiles(docs)
+      .filter((doc) => doc.name.toLowerCase().includes(term))
+      .sort((a, b) => {
+        if (a.modified && b.modified) {
+          return new Date(b.modified).getTime() - new Date(a.modified).getTime();
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [docs, search]);
+
+  const isSearching = search.trim().length > 0;
 
   return (
     <div className="flex h-full flex-col border-r">
@@ -118,65 +238,73 @@ export function DocSidebar({
         </div>
       </div>
 
-      {/* Flat list */}
+      {/* Tree view or search results */}
       <ScrollArea className="flex-1">
-        <div className="px-2 pb-4">
-          {filteredDocs.length === 0 && (
-            <p className="py-8 text-center text-xs text-muted-foreground">
-              {search ? "No matching documents" : "No documents yet"}
-            </p>
+        <div className="px-1 pb-4">
+          {isSearching ? (
+            <>
+              {searchResults.length === 0 && (
+                <p className="py-8 text-center text-xs text-muted-foreground">
+                  No matching documents
+                </p>
+              )}
+              {searchResults.map((doc) => {
+                const isSelected = selectedPath === doc.path;
+                const badge = CATEGORY_BADGES[doc.category];
+                const emoji = getDocEmoji(doc);
+
+                return (
+                  <button
+                    key={doc.path}
+                    onClick={() => onSelect(doc.path)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors",
+                      isSelected
+                        ? "bg-primary/10 text-primary"
+                        : "text-foreground/80 hover:bg-muted",
+                    )}
+                  >
+                    <span className="text-sm shrink-0">{emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-xs truncate", isSelected && "font-medium")}>
+                        {doc.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground/50 truncate">
+                        {doc.path}
+                      </p>
+                    </div>
+                    {badge && (
+                      <Badge
+                        variant="outline"
+                        className={cn("shrink-0 text-[9px] px-1.5 py-0", badge.className)}
+                      >
+                        {badge.label}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              {docs.length === 0 && (
+                <p className="py-8 text-center text-xs text-muted-foreground">
+                  No documents yet
+                </p>
+              )}
+              {docs.map((entry) => (
+                <DocTreeItem
+                  key={entry.path}
+                  entry={entry}
+                  depth={0}
+                  selectedPath={selectedPath}
+                  onSelect={onSelect}
+                  expandedFolders={expandedFolders}
+                  toggleFolder={toggleFolder}
+                />
+              ))}
+            </>
           )}
-          {filteredDocs.map((doc) => {
-            const isSelected = selectedPath === doc.path;
-            const badge = CATEGORY_BADGES[doc.category];
-            const emoji = getDocEmoji(doc);
-
-            return (
-              <button
-                key={doc.path}
-                onClick={() => onSelect(doc.path)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors",
-                  isSelected
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground/80 hover:bg-muted",
-                )}
-              >
-                {/* Emoji */}
-                <span className="text-base shrink-0">{emoji}</span>
-
-                {/* Title + date */}
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={cn(
-                      "text-xs truncate",
-                      isSelected && "font-medium",
-                    )}
-                  >
-                    {doc.name}
-                  </p>
-                  {doc.modified && (
-                    <p className="text-[10px] text-muted-foreground/60">
-                      {new Date(doc.modified).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-
-                {/* Category badge */}
-                {badge && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "shrink-0 text-[9px] px-1.5 py-0",
-                      badge.className,
-                    )}
-                  >
-                    {badge.label}
-                  </Badge>
-                )}
-              </button>
-            );
-          })}
         </div>
       </ScrollArea>
     </div>

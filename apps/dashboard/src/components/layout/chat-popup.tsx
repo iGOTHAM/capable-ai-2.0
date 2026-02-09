@@ -1,41 +1,55 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageCircle, X, Loader2 } from "lucide-react";
+import { MessageCircle, X, Loader2, WifiOff, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function ChatPopup() {
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   const fetchToken = useCallback(async () => {
-    if (token) return; // Already have it
     setLoading(true);
-    setError(false);
+    setError(null);
+    setIframeLoaded(false);
     try {
       const res = await fetch("/api/gateway-token");
-      if (!res.ok) throw new Error("Token fetch failed");
+      if (!res.ok) {
+        if (res.status === 503) {
+          setError("Agent is not running yet. Start your agent first.");
+        } else {
+          setError("Could not connect to agent gateway.");
+        }
+        return;
+      }
       const data = await res.json();
       if (data.token) {
         setToken(data.token);
       } else {
-        setError(true);
+        setError("No gateway token available. Agent may not be configured.");
       }
     } catch {
-      setError(true);
+      setError("Network error. Check your connection.");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   // Fetch token on first open
   useEffect(() => {
-    if (open && !token && !loading) {
+    if (open && !token && !loading && !error) {
       fetchToken();
     }
-  }, [open, token, loading, fetchToken]);
+  }, [open, token, loading, error, fetchToken]);
+
+  const handleRetry = () => {
+    setToken(null);
+    setError(null);
+    fetchToken();
+  };
 
   return (
     <>
@@ -76,51 +90,64 @@ export function ChatPopup() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden relative">
             {loading && (
               <div className="flex h-full items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-col items-center gap-3">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   <p className="text-xs text-muted-foreground">
-                    Connecting...
+                    Connecting to agent...
                   </p>
                 </div>
               </div>
             )}
 
             {error && (
-              <div className="flex h-full items-center justify-center px-4">
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    Could not connect to the agent. It may still be starting up.
+              <div className="flex h-full items-center justify-center px-6">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <WifiOff className="h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {error}
                   </p>
                   <button
-                    onClick={() => {
-                      setError(false);
-                      setToken(null);
-                      fetchToken();
-                    }}
-                    className="text-xs text-primary hover:underline"
+                    onClick={handleRetry}
+                    className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
                   >
+                    <RefreshCw className="h-3 w-3" />
                     Retry
                   </button>
                   <a
                     href="/chat/"
-                    className="text-xs text-muted-foreground hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
                   >
-                    Open chat directly
+                    Open chat in new tab
                   </a>
                 </div>
               </div>
             )}
 
             {token && !loading && !error && (
-              <iframe
-                src={`/chat/?token=${token}`}
-                className="h-full w-full border-0"
-                title="Chat with your AI assistant"
-                allow="clipboard-write"
-              />
+              <>
+                {!iframeLoaded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-card">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <p className="text-xs text-muted-foreground">
+                        Loading chat...
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <iframe
+                  src={`/chat/?token=${token}`}
+                  className="h-full w-full border-0"
+                  title="Chat with your AI assistant"
+                  allow="clipboard-write"
+                  onLoad={() => setIframeLoaded(true)}
+                />
+              </>
             )}
           </div>
         </div>
