@@ -10,8 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth";
 import { getSubscription } from "@/lib/subscription-guard";
 import { db } from "@/lib/db";
+import { isSuperAdmin } from "@/lib/superadmin";
 import { SubscribeButton } from "@/components/subscribe-button";
 import { ManageSubscriptionButton } from "@/components/manage-subscription-button";
+import { UserManagementTable } from "@/components/superadmin/user-management-table";
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -19,6 +21,26 @@ export default async function SettingsPage() {
 
   const subscription = await getSubscription(user.id);
   const projectCount = await db.project.count({ where: { userId: user.id } });
+
+  // Superadmin: fetch all users
+  const isAdmin = isSuperAdmin(user.email);
+  const allUsers = isAdmin
+    ? await db.user.findMany({
+        include: {
+          subscription: true,
+          _count: { select: { projects: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+
+  const userListData = allUsers.map((u) => ({
+    id: u.id,
+    email: u.email,
+    createdAt: u.createdAt.toISOString(),
+    subscriptionStatus: u.subscription?.status ?? null,
+    projectCount: u._count.projects,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -177,6 +199,25 @@ export default async function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Super Admin Card (only for superadmin users) ── */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Super Admin</CardTitle>
+            <CardDescription>
+              Manage all users and their subscriptions.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {userListData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No users found.</p>
+            ) : (
+              <UserManagementTable users={userListData} />
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
