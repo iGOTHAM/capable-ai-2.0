@@ -1,147 +1,171 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
 import { Clock } from "lucide-react";
-import { getEventsByRun } from "@/lib/events";
+import { ActivityItem } from "@/components/activity/activity-item";
+import { ActivityFilters } from "@/components/activity/activity-filters";
 
-export const dynamic = "force-dynamic";
+interface Event {
+  ts: string;
+  runId: string;
+  type: string;
+  summary: string;
+  risk?: string;
+}
 
-const typeColors: Record<string, string> = {
-  "run.started": "default",
-  "run.finished": "default",
-  "plan.created": "secondary",
-  "tool.called": "outline",
-  "tool.result": "outline",
-  "approval.requested": "destructive",
-  "approval.resolved": "secondary",
-  "memory.write": "secondary",
-  "security.warning": "destructive",
-  error: "destructive",
-  "chat.user_message": "outline",
-  "chat.bot_message": "outline",
-  "bootstrap.completed": "default",
-};
+function getDateLabel(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const eventDate = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
 
-const typeBorderColors: Record<string, string> = {
-  "run.started": "border-l-blue-500",
-  "run.finished": "border-l-green-500",
-  "plan.created": "border-l-violet-500",
-  "tool.called": "border-l-zinc-400",
-  "tool.result": "border-l-zinc-400",
-  "approval.requested": "border-l-amber-500",
-  "approval.resolved": "border-l-green-500",
-  "memory.write": "border-l-cyan-500",
-  "security.warning": "border-l-red-500",
-  error: "border-l-red-500",
-  "chat.user_message": "border-l-zinc-300",
-  "chat.bot_message": "border-l-zinc-300",
-  "bootstrap.completed": "border-l-emerald-500",
-};
+  if (eventDate.getTime() === today.getTime()) return "Today";
+  if (eventDate.getTime() === yesterday.getTime()) return "Yesterday";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year:
+      date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
+}
 
-export default async function TimelinePage() {
-  const runMap = await getEventsByRun();
-  const runs = Array.from(runMap.entries()).reverse();
+function matchesTypeFilter(eventType: string, filter: string): boolean {
+  if (filter === "all") return true;
+  if (filter === "run")
+    return eventType === "run.started" || eventType === "run.finished";
+  if (filter === "tool")
+    return eventType === "tool.called" || eventType === "tool.result";
+  if (filter === "plan") return eventType === "plan.created";
+  if (filter === "approval")
+    return (
+      eventType === "approval.requested" ||
+      eventType === "approval.resolved"
+    );
+  if (filter === "chat")
+    return (
+      eventType === "chat.user_message" || eventType === "chat.bot_message"
+    );
+  if (filter === "memory") return eventType === "memory.write";
+  if (filter === "error")
+    return eventType === "error" || eventType === "security.warning";
+  return true;
+}
+
+function matchesDateFilter(ts: string, filter: string): boolean {
+  if (filter === "all") return true;
+  const days = parseInt(filter, 10);
+  const cutoff = Date.now() - days * 86400000;
+  return new Date(ts).getTime() >= cutoff;
+}
+
+export default function TimelinePage() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("7");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetch("/api/events")
+      .then((res) => (res.ok ? res.json() : { events: [] }))
+      .then((data) => setEvents(data.events || []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredEvents = useMemo(() => {
+    const searchLower = search.toLowerCase();
+    return events
+      .filter((e) => matchesTypeFilter(e.type, typeFilter))
+      .filter((e) => matchesDateFilter(e.ts, dateFilter))
+      .filter(
+        (e) =>
+          !search || e.summary.toLowerCase().includes(searchLower),
+      )
+      .reverse(); // newest first
+  }, [events, typeFilter, dateFilter, search]);
+
+  // Group by date
+  const groupedEvents = useMemo(() => {
+    const groups: { label: string; events: Event[] }[] = [];
+    let currentLabel = "";
+
+    for (const event of filteredEvents) {
+      const label = getDateLabel(event.ts);
+      if (label !== currentLabel) {
+        currentLabel = label;
+        groups.push({ label, events: [] });
+      }
+      groups[groups.length - 1]!.events.push(event);
+    }
+
+    return groups;
+  }, [filteredEvents]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6">
+        <ActivityFilters
+          typeFilter={typeFilter}
+          dateFilter={dateFilter}
+          search={search}
+          onTypeChange={setTypeFilter}
+          onDateChange={setDateFilter}
+          onSearchChange={setSearch}
+        />
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-20 animate-pulse rounded-xl border border-border bg-card"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-sm text-muted-foreground">
-          Agent activity feed grouped by run. Shows tool calls, plans, approvals, and chat messages.
-        </p>
-      </div>
+      <ActivityFilters
+        typeFilter={typeFilter}
+        dateFilter={dateFilter}
+        search={search}
+        onTypeChange={setTypeFilter}
+        onDateChange={setDateFilter}
+        onSearchChange={setSearch}
+      />
 
-      {runs.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-16">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <Clock className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div className="text-center">
-              <CardTitle className="text-base">No events yet</CardTitle>
-              <CardDescription className="mt-1">
-                Events will appear here as your assistant works.
-              </CardDescription>
-            </div>
-          </CardContent>
-        </Card>
+      {groupedEvents.length === 0 ? (
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-card py-16">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Clock className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-medium">No events yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Events will appear here as your assistant works.
+            </p>
+          </div>
+        </div>
       ) : (
-        runs.map(([runId, events]) => {
-          const startEvent = events.find((e) => e.type === "run.started");
-          const endEvent = events.find((e) => e.type === "run.finished");
-          const isActive = startEvent && !endEvent;
-
-          return (
-            <Card key={runId}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {isActive && (
-                      <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                    )}
-                    <CardTitle className="text-sm font-medium font-mono">
-                      {runId}
-                    </CardTitle>
-                  </div>
-                  <Badge variant="secondary" className="text-[10px]">
-                    {events.length} event{events.length !== 1 ? "s" : ""}
-                  </Badge>
-                </div>
-                <CardDescription>
-                  {new Date(events[0]!.ts).toLocaleString()}
-                  {endEvent && (
-                    <span className="ml-2">
-                      — {new Date(endEvent.ts).toLocaleString()}
-                    </span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="relative flex flex-col gap-0">
-                  {events.map((event, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-start gap-3 border-l-2 p-3 pl-4 ${
-                        typeBorderColors[event.type] ?? "border-l-zinc-300"
-                      } ${i < events.length - 1 ? "" : ""}`}
-                    >
-                      <Badge
-                        variant={
-                          (typeColors[event.type] as
-                            | "default"
-                            | "secondary"
-                            | "destructive"
-                            | "outline") ?? "outline"
-                        }
-                        className="mt-0.5 shrink-0 text-[10px]"
-                      >
-                        {event.type}
-                      </Badge>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm">{event.summary}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(event.ts).toLocaleTimeString()}
-                          {event.risk && (
-                            <Badge
-                              variant="destructive"
-                              className="ml-2 text-[9px] px-1.5 py-0"
-                            >
-                              {event.risk}
-                            </Badge>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })
+        groupedEvents.map((group) => (
+          <div key={group.label}>
+            <div className="mb-3 text-xs font-semibold text-muted-foreground">
+              {group.label}
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {group.events.map((event, i) => (
+                <ActivityItem key={`${event.runId}-${i}`} event={event} />
+              ))}
+            </div>
+          </div>
+        ))
       )}
     </div>
   );

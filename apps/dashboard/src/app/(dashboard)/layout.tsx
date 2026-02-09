@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { AgentPanel } from "@/components/layout/agent-panel";
-import { TabBar } from "@/components/layout/tab-bar";
+import { Header } from "@/components/layout/header";
 import { ChatPopup } from "@/components/layout/chat-popup";
 import { getSetupState } from "@/lib/openclaw";
 
@@ -25,18 +24,12 @@ export default async function DashboardLayout({
       >
         Skip to content
       </a>
-      <div className="flex flex-1">
-        {/* Left agent panel */}
-        <AgentPanel />
 
-        {/* Main area: tab bar + content */}
-        <div className="flex flex-1 flex-col">
-          <TabBar />
-          <main id="main-content" className="flex-1 overflow-auto p-6">
-            {children}
-          </main>
-        </div>
-      </div>
+      <Header />
+
+      <main id="main-content" className="flex-1 overflow-auto p-6">
+        {children}
+      </main>
 
       {/* Floating chat popup — available on all pages */}
       <ChatPopup />

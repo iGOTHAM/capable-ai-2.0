@@ -81,7 +81,7 @@ export default function DocsPage() {
 
   return (
     <div className="-m-6 flex flex-col">
-      <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
+      <div className="flex h-[calc(100vh-7.5rem)] overflow-hidden">
         {/* Sidebar */}
         <div className="w-64 shrink-0">
           <DocSidebar

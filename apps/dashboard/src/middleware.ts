@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const publicPaths = ["/login", "/api/auth", "/api/admin"];
+const publicPaths = ["/login", "/api/auth", "/api/admin", "/api/agent-public"];
 
 /**
  * Compute HMAC-SHA256 using Web Crypto API (Edge Runtime compatible).

@@ -407,12 +407,57 @@ export function ChatPopup() {
               </div>
             )}
 
-            {/* Connected: show messages */}
+            {/* Connected: show suggestions when empty */}
             {wsState === "connected" && messages.length === 0 && (
-              <div className="flex h-full items-center justify-center">
+              <div className="flex h-full flex-col items-center justify-center gap-5 px-4">
                 <p className="text-xs text-muted-foreground/60">
-                  Send a message to start chatting
+                  Suggested for this project:
                 </p>
+                <div className="flex w-full flex-col gap-2.5">
+                  {[
+                    { emoji: "\u{1F4CA}", text: "Summarize the financials" },
+                    { emoji: "\u26A0\uFE0F", text: "What are the key risks?" },
+                    { emoji: "\u{1F4CB}", text: "List my pending tasks" },
+                    { emoji: "\u{1F50D}", text: "Search for recent activity" },
+                  ].map((s) => (
+                    <button
+                      key={s.text}
+                      onClick={() => {
+                        setInput(s.text);
+                        // Auto-send via a microtask so the input state updates first
+                        setTimeout(() => {
+                          const text = s.text.trim();
+                          if (!text || !wsRef.current || wsState !== "connected") return;
+                          setMessages((prev) => [
+                            ...prev,
+                            { role: "user", content: text, ts: Date.now() },
+                          ]);
+                          setInput("");
+                          setSending(true);
+                          streamBufRef.current = "";
+                          const reqId = nextReqId();
+                          wsRef.current!.send(
+                            JSON.stringify({
+                              type: "req",
+                              id: reqId,
+                              method: "chat.send",
+                              params: {
+                                sessionKey: "main",
+                                message: text,
+                                deliver: false,
+                                idempotencyKey: reqId,
+                              },
+                            }),
+                          );
+                        }, 0);
+                      }}
+                      className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3 text-left text-[13px] transition-colors hover:border-primary/20 hover:bg-muted"
+                    >
+                      <span>{s.emoji}</span>
+                      <span className="text-foreground/80">{s.text}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
