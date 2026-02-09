@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Trash2, Loader2 } from "lucide-react";
-import { deleteUser } from "@/lib/admin-actions";
+import { deleteUser, toggleSubscriptionBypass } from "@/lib/admin-actions";
 
 interface UserRow {
   id: string;
@@ -32,6 +33,7 @@ interface UserRow {
   createdAt: string; // ISO string
   subscriptionStatus: string | null;
   projectCount: number;
+  subscriptionBypass: boolean;
 }
 
 function StatusBadge({ status }: { status: string | null }) {
@@ -56,6 +58,7 @@ function StatusBadge({ status }: { status: string | null }) {
 export function UserManagementTable({ users }: { users: UserRow[] }) {
   const router = useRouter();
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleDelete(userId: string) {
@@ -73,6 +76,20 @@ export function UserManagementTable({ users }: { users: UserRow[] }) {
     }
   }
 
+  async function handleToggleBypass(userId: string, enabled: boolean) {
+    setTogglingUserId(userId);
+    setError(null);
+
+    const result = await toggleSubscriptionBypass(userId, enabled);
+
+    if (result.error) {
+      setError(result.error);
+    } else {
+      router.refresh();
+    }
+    setTogglingUserId(null);
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {error && (
@@ -85,6 +102,7 @@ export function UserManagementTable({ users }: { users: UserRow[] }) {
             <TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Subscription</TableHead>
+              <TableHead className="text-center">Bypass</TableHead>
               <TableHead className="text-center">Projects</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="w-[60px]" />
@@ -98,6 +116,18 @@ export function UserManagementTable({ users }: { users: UserRow[] }) {
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={user.subscriptionStatus} />
+                </TableCell>
+                <TableCell className="text-center">
+                  <div className="flex items-center justify-center">
+                    <Switch
+                      checked={user.subscriptionBypass}
+                      onCheckedChange={(checked) =>
+                        handleToggleBypass(user.id, checked)
+                      }
+                      disabled={togglingUserId !== null}
+                      aria-label={`Toggle subscription bypass for ${user.email}`}
+                    />
+                  </div>
                 </TableCell>
                 <TableCell className="text-center">
                   {user.projectCount}

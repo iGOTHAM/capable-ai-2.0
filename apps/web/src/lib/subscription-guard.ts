@@ -2,12 +2,42 @@ import { db } from "@/lib/db";
 import type { Subscription } from "@prisma/client";
 
 /**
+ * Check if the user has subscription bypass enabled (superadmin toggle).
+ */
+async function hasSubscriptionBypass(userId: string): Promise<boolean> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionBypass: true },
+  });
+  return user?.subscriptionBypass === true;
+}
+
+/**
  * Returns the user's active subscription (ACTIVE or TRIALING),
  * or null if they don't have one.
  */
 export async function getActiveSubscription(
   userId: string,
 ): Promise<Subscription | null> {
+  // Check bypass first
+  if (await hasSubscriptionBypass(userId)) {
+    // Return a synthetic subscription so callers don't need null checks
+    return {
+      id: "bypass",
+      userId,
+      stripeCustomerId: "bypass",
+      stripeSubscriptionId: "bypass",
+      status: "ACTIVE",
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      trialEnd: null,
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Subscription;
+  }
+
   return db.subscription.findFirst({
     where: {
       userId,
@@ -68,6 +98,9 @@ export async function canCreateProject(
  * Checks whether the user can deploy (active, trialing, or grace period on past_due).
  */
 export async function canDeploy(userId: string): Promise<boolean> {
+  // Check bypass first
+  if (await hasSubscriptionBypass(userId)) return true;
+
   const subscription = await db.subscription.findUnique({
     where: { userId },
   });

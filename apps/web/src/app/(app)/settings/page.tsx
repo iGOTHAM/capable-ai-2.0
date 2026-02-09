@@ -40,6 +40,7 @@ export default async function SettingsPage() {
     createdAt: u.createdAt.toISOString(),
     subscriptionStatus: u.subscription?.status ?? null,
     projectCount: u._count.projects,
+    subscriptionBypass: u.subscriptionBypass,
   }));
 
   return (

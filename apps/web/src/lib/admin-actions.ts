@@ -13,6 +13,39 @@ export type DeleteUserResult = {
   error?: string;
 };
 
+export type ToggleBypassResult = {
+  error?: string;
+  bypassed?: boolean;
+};
+
+/**
+ * Toggle the subscriptionBypass flag for a user.
+ * Only superadmins can do this.
+ */
+export async function toggleSubscriptionBypass(
+  userId: string,
+  enabled: boolean,
+): Promise<ToggleBypassResult> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) redirect("/login");
+
+  if (!isSuperAdmin(currentUser.email)) {
+    return { error: "Unauthorized" };
+  }
+
+  const targetUser = await db.user.findUnique({ where: { id: userId } });
+  if (!targetUser) {
+    return { error: "User not found" };
+  }
+
+  await db.user.update({
+    where: { id: userId },
+    data: { subscriptionBypass: enabled },
+  });
+
+  return { bypassed: enabled };
+}
+
 /**
  * Delete a user and clean up all associated infrastructure:
  * 1. Cancel Stripe subscription
