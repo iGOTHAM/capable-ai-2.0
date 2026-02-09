@@ -83,7 +83,7 @@ export function ChatPopup() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Send connect handshake
+        // Send connect handshake — must match OpenClaw gateway schema
         const connectFrame = {
           type: "req",
           id: nextReqId(),
@@ -92,14 +92,21 @@ export function ChatPopup() {
             minProtocol: 3,
             maxProtocol: 3,
             client: {
-              id: "dashboard-chat",
+              id: "openclaw-control-ui",
               version: "1.0.0",
               platform: "web",
-              mode: "operator",
+              mode: "webchat",
             },
             role: "operator",
-            scopes: ["operator.read", "operator.write"],
+            scopes: [
+              "operator.admin",
+              "operator.approvals",
+              "operator.pairing",
+            ],
+            caps: [],
             auth: { token: gatewayToken },
+            userAgent: navigator.userAgent,
+            locale: navigator.language,
           },
         };
         ws.send(JSON.stringify(connectFrame));
@@ -109,73 +116,85 @@ export function ChatPopup() {
         try {
           const frame = JSON.parse(evt.data);
 
-          // Handle connect response
-          if (frame.type === "res" && frame.ok !== undefined) {
-            if (frame.ok) {
-              setWsState("connected");
-            } else {
-              setWsState("error");
-              setError(
-                frame.error?.message || "Failed to authenticate with agent."
-              );
+          // Handle response frames (connect result, chat.send result, etc.)
+          if (frame.type === "res") {
+            if (frame.ok !== undefined) {
+              if (frame.ok) {
+                setWsState("connected");
+              } else {
+                setWsState("error");
+                setError(
+                  frame.error?.message ||
+                    "Failed to authenticate with agent."
+                );
+              }
             }
             return;
           }
 
-          // Handle agent events (streaming response)
+          // Handle event frames from the gateway
           if (frame.type === "event") {
-            const payload = frame.payload || frame;
-            const data = payload.data || payload;
+            // Chat events — streaming response from the agent
+            if (frame.event === "chat") {
+              const payload = frame.payload;
+              if (!payload) return;
 
-            // Chat/bot message events from the run
-            if (
-              data.type === "chat.bot_message" ||
-              data.type === "agent.reply"
-            ) {
-              const text = data.summary || data.message || data.content || "";
-              if (text) {
-                finishStream(text);
+              // Extract text from OpenAI-format message
+              const extractText = (
+                msg: Record<string, unknown> | undefined
+              ): string => {
+                if (!msg) return "";
+                const content = msg.content;
+                if (typeof content === "string") return content;
+                if (Array.isArray(content)) {
+                  return content
+                    .map((c: Record<string, unknown>) =>
+                      c.type === "text" && typeof c.text === "string"
+                        ? c.text
+                        : ""
+                    )
+                    .join("");
+                }
+                return "";
+              };
+
+              if (payload.state === "delta") {
+                // Streaming — message contains full text so far
+                const text = extractText(
+                  payload.message as Record<string, unknown> | undefined
+                );
+                if (text) {
+                  updateStreamingMessage(text);
+                }
+                if (payload.runId) {
+                  currentRunIdRef.current = payload.runId;
+                }
+              } else if (payload.state === "final") {
+                // Done streaming
+                const text = extractText(
+                  payload.message as Record<string, unknown> | undefined
+                );
+                if (text) {
+                  finishStream(text);
+                } else if (streamBufRef.current) {
+                  finishStream(streamBufRef.current);
+                }
+                setSending(false);
+                currentRunIdRef.current = null;
+              } else if (
+                payload.state === "error" ||
+                payload.state === "aborted"
+              ) {
+                if (streamBufRef.current) {
+                  finishStream(streamBufRef.current);
+                }
+                setSending(false);
+                currentRunIdRef.current = null;
               }
               return;
             }
 
-            // Text delta streaming
-            if (
-              data.type === "text_delta" ||
-              data.type === "content_block_delta" ||
-              data.stream === "text"
-            ) {
-              const delta =
-                data.text || data.delta?.text || data.data || "";
-              if (delta) {
-                streamBufRef.current += delta;
-                updateStreamingMessage(streamBufRef.current);
-              }
-              return;
-            }
-
-            // Run finished
-            if (
-              data.type === "run.finished" ||
-              data.type === "agent.done"
-            ) {
-              if (streamBufRef.current) {
-                finishStream(streamBufRef.current);
-              }
-              setSending(false);
-              currentRunIdRef.current = null;
-              return;
-            }
-
-            // Agent started — reset stream buffer
-            if (
-              data.type === "run.started" ||
-              data.type === "agent.started"
-            ) {
-              streamBufRef.current = "";
-              currentRunIdRef.current = data.runId || null;
-              return;
-            }
+            // Ignore other event types (presence, cron, etc.)
           }
         } catch {
           // Ignore parse errors
@@ -275,14 +294,16 @@ export function ChatPopup() {
     setSending(true);
     streamBufRef.current = "";
 
-    // Send agent request
+    // Send chat message via OpenClaw gateway protocol
     const reqId = nextReqId();
     const frame = {
       type: "req",
       id: reqId,
-      method: "agent",
+      method: "chat.send",
       params: {
+        sessionKey: "main",
         message: text,
+        deliver: false,
         idempotencyKey: reqId,
       },
     };
