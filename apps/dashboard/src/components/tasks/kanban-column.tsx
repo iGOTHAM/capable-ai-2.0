@@ -36,7 +36,7 @@ export function KanbanColumn({
   return (
     <div
       className={cn(
-        "flex min-w-[260px] flex-col rounded-lg border bg-muted/30",
+        "flex min-w-0 flex-col rounded-lg border bg-muted/30",
         id === "archived" && !collapsed && "bg-purple-500/5 border-purple-500/20",
       )}
     >

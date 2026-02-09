@@ -67,14 +67,14 @@ export function AgentPanel() {
   };
 
   return (
-    <aside className="hidden w-[72px] shrink-0 flex-col items-center bg-sidebar py-4 lg:flex">
+    <aside className="hidden w-[180px] shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar px-4 py-6 lg:flex">
       {/* Avatar */}
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sidebar-accent text-2xl">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-sidebar-accent text-3xl">
         {info.emoji}
       </div>
 
       {/* Name */}
-      <p className="mt-2 max-w-[64px] truncate text-center text-[11px] font-semibold text-sidebar-foreground">
+      <p className="mt-3 max-w-full truncate text-center text-sm font-semibold text-sidebar-foreground">
         {info.name}
       </p>
 
@@ -87,14 +87,14 @@ export function AgentPanel() {
             info.status === "running" && "animate-pulse",
           )}
         />
-        <span className="text-[10px] text-sidebar-foreground/60">
+        <span className="text-xs text-sidebar-foreground/60">
           {statusLabels[info.status]}
         </span>
       </div>
 
       {/* Status badge */}
-      <div className="mt-2 rounded-full bg-sidebar-accent px-2 py-0.5">
-        <span className="text-[9px] font-medium text-sidebar-foreground/70">
+      <div className="mt-3 rounded-full bg-sidebar-accent px-3 py-1">
+        <span className="text-[10px] font-medium text-sidebar-foreground/70">
           {statusBadgeText[info.status]}
         </span>
       </div>
@@ -103,7 +103,7 @@ export function AgentPanel() {
       <div className="flex-1" />
 
       {/* Bottom actions */}
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex items-center gap-2">
         <a
           href="/chat/"
           className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"

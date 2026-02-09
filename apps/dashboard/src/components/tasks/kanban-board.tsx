@@ -170,7 +170,7 @@ export function KanbanBoard() {
         </div>
       )}
 
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="grid grid-cols-4 gap-4 pb-4">
         {COLUMNS.map((col) => (
           <KanbanColumn
             key={col.id}
