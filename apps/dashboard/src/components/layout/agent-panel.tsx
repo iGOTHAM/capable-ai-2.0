@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type AgentStatus = "running" | "stopped" | "pending";
@@ -103,7 +103,17 @@ export function AgentPanel() {
       <div className="flex-1" />
 
       {/* Bottom actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col items-center gap-2">
+        <a
+          href="/chat/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[10px] font-medium text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          title="Open OpenClaw Advanced UI"
+        >
+          <ExternalLink className="h-3 w-3 shrink-0" />
+          <span className="leading-tight">Advanced UI</span>
+        </a>
         <button
           onClick={handleLogout}
           className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
