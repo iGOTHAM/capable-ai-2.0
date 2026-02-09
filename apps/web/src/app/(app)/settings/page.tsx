@@ -88,10 +88,6 @@ export default async function SettingsPage() {
                     <span className="text-green-500">&#10003;</span>
                     Pack updates and regeneration
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500">&#10003;</span>
-                    7-day free trial
-                  </li>
                 </ul>
                 <div className="mt-6">
                   <SubscribeButton />

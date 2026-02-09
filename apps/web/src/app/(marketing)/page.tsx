@@ -128,14 +128,14 @@ export default function LandingPage() {
         </p>
         <div className="flex gap-3">
           <Button size="lg" asChild>
-            <Link href="/register">Start Free Trial</Link>
+            <Link href="/register">Get Started</Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
             <Link href="#superpowers">See What It Can Do</Link>
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          7-day free trial. Then $49/mo. Your server, your data.
+          $49/mo. Your server, your data. Cancel anytime.
         </p>
       </section>
 
@@ -260,7 +260,7 @@ export default function LandingPage() {
             Your Agent Is Waiting
           </h2>
           <p className="max-w-xl text-muted-foreground">
-            Start your 7-day free trial. Configure your agent in minutes.
+            Configure your agent in minutes.
             Deploy to your own infrastructure. No lock-in, cancel anytime.
           </p>
           <Button size="lg" asChild>

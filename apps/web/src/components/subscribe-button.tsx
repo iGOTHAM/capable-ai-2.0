@@ -40,7 +40,7 @@ export function SubscribeButton({ label }: { label?: string }) {
             Redirecting...
           </>
         ) : (
-          label || "Start 7-Day Free Trial"
+          label || "Subscribe — $49/month"
         )}
       </Button>
       {error && <p className="text-xs text-destructive">{error}</p>}
