@@ -123,6 +123,111 @@ export async function getAccount(
 }
 
 // ─────────────────────────────────────────────
+// SSH Keys
+// ─────────────────────────────────────────────
+
+interface DOSshKey {
+  id: number;
+  fingerprint: string;
+  public_key: string;
+  name: string;
+}
+
+/**
+ * Ensure a "capable-ai-managed" SSH key exists on the user's DO account.
+ * This is a throwaway key — its only purpose is to suppress the DO password
+ * email that users receive when a droplet is created without SSH keys.
+ * Users never SSH into their droplets (they use the web dashboard).
+ *
+ * Returns the key ID, or 0 if key setup fails (droplet still creates fine,
+ * user just gets the password email).
+ */
+async function ensureSshKey(token: string): Promise<number> {
+  try {
+    // Check if we already have a capable-ai key
+    const listRes = await fetch(`${DO_API}/account/keys?per_page=100`, {
+      headers: headers(token),
+    });
+
+    if (listRes.ok) {
+      const listData = (await listRes.json()) as { ssh_keys: DOSshKey[] };
+      const existing = listData.ssh_keys.find((k) => k.name === "capable-ai-managed");
+      if (existing) return existing.id;
+    }
+
+    // Generate an RSA-2048 key pair. We only need the public key for DO.
+    // The private key is intentionally discarded — no one SSHes into these droplets.
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["sign", "verify"],
+    );
+
+    // Export as JWK to get raw components, then encode as OpenSSH wire format
+    const jwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
+    const e = base64UrlToBytes(jwk.e!);
+    const n = base64UrlToBytes(jwk.n!);
+
+    // OpenSSH RSA wire format: [len "ssh-rsa"] [len e] [len n]
+    const keyType = new TextEncoder().encode("ssh-rsa");
+    const wireLen = 4 + keyType.length + 4 + e.length + 4 + n.length;
+    const wire = new Uint8Array(wireLen);
+    let offset = 0;
+
+    function writeBytes(data: Uint8Array) {
+      new DataView(wire.buffer).setUint32(offset, data.length);
+      offset += 4;
+      wire.set(data, offset);
+      offset += data.length;
+    }
+
+    writeBytes(keyType);
+    writeBytes(e);
+    writeBytes(n);
+
+    const sshPubKey = `ssh-rsa ${btoa(String.fromCharCode(...wire))} capable-ai-managed`;
+
+    // Upload to DO
+    const createRes = await fetch(`${DO_API}/account/keys`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify({
+        name: "capable-ai-managed",
+        public_key: sshPubKey,
+      }),
+    });
+
+    if (!createRes.ok) {
+      console.error("Failed to create SSH key on DO account:", await createRes.text());
+      return 0;
+    }
+
+    const createData = (await createRes.json()) as { ssh_key: DOSshKey };
+    return createData.ssh_key.id;
+  } catch (err) {
+    console.error("SSH key setup failed:", err);
+    return 0;
+  }
+}
+
+/** Convert a base64url string to Uint8Array. */
+function base64UrlToBytes(b64url: string): Uint8Array {
+  const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// ─────────────────────────────────────────────
 // Droplets
 // ─────────────────────────────────────────────
 
@@ -138,6 +243,9 @@ export async function createDroplet(
   token: string,
   params: CreateDropletParams,
 ): Promise<DODroplet> {
+  // Ensure an SSH key exists to suppress the DO password email
+  const sshKeyId = await ensureSshKey(token);
+
   const res = await fetch(`${DO_API}/droplets`, {
     method: "POST",
     headers: headers(token),
@@ -150,6 +258,7 @@ export async function createDroplet(
       ipv6: true,
       monitoring: true,
       tags: ["capable-ai"],
+      ...(sshKeyId ? { ssh_keys: [sshKeyId] } : {}),
     }),
   });
 
