@@ -288,16 +288,6 @@ export const DEMO_PROJECT_DETAILS: Record<string, ProjectDetail> = {
   },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────
-
-export function getProjectById(id: string): ProjectDetail | undefined {
-  return DEMO_PROJECT_DETAILS[id];
-}
-
-export function getProjectSummary(id: string): Project | undefined {
-  return DEMO_PROJECTS.find((p) => p.id === id);
-}
-
 // ─── AI Summary demo data ─────────────────────────────────────────
 
 export interface AiSummaryData {

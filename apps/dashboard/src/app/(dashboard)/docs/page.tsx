@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { DocSidebar } from "@/components/docs/doc-sidebar";
 import { DocViewer } from "@/components/docs/doc-viewer";
 import { DocCreateModal } from "@/components/docs/doc-create-modal";
-import { Loader2 } from "lucide-react";
+import { Loader2, Menu, X } from "lucide-react";
 import type { DocEntry } from "@/lib/docs";
 
 export default function DocsPage() {
@@ -16,6 +16,7 @@ export default function DocsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedPath, setSelectedPath] = useState<string | null>(initialPath);
   const [createOpen, setCreateOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const fetchDocs = useCallback(async () => {
     try {
@@ -91,21 +92,39 @@ export default function DocsPage() {
     );
   }
 
+  const handleSelectDoc = (path: string | null) => {
+    setSelectedPath(path);
+    setSidebarOpen(false); // close sidebar on mobile after selection
+  };
+
   return (
-    <div className="-m-6 flex flex-col">
+    <div className="-m-4 sm:-m-6 flex flex-col">
+      {/* Mobile sidebar toggle */}
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2 md:hidden">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground"
+        >
+          {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </button>
+        <span className="text-sm text-muted-foreground">
+          {selectedPath ? selectedPath.split("/").pop() : "Documents"}
+        </span>
+      </div>
+
       <div className="flex h-[calc(100vh-7.5rem)] overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 shrink-0">
+        {/* Sidebar — always visible on md+, toggleable on mobile */}
+        <div className={`w-64 shrink-0 ${sidebarOpen ? "block" : "hidden"} md:block`}>
           <DocSidebar
             docs={docs}
             selectedPath={selectedPath}
-            onSelect={setSelectedPath}
+            onSelect={handleSelectDoc}
             onNewDoc={() => setCreateOpen(true)}
           />
         </div>
 
-        {/* Viewer */}
-        <div className="flex-1">
+        {/* Viewer — hidden on mobile when sidebar is open */}
+        <div className={`flex-1 ${sidebarOpen ? "hidden md:block" : "block"}`}>
           <DocViewer
             path={selectedPath}
             editable={selectedDoc?.editable ?? false}

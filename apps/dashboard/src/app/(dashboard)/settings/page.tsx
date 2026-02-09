@@ -24,6 +24,10 @@ import {
   Save,
   MessageCircle,
 } from "lucide-react";
+import { AgentIdentityCard } from "@/components/settings/agent-identity-card";
+import { SoulEditorCard } from "@/components/settings/soul-editor-card";
+import { PipelineStagesCard } from "@/components/settings/pipeline-stages-card";
+import { WorkspaceInfoCard } from "@/components/settings/workspace-info-card";
 
 interface ConfigData {
   provider: string;
@@ -82,7 +86,6 @@ export default function SettingsPage() {
         setConfig(c);
         setProvider(c.provider || "");
         setModel(c.model || "");
-        // Don't set apiKey — it's masked from server
       }
 
       if (daemonRes.ok) {
@@ -211,6 +214,9 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {/* Agent Identity */}
+      <AgentIdentityCard />
+
       {/* AI Provider */}
       <Card>
         <CardHeader>
@@ -328,6 +334,12 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* SOUL.md Editor */}
+      <SoulEditorCard />
+
+      {/* Pipeline Stages */}
+      <PipelineStagesCard />
 
       {/* Channels */}
       <Card>
@@ -458,6 +470,9 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Workspace Info */}
+      <WorkspaceInfoCard />
     </div>
   );
 }

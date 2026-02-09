@@ -199,6 +199,7 @@ export function KanbanBoard() {
           className="gap-1.5 text-xs"
           onClick={handleSync}
           disabled={syncing}
+          title="Push your task board to TASKS.md so the agent can see it"
         >
           {syncing ? (
             <RefreshCw className="h-3 w-3 animate-spin" />

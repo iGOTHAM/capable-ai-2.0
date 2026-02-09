@@ -27,7 +27,7 @@ export default async function DashboardLayout({
 
       <Header />
 
-      <main id="main-content" className="flex-1 overflow-auto p-6">
+      <main id="main-content" className="flex-1 overflow-auto p-4 sm:p-6">
         {children}
       </main>
 

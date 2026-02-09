@@ -21,6 +21,7 @@ const tabs = [
   { href: "/tasks", label: "All Tasks" },
   { href: "/docs", label: "Docs" },
   { href: "/timeline", label: "Activity" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function Header() {
@@ -88,7 +89,7 @@ export function Header() {
     <>
       <header className="shrink-0 border-b border-border bg-card">
         {/* Top row: agent info + actions */}
-        <div className="flex items-center justify-between px-7 py-5">
+        <div className="flex items-center justify-between px-4 py-5 sm:px-7">
           <div className="flex items-center gap-3.5">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-2xl">
               {info.emoji}
@@ -145,7 +146,7 @@ export function Header() {
         </div>
 
         {/* Tab row */}
-        <nav className="flex items-center gap-0.5 px-7">
+        <nav className="flex items-center gap-0.5 overflow-x-auto px-4 sm:px-7 scrollbar-hide">
           {tabs.map((tab) => {
             const isActive =
               pathname === tab.href ||

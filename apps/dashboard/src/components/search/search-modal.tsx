@@ -10,8 +10,6 @@ import {
   ArrowRight,
   Command,
 } from "lucide-react";
-import { DEMO_PROJECTS } from "@/lib/demo-data";
-
 interface SearchModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,6 +24,13 @@ interface TaskResult {
   id: string;
   title: string;
   status: string;
+}
+
+interface ProjectResult {
+  id: string;
+  name: string;
+  category: string;
+  metric: { label: string; value: string };
 }
 
 interface SearchResult {
@@ -43,10 +48,11 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const [query, setQuery] = useState("");
   const [docs, setDocs] = useState<DocResult[]>([]);
   const [tasks, setTasks] = useState<TaskResult[]>([]);
+  const [projects, setProjects] = useState<ProjectResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  // Fetch docs + tasks on open
+  // Fetch docs + tasks + projects on open
   useEffect(() => {
     if (!open) return;
     setQuery("");
@@ -78,6 +84,12 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       .then((r) => (r.ok ? r.json() : { tasks: [] }))
       .then((data) => setTasks(data.tasks || []))
       .catch(() => setTasks([]));
+
+    // Fetch projects from pipeline API
+    fetch("/api/pipeline")
+      .then((r) => (r.ok ? r.json() : { projects: [] }))
+      .then((data) => setProjects(data.projects || []))
+      .catch(() => setProjects([]));
   }, [open]);
 
   // Focus input on open
@@ -93,7 +105,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
     const items: SearchResult[] = [];
 
     // Projects
-    for (const p of DEMO_PROJECTS) {
+    for (const p of projects) {
       if (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)) {
         items.push({
           id: `project-${p.id}`,
@@ -135,7 +147,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
     }
 
     return items;
-  }, [query, docs, tasks]);
+  }, [query, docs, tasks, projects]);
 
   // Group by category
   const grouped = useMemo(() => {

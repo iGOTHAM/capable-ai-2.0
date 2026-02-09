@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,21 @@ export function DocViewer({ path, editable }: DocViewerProps) {
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hasUnsavedChanges = editing && doc && editContent !== doc.content;
+
+  // Cmd+S to save while editing
+  useEffect(() => {
+    if (!editing) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [editing, editContent, path]);
 
   // Fetch document content
   useEffect(() => {
@@ -58,6 +73,14 @@ export function DocViewer({ path, editable }: DocViewerProps) {
       })
       .finally(() => setLoading(false));
   }, [path]);
+
+  // Cancel editing with unsaved changes confirmation
+  const handleCancelEdit = useCallback(() => {
+    if (doc && editContent !== doc.content) {
+      if (!confirm("You have unsaved changes. Discard them?")) return;
+    }
+    setEditing(false);
+  }, [doc, editContent]);
 
   // Save document
   const handleSave = async () => {
@@ -136,6 +159,9 @@ export function DocViewer({ path, editable }: DocViewerProps) {
       <div className="flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2 min-w-0">
           <h3 className="text-sm font-semibold truncate">{fileName}</h3>
+          {hasUnsavedChanges && (
+            <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" title="Unsaved changes" />
+          )}
           {doc.modified && (
             <span className="text-[10px] text-muted-foreground shrink-0">
               {new Date(doc.modified).toLocaleDateString()}
@@ -163,7 +189,7 @@ export function DocViewer({ path, editable }: DocViewerProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setEditing(false)}
+              onClick={handleCancelEdit}
             >
               <X className="h-3 w-3 mr-1" />
               Cancel

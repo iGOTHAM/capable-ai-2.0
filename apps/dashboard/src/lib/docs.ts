@@ -81,6 +81,7 @@ const SKIP = new Set([
   ".cache",
   "activity", // NDJSON events — separate system
   "tasks.json", // managed by tasks lib
+  "pipeline.json", // managed by pipeline lib
   "configPatch.json",
 ]);
 

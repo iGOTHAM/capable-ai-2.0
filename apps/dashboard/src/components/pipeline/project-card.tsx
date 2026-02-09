@@ -1,10 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { Project } from "@/lib/demo-data";
+import type { Project } from "@/lib/pipeline";
 
 // Re-export for backward compatibility
-export type { Project } from "@/lib/demo-data";
+export type { Project } from "@/lib/pipeline";
 
 interface ProjectCardProps {
   project: Project;
