@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Upload, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { KanbanColumn } from "./kanban-column";
 import { TaskModal } from "./task-modal";
 import type { Task } from "@/lib/tasks";
@@ -28,6 +29,10 @@ export function KanbanBoard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addToStatus, setAddToStatus] = useState<Task["status"]>("pending");
+
+  // Sync state
+  const [syncing, setSyncing] = useState(false);
+  const [syncDone, setSyncDone] = useState(false);
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
@@ -154,6 +159,22 @@ export function KanbanBoard() {
     setModalOpen(true);
   };
 
+  // Sync tasks to agent workspace
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncDone(false);
+    try {
+      const res = await fetch("/api/tasks/sync", { method: "POST" });
+      if (!res.ok) throw new Error("Sync failed");
+      setSyncDone(true);
+      setTimeout(() => setSyncDone(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sync tasks");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -169,6 +190,26 @@ export function KanbanBoard() {
           {error}
         </div>
       )}
+
+      {/* Sync button row */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={handleSync}
+          disabled={syncing}
+        >
+          {syncing ? (
+            <RefreshCw className="h-3 w-3 animate-spin" />
+          ) : syncDone ? (
+            <Check className="h-3 w-3 text-green-500" />
+          ) : (
+            <Upload className="h-3 w-3" />
+          )}
+          {syncDone ? "Synced!" : "Sync to Agent"}
+        </Button>
+      </div>
 
       <div className="grid grid-cols-4 gap-4 pb-4">
         {COLUMNS.map((col) => (
