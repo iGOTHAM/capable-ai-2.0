@@ -10,6 +10,7 @@ import {
   encryptHeartbeatCredentials,
   decryptCredential,
 } from "@/lib/deployment-credentials";
+import { sendDeploymentReadyEmail } from "@/lib/email";
 
 const heartbeatSchema = z.object({
   projectToken: z.string().min(1),
@@ -92,6 +93,32 @@ export async function POST(request: NextRequest) {
       heartbeatData: encryptHeartbeatCredentials(rawHeartbeatData) as Record<string, string>,
     },
   });
+
+  // --- Email notification when deployment becomes ACTIVE (best-effort) ---
+  if (newStatus === "ACTIVE" && deployment.status !== "ACTIVE") {
+    try {
+      const project = await db.project.findUnique({
+        where: { id: deployment.projectId },
+        include: { user: { select: { email: true } } },
+      });
+
+      if (project?.user?.email) {
+        const dashboardUrl = deployment.subdomain
+          ? `https://${deployment.subdomain}.capable.ai`
+          : currentIp
+            ? `http://${currentIp}:3100`
+            : "https://capable.ai/projects";
+
+        await sendDeploymentReadyEmail(
+          project.user.email,
+          project.name,
+          dashboardUrl,
+        );
+      }
+    } catch (err) {
+      console.error("Failed to send deployment-ready email:", err);
+    }
+  }
 
   // --- DNS management (best-effort, don't fail the heartbeat) ---
   try {
