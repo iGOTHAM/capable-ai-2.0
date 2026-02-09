@@ -3,9 +3,23 @@ import { promises as fs } from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { safeCompare } from "@/lib/auth";
+import { adminLimiter } from "@/lib/rate-limit";
 
 const execAsync = promisify(exec);
-// v2: comprehensive diagnostics for OpenClaw 502 debugging
+// v3: comprehensive diagnostics with secret redaction
+
+/** Redact sensitive values from config/log strings before returning to callers */
+function redactSecrets(text: string): string {
+  return text
+    // API keys: sk-ant-..., sk-..., key-...
+    .replace(/\b(sk-ant-[a-zA-Z0-9_-]{8})[a-zA-Z0-9_-]*/g, "$1…REDACTED")
+    .replace(/\b(sk-[a-zA-Z0-9]{8})[a-zA-Z0-9]*/g, "$1…REDACTED")
+    // Hex tokens/secrets (32+ hex chars, e.g. gateway tokens, admin secrets)
+    .replace(/\b([0-9a-f]{8})[0-9a-f]{24,}\b/gi, "$1…REDACTED")
+    // Generic "key": "value" or KEY=value patterns for sensitive field names
+    .replace(/(["']?(?:api[_-]?key|secret|token|password|ANTHROPIC_API_KEY|OPENAI_API_KEY|AUTH_PASSWORD|ADMIN_SECRET)["']?\s*[:=]\s*["']?)([^"'\s,}{]{8})[^"'\s,}{]*/gi, "$1$2…REDACTED");
+}
 
 /**
  * GET /api/admin/status
@@ -28,6 +42,12 @@ const execAsync = promisify(exec);
 const startTime = Date.now();
 
 export async function GET(req: NextRequest) {
+  // Rate limit admin API calls
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!adminLimiter.check(ip)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   // Validate admin secret
   const adminSecret = process.env.ADMIN_SECRET;
   if (!adminSecret) {
@@ -38,7 +58,7 @@ export async function GET(req: NextRequest) {
   }
 
   const providedSecret = req.headers.get("X-Admin-Secret");
-  if (!providedSecret || providedSecret !== adminSecret) {
+  if (!providedSecret || !safeCompare(providedSecret, adminSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -161,12 +181,12 @@ export async function GET(req: NextRequest) {
       openclawService,
       openclawPort,
       allPorts,
-      openclawJournal,
+      openclawJournal: redactSecrets(openclawJournal),
       caddyJournal,
-      openclawConfig,
-      openclawUnitFile,
+      openclawConfig: redactSecrets(openclawConfig),
+      openclawUnitFile: redactSecrets(openclawUnitFile),
       curlLocalhost,
-      openclawDirect,
+      openclawDirect: redactSecrets(openclawDirect),
     });
   } catch (err) {
     console.error("Failed to get status:", err);

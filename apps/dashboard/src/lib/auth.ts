@@ -1,8 +1,23 @@
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 
 const COOKIE_NAME = "dashboard_auth";
 const AUTH_SECRET = process.env.AUTH_PASSWORD || "changeme";
+
+/**
+ * Constant-time string comparison to prevent timing side-channel attacks.
+ * Always compares full length regardless of where strings differ.
+ */
+export function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Compare a with itself to maintain constant time, then return false
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
 
 function makeToken(): string {
   return createHmac("sha256", AUTH_SECRET).update("dashboard-auth").digest("hex");
@@ -12,7 +27,7 @@ export async function verifyAuth(): Promise<boolean> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return false;
-  return token === makeToken();
+  return safeCompare(token, makeToken());
 }
 
 export async function setAuthCookie(): Promise<void> {
@@ -21,11 +36,11 @@ export async function setAuthCookie(): Promise<void> {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 7 * 24 * 60 * 60, // 7 days
     path: "/",
   });
 }
 
 export function checkPassword(password: string): boolean {
-  return password === AUTH_SECRET;
+  return safeCompare(password, AUTH_SECRET);
 }

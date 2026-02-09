@@ -6,6 +6,10 @@ import {
   updateDnsRecord,
   deleteDnsRecord,
 } from "@/lib/cloudflare-dns";
+import {
+  encryptHeartbeatCredentials,
+  decryptCredential,
+} from "@/lib/deployment-credentials";
 
 const heartbeatSchema = z.object({
   projectToken: z.string().min(1),
@@ -50,13 +54,34 @@ export async function POST(request: NextRequest) {
   const newStatus = status === "stopping" ? "DEACTIVATED" : "ACTIVE";
   const currentIp = dropletIp ?? deployment.dropletIp;
 
-  // Preserve existing credentials if not provided in this heartbeat
+  // Preserve existing credentials if not provided in this heartbeat.
+  // Existing data may be encrypted (new format) or plaintext (legacy).
+  // When preserving, we decrypt first so we always re-encrypt consistently.
   const existingData = deployment.heartbeatData as Record<string, unknown> | null;
-  const password = dashboardPassword ?? existingData?.dashboardPassword ?? null;
-  const secret = adminSecret ?? existingData?.adminSecret ?? null;
-  const gwToken = gatewayToken ?? existingData?.gatewayToken ?? null;
+  const password = dashboardPassword
+    ?? (typeof existingData?.dashboardPassword === "string"
+      ? decryptCredential(existingData.dashboardPassword)
+      : null);
+  const secret = adminSecret
+    ?? (typeof existingData?.adminSecret === "string"
+      ? decryptCredential(existingData.adminSecret)
+      : null);
+  const gwToken = gatewayToken
+    ?? (typeof existingData?.gatewayToken === "string"
+      ? decryptCredential(existingData.gatewayToken)
+      : null);
 
-  // Update deployment record first
+  // Build heartbeatData with plaintext credentials, then encrypt sensitive fields
+  const rawHeartbeatData: Record<string, unknown> = {
+    receivedAt: new Date().toISOString(),
+    reportedStatus: status,
+    ip: dropletIp,
+    ...(password ? { dashboardPassword: password } : {}),
+    ...(secret ? { adminSecret: secret } : {}),
+    ...(gwToken ? { gatewayToken: gwToken } : {}),
+  };
+
+  // Update deployment record first — encrypt credentials before writing to DB
   await db.deployment.update({
     where: { id: deployment.id },
     data: {
@@ -64,14 +89,7 @@ export async function POST(request: NextRequest) {
       lastHeartbeatAt: new Date(),
       dropletIp: currentIp,
       activePackVer: packVersion ?? deployment.activePackVer,
-      heartbeatData: {
-        receivedAt: new Date().toISOString(),
-        reportedStatus: status,
-        ip: dropletIp,
-        ...(password ? { dashboardPassword: password } : {}),
-        ...(secret ? { adminSecret: secret } : {}),
-        ...(gwToken ? { gatewayToken: gwToken } : {}),
-      },
+      heartbeatData: encryptHeartbeatCredentials(rawHeartbeatData) as Record<string, string>,
     },
   });
 

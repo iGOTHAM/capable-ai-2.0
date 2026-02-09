@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { getDecryptedCredentials } from "@/lib/deployment-credentials";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -67,11 +68,9 @@ export default async function ProjectDetailPage({
       ? `http://${project.deployment.dropletIp}:3100`
       : null;
 
-  // Extract heartbeat data for dashboard access
-  const heartbeatData = project.deployment?.heartbeatData as {
-    dashboardPassword?: string;
-    adminSecret?: string;
-  } | null;
+  // Extract heartbeat data for dashboard access (decrypt credentials server-side)
+  const heartbeatData = project.deployment?.heartbeatData as Record<string, unknown> | null;
+  const decryptedCreds = heartbeatData ? getDecryptedCredentials(heartbeatData) : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -281,8 +280,8 @@ export default async function ProjectDetailPage({
           projectId={projectId}
           subdomain={project.deployment.subdomain}
           dropletIp={project.deployment.dropletIp}
-          password={heartbeatData?.dashboardPassword ?? null}
-          adminSecret={heartbeatData?.adminSecret ?? null}
+          password={decryptedCreds?.dashboardPassword ?? null}
+          hasAdminSecret={!!decryptedCreds?.adminSecret}
           status={project.deployment.status}
         />
       )}
@@ -293,7 +292,7 @@ export default async function ProjectDetailPage({
           projectId={projectId}
           activePackVer={project.deployment.activePackVer}
           latestPackVer={project.packVersions[0]?.version ?? null}
-          adminSecret={heartbeatData?.adminSecret ?? null}
+          hasAdminSecret={!!decryptedCreds?.adminSecret}
           status={project.deployment.status}
         />
       )}

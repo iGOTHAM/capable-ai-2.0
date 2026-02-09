@@ -2,18 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { exec, spawn } from "child_process";
 import { promisify } from "util";
+import { safeCompare } from "@/lib/auth";
+import { adminLimiter } from "@/lib/rate-limit";
 
 const execAsync = promisify(exec);
+
+/** Only allow tarballs from our specific GitHub repository releases */
+const ALLOWED_URL_PREFIXES = [
+  "https://github.com/iGOTHAM/capable-ai-2.0/releases/",
+  "https://api.github.com/repos/iGOTHAM/capable-ai-2.0/",
+] as const;
 
 const upgradeSchema = z.object({
   tarballUrl: z
     .string()
     .url()
     .refine(
-      (url) =>
-        url.startsWith("https://github.com/") ||
-        url.startsWith("https://api.github.com/"),
-      { message: "Tarball URL must be from GitHub" }
+      (url) => ALLOWED_URL_PREFIXES.some((prefix) => url.startsWith(prefix)),
+      { message: "Tarball URL must be from the Capable.ai GitHub repository releases" }
     ),
 });
 
@@ -33,6 +39,12 @@ const upgradeSchema = z.object({
  *   500: { error: "..." }
  */
 export async function POST(req: NextRequest) {
+  // Rate limit admin API calls
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!adminLimiter.check(ip)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   // Validate admin secret
   const adminSecret = process.env.ADMIN_SECRET;
   if (!adminSecret) {
@@ -43,7 +55,7 @@ export async function POST(req: NextRequest) {
   }
 
   const providedSecret = req.headers.get("X-Admin-Secret");
-  if (!providedSecret || providedSecret !== adminSecret) {
+  if (!providedSecret || !safeCompare(providedSecret, adminSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

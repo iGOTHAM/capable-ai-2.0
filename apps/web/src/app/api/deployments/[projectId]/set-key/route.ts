@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { getDecryptedCredentials } from "@/lib/deployment-credentials";
 
 const setKeySchema = z.object({
   provider: z.enum(["anthropic", "openai"]),
@@ -71,13 +72,9 @@ export async function POST(
     );
   }
 
-  // Get admin secret and gateway token from heartbeat data
-  const heartbeatData = deployment.heartbeatData as {
-    adminSecret?: string;
-    gatewayToken?: string;
-  } | null;
-
-  const adminSecret = heartbeatData?.adminSecret;
+  // Get admin secret and gateway token from heartbeat data (decrypt from DB)
+  const heartbeatData = deployment.heartbeatData as Record<string, unknown> | null;
+  const { adminSecret, gatewayToken } = getDecryptedCredentials(heartbeatData);
   if (!adminSecret) {
     return NextResponse.json(
       { error: "Admin secret not available. Redeploy to enable this feature." },
@@ -127,7 +124,7 @@ export async function POST(
 
       // Trigger post-install bootstrap message if gateway is active
       // This makes the agent read its knowledge files, set up cron jobs, and confirm identity
-      if (responseData.serviceStatus === "active" && heartbeatData?.gatewayToken && deployment.subdomain) {
+      if (responseData.serviceStatus === "active" && gatewayToken && deployment.subdomain) {
         const bootstrapMessage = [
           "You've just been deployed as a new Capable.ai agent. Complete your onboarding:",
           "",
@@ -147,7 +144,7 @@ export async function POST(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${heartbeatData.gatewayToken}`,
+            "Authorization": `Bearer ${gatewayToken}`,
           },
           body: JSON.stringify({ content: bootstrapMessage }),
           signal: AbortSignal.timeout(15000),

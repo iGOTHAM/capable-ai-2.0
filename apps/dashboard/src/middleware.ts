@@ -22,6 +22,34 @@ async function makeExpectedToken(secret: string): Promise<string> {
     .join("");
 }
 
+/**
+ * Constant-time string comparison using Web Crypto API (Edge Runtime compatible).
+ * Prevents timing side-channel attacks on token validation.
+ */
+async function safeCompareEdge(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const keyData = enc.encode("timing-safe-compare-key");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const [sigA, sigB] = await Promise.all([
+    crypto.subtle.sign("HMAC", key, enc.encode(a)),
+    crypto.subtle.sign("HMAC", key, enc.encode(b)),
+  ]);
+  const bufA = new Uint8Array(sigA);
+  const bufB = new Uint8Array(sigB);
+  if (bufA.length !== bufB.length) return false;
+  let result = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    result |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
+  }
+  return result === 0;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -37,7 +65,8 @@ export async function middleware(request: NextRequest) {
   // Validate the HMAC token matches the current AUTH_PASSWORD
   const secret = process.env.AUTH_PASSWORD || "changeme";
   const expected = await makeExpectedToken(secret);
-  if (token !== expected) {
+  const isValid = await safeCompareEdge(token, expected);
+  if (!isValid) {
     // Clear stale/invalid cookie and redirect to login
     const response = NextResponse.redirect(
       new URL("/login", request.url),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getDecryptedCredentials } from "@/lib/deployment-credentials";
 
 export async function GET(
   request: NextRequest,
@@ -28,13 +29,14 @@ export async function GET(
   }
 
   const heartbeatData = deployment.heartbeatData as Record<string, unknown> | null;
+  const { dashboardPassword, gatewayToken } = getDecryptedCredentials(heartbeatData);
 
   return NextResponse.json({
     status: deployment.status,
     dropletIp: deployment.dropletIp,
     lastHeartbeatAt: deployment.lastHeartbeatAt?.toISOString() ?? null,
     activePackVer: deployment.activePackVer,
-    dashboardPassword: (heartbeatData?.dashboardPassword as string) ?? null,
-    gatewayToken: (heartbeatData?.gatewayToken as string) ?? null,
+    dashboardPassword,
+    gatewayToken,
   });
 }

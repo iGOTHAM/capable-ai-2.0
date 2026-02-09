@@ -3,6 +3,8 @@ import { z } from "zod";
 import { promises as fs } from "fs";
 import { exec } from "child_process";
 import path from "path";
+import { safeCompare } from "@/lib/auth";
+import { adminLimiter } from "@/lib/rate-limit";
 
 const setKeySchema = z.object({
   provider: z.enum(["anthropic", "openai"]),
@@ -26,6 +28,12 @@ const setKeySchema = z.object({
  *   500: { error: "..." }
  */
 export async function POST(req: NextRequest) {
+  // Rate limit admin API calls
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!adminLimiter.check(ip)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   // Validate admin secret
   const adminSecret = process.env.ADMIN_SECRET;
   if (!adminSecret) {
@@ -36,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   const providedSecret = req.headers.get("X-Admin-Secret");
-  if (!providedSecret || providedSecret !== adminSecret) {
+  if (!providedSecret || !safeCompare(providedSecret, adminSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

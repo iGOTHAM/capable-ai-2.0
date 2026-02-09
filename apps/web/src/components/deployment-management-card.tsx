@@ -29,7 +29,7 @@ interface DeploymentManagementCardProps {
   projectId: string;
   activePackVer: number | null;
   latestPackVer: number | null;
-  adminSecret: string | null;
+  hasAdminSecret: boolean;
   status: string;
 }
 
@@ -37,7 +37,7 @@ export function DeploymentManagementCard({
   projectId,
   activePackVer,
   latestPackVer,
-  adminSecret,
+  hasAdminSecret,
   status,
 }: DeploymentManagementCardProps) {
   const [pushingPack, setPushingPack] = useState(false);
@@ -45,7 +45,7 @@ export function DeploymentManagementCard({
   const [success, setSuccess] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
 
-  const canManage = !!adminSecret && status === "ACTIVE";
+  const canManage = hasAdminSecret && status === "ACTIVE";
   const hasPackUpdate = latestPackVer && activePackVer && latestPackVer > activePackVer;
 
   const handlePushPack = async () => {

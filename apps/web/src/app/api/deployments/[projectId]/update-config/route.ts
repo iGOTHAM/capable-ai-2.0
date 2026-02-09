@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { getDecryptedCredentials } from "@/lib/deployment-credentials";
 
 const updateConfigSchema = z.object({
   skills: z
@@ -88,12 +89,9 @@ export async function POST(
     );
   }
 
-  // Check for admin secret
-  const heartbeatData = deployment.heartbeatData as {
-    adminSecret?: string;
-  } | null;
-
-  const adminSecret = heartbeatData?.adminSecret;
+  // Check for admin secret (decrypt from DB)
+  const heartbeatData = deployment.heartbeatData as Record<string, unknown> | null;
+  const { adminSecret } = getDecryptedCredentials(heartbeatData);
   if (!adminSecret) {
     return NextResponse.json(
       {

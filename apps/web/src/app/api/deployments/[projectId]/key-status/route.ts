@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getDecryptedCredentials } from "@/lib/deployment-credentials";
 
 /**
  * GET /api/deployments/[projectId]/key-status
@@ -48,12 +49,9 @@ export async function GET(
     );
   }
 
-  // Get admin secret from heartbeat data
-  const heartbeatData = deployment.heartbeatData as {
-    adminSecret?: string;
-  } | null;
-
-  const adminSecret = heartbeatData?.adminSecret;
+  // Get admin secret from heartbeat data (decrypt from DB)
+  const heartbeatData = deployment.heartbeatData as Record<string, unknown> | null;
+  const { adminSecret } = getDecryptedCredentials(heartbeatData);
   if (!adminSecret) {
     return NextResponse.json(
       { error: "Admin secret not available" },

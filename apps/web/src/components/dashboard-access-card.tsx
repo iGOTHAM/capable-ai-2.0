@@ -28,7 +28,7 @@ interface DashboardAccessCardProps {
   subdomain: string | null;
   dropletIp: string | null;
   password: string | null;
-  adminSecret: string | null;
+  hasAdminSecret: boolean;
   status: string;
 }
 
@@ -37,7 +37,7 @@ export function DashboardAccessCard({
   subdomain,
   dropletIp,
   password,
-  adminSecret,
+  hasAdminSecret,
   status,
 }: DashboardAccessCardProps) {
   const [showPassword, setShowPassword] = useState(false);
@@ -55,7 +55,7 @@ export function DashboardAccessCard({
       ? `http://${dropletIp}:3100`
       : null;
 
-  const canChangePassword = !!adminSecret && status === "ACTIVE";
+  const canChangePassword = hasAdminSecret && status === "ACTIVE";
 
   const copyToClipboard = async (text: string, type: "url" | "password") => {
     await navigator.clipboard.writeText(text);

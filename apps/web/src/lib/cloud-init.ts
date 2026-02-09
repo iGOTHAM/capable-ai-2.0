@@ -1,13 +1,18 @@
+/** Known-good OpenClaw version — update deliberately after testing each release */
+export const OPENCLAW_VERSION = "2026.2.6-3";
+
 export interface CloudInitParams {
   appUrl: string;
   projectId: string;
   projectToken: string;
   packVersion: number;
   subdomain?: string; // e.g. "jarvis" → jarvis.capable.ai
+  openclawVersion?: string; // defaults to OPENCLAW_VERSION
 }
 
 export function generateCloudInitScript(params: CloudInitParams): string {
   const { appUrl, projectId, projectToken, packVersion, subdomain } = params;
+  const openclawVersion = params.openclawVersion ?? OPENCLAW_VERSION;
 
   // Determine the total step count and dashboard URL format based on subdomain
   const hasSub = !!subdomain;
@@ -67,9 +72,11 @@ systemctl restart caddy
 systemctl enable caddy
 
 # Open HTTP (80) + HTTPS (443) for Caddy / Cloudflare proxy
-# Keep 3100 open as fallback for admin API (set-key, push-pack, etc.)
+# Port 3100 is NOT opened — all traffic goes through Caddy with TLS.
+# Admin API (set-key, push-pack) is accessed via HTTPS subdomain, not direct IP.
 ufw allow 80/tcp
 ufw allow 443/tcp
+ufw deny 3100/tcp
 `
     : "";
 
@@ -162,12 +169,19 @@ mkdir -p /root/.openclaw/workspace/memory
 rm -f /root/.openclaw/workspace/configPatch.json
 report "4-pack" "done"
 
-echo ">>> [5/${totalSteps}] Installing OpenClaw..."
-npm install -g openclaw@latest
+echo ">>> [5/${totalSteps}] Installing OpenClaw v${openclawVersion}..."
+npm install -g openclaw@${openclawVersion}
 # Verify install & find binary
 OPENCLAW_BIN=$(npm prefix -g)/bin/openclaw
 echo "  OpenClaw binary: $OPENCLAW_BIN"
 ls -la "$OPENCLAW_BIN" || { echo "ERROR: openclaw binary not found"; report "5-openclaw" "failed" "binary not found at $OPENCLAW_BIN"; }
+
+# Verify installed version matches expected (supply chain defense)
+INSTALLED_VER=$($OPENCLAW_BIN --version 2>/dev/null || echo "unknown")
+if [ "$INSTALLED_VER" != "${openclawVersion}" ]; then
+  echo "  WARNING: Version mismatch — expected ${openclawVersion}, got $INSTALLED_VER"
+  report "5-openclaw" "warning" "version mismatch: expected ${openclawVersion}, got $INSTALLED_VER"
+fi
 
 # Run non-interactive onboarding — sets up agents dir, gateway config, auth, systemd daemon
 # --accept-risk acknowledges AI agent permissions
@@ -222,11 +236,14 @@ sleep 3
 report "5-openclaw-config" "done"
 
 echo ">>> [6/${totalSteps}] Applying security hardening..."
-# Firewall: only allow SSH (22) and Dashboard (3100)
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp
-ufw allow 3100/tcp
+${hasSub ? `# Subdomain configured: Caddy handles TLS on 80/443. Port 3100 is blocked
+# externally — only Caddy on localhost can reach the dashboard.
+# This prevents admin endpoints from being exposed over plaintext HTTP.` : `# No subdomain: dashboard accessed directly over HTTP on port 3100.
+# This is inherently less secure (no TLS) but required for IP-only access.
+ufw allow 3100/tcp`}
 ufw --force enable
 report "6-firewall" "done"
 

@@ -9,6 +9,8 @@ import {
   readdirSync,
 } from "fs";
 import { join, dirname, resolve, normalize } from "path";
+import { safeCompare } from "@/lib/auth";
+import { adminLimiter } from "@/lib/rate-limit";
 
 /**
  * POST /api/admin/update-pack
@@ -36,6 +38,12 @@ import { join, dirname, resolve, normalize } from "path";
  * history is always preserved.
  */
 export async function POST(req: NextRequest) {
+  // Rate limit admin API calls
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!adminLimiter.check(ip)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   // Validate admin secret
   const adminSecret = process.env.ADMIN_SECRET;
   if (!adminSecret) {
@@ -46,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   const providedSecret = req.headers.get("X-Admin-Secret");
-  if (providedSecret !== adminSecret) {
+  if (!providedSecret || !safeCompare(providedSecret, adminSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -90,26 +98,41 @@ export async function POST(req: NextRequest) {
       cpSync(workspacePath, backupPath, { recursive: true });
     }
 
-    // Step 2: Write new files
+    // Step 2: Validate ALL filenames before writing any files
+    const resolvedWorkspace = resolve(workspacePath);
+    const filesToWrite: Array<{ filename: string; filePath: string; content: string }> = [];
+
     for (const [filename, content] of Object.entries(files)) {
       // Skip activity files - they should never be overwritten
       if (filename.startsWith("activity/")) {
         continue;
       }
 
-      // Prevent path traversal attacks — reject filenames with ".." or absolute paths
+      // Hard reject path traversal — return 400 immediately, don't silently skip
       const normalized = normalize(filename);
       if (normalized.startsWith("..") || normalized.includes("/../") || filename.startsWith("/")) {
-        console.error(`Rejecting suspicious filename: ${filename}`);
-        continue;
+        console.error(`Path traversal attempt rejected: ${filename}`);
+        return NextResponse.json(
+          { error: `Invalid filename: path traversal detected in "${filename}"` },
+          { status: 400 }
+        );
       }
 
       const filePath = resolve(join(workspacePath, filename));
       // Double-check the resolved path is still inside the workspace
-      if (!filePath.startsWith(resolve(workspacePath))) {
+      if (!filePath.startsWith(resolvedWorkspace)) {
         console.error(`Path traversal blocked: ${filename} resolved to ${filePath}`);
-        continue;
+        return NextResponse.json(
+          { error: `Invalid filename: "${filename}" escapes workspace directory` },
+          { status: 400 }
+        );
       }
+
+      filesToWrite.push({ filename, filePath, content });
+    }
+
+    // Step 3: Write validated files
+    for (const { filePath, content } of filesToWrite) {
       const fileDir = dirname(filePath);
 
       // Ensure directory exists
@@ -121,22 +144,19 @@ export async function POST(req: NextRequest) {
       writeFileSync(filePath, content, "utf8");
     }
 
-    // Step 3: Verify files were written
-    for (const filename of Object.keys(files)) {
-      if (filename.startsWith("activity/")) continue;
-
-      const filePath = join(workspacePath, filename);
+    // Step 4: Verify files were written
+    for (const { filename, filePath } of filesToWrite) {
       if (!existsSync(filePath)) {
         throw new Error(`Failed to write file: ${filename}`);
       }
     }
 
-    // Step 4: Success - remove backup
+    // Step 5: Success - remove backup
     if (existsSync(backupPath)) {
       rmSync(backupPath, { recursive: true, force: true });
     }
 
-    // Step 5: Write version marker
+    // Step 6: Write version marker
     const versionPath = join(workspacePath, ".pack-version");
     writeFileSync(versionPath, String(version), "utf8");
 

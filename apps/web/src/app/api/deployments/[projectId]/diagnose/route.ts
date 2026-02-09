@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getDecryptedCredentials } from "@/lib/deployment-credentials";
 
 /**
  * POST /api/deployments/[projectId]/diagnose
@@ -31,8 +32,8 @@ export async function POST(
   }
 
   const deployment = project.deployment;
-  const heartbeatData = deployment.heartbeatData as { adminSecret?: string } | null;
-  const adminSecret = heartbeatData?.adminSecret;
+  const heartbeatData = deployment.heartbeatData as Record<string, unknown> | null;
+  const { adminSecret } = getDecryptedCredentials(heartbeatData);
 
   if (!adminSecret) {
     return NextResponse.json({ error: "No admin secret" }, { status: 400 });

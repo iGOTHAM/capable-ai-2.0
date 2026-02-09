@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { getDecryptedCredentials, encryptHeartbeatCredentials } from "@/lib/deployment-credentials";
 
 const setPasswordSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -76,13 +77,9 @@ export async function POST(
     );
   }
 
-  // Check for admin secret
-  const heartbeatData = deployment.heartbeatData as {
-    adminSecret?: string;
-    dashboardPassword?: string;
-  } | null;
-
-  const adminSecret = heartbeatData?.adminSecret;
+  // Check for admin secret (decrypt from DB)
+  const heartbeatData = deployment.heartbeatData as Record<string, unknown> | null;
+  const { adminSecret } = getDecryptedCredentials(heartbeatData);
   if (!adminSecret) {
     return NextResponse.json(
       {
@@ -130,14 +127,14 @@ export async function POST(
         );
       }
 
-      // Success — update the password in our database
+      // Success — update the password in our database (encrypted)
       await db.deployment.update({
         where: { id: deployment.id },
         data: {
-          heartbeatData: {
-            ...heartbeatData,
+          heartbeatData: encryptHeartbeatCredentials({
+            ...(heartbeatData ?? {}),
             dashboardPassword: password,
-          },
+          }) as Record<string, string>,
         },
       });
 

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getActiveSubscription } from "@/lib/subscription-guard";
 import { DeployContent } from "@/components/deploy/deploy-content";
+import { getDecryptedCredentials } from "@/lib/deployment-credentials";
 
 export default async function DeployPage({
   params,
@@ -48,6 +49,7 @@ export default async function DeployPage({
   const latestVersion = project.packVersions[0]?.version ?? 1;
 
   const heartbeatData = project.deployment?.heartbeatData as Record<string, unknown> | null;
+  const decryptedCreds = getDecryptedCredentials(heartbeatData);
 
   return (
     <DeployContent
@@ -68,8 +70,8 @@ export default async function DeployPage({
       doReferralUrl={doReferralUrl}
       appUrl={appUrl}
       latestPackVersion={latestVersion}
-      dashboardPassword={(heartbeatData?.dashboardPassword as string) ?? null}
-      gatewayToken={(heartbeatData?.gatewayToken as string) ?? null}
+      dashboardPassword={decryptedCreds.dashboardPassword}
+      gatewayToken={decryptedCreds.gatewayToken}
       provider={project.provider ?? null}
       aiModel={project.aiModel ?? null}
     />
