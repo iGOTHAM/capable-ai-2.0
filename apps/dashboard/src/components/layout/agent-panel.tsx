@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type AgentStatus = "running" | "stopped" | "pending";
@@ -104,13 +104,6 @@ export function AgentPanel() {
 
       {/* Bottom actions */}
       <div className="flex items-center gap-2">
-        <a
-          href="/chat/"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          title="Agent settings"
-        >
-          <Settings className="h-4 w-4" />
-        </a>
         <button
           onClick={handleLogout}
           className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"

@@ -37,7 +37,7 @@ export const CreateTaskSchema = z.object({
   title: z.string().min(1).max(200),
   notes: z.string().max(2000).optional(),
   priority: z.enum(["high", "medium", "low"]).default("medium"),
-  status: z.enum(["pending", "in-progress", "done"]).default("pending"),
+  status: z.enum(["pending", "in-progress", "done", "archived"]).default("pending"),
 });
 
 export const UpdateTaskSchema = z.object({
