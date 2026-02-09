@@ -705,7 +705,8 @@ export function DeployContent(props: DeployContentProps) {
                   </ol>
                   <p className="mt-3 text-xs text-muted-foreground">
                     This typically takes <strong className="text-foreground">3–5 minutes</strong>.
-                    The page will update automatically when your agent is ready — no need to refresh.
+                    The page will update automatically when your agent is ready.
+                    We&apos;ll also send you an email when it&apos;s live, so you can safely close this page.
                   </p>
                 </div>
               )}
