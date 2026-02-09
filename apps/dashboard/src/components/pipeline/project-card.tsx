@@ -1,26 +1,30 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import type { Project } from "@/lib/demo-data";
 
-export interface Project {
-  id: string;
-  name: string;
-  stage: string;
-  metric: { label: string; value: string };
-  category: string;
-  flags: number;
-  flagStatus: "warning" | "clean" | "info";
-  flagLabel: string;
-  taskCount: number;
-}
+// Re-export for backward compatibility
+export type { Project } from "@/lib/demo-data";
 
 interface ProjectCardProps {
   project: Project;
+  onClick?: () => void;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, onClick }: ProjectCardProps) {
   return (
-    <div className="group cursor-pointer rounded-xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:bg-accent hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
+    <div
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="group cursor-pointer rounded-xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:bg-accent hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
+    >
       <h3 className="text-[15px] font-semibold leading-tight">
         {project.name}
       </h3>

@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Pencil, Save, X, FileText, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { AiSummaryCard } from "./ai-summary-card";
+import { ExtractedMetricsCard } from "./extracted-metrics-card";
 
 interface DocViewerProps {
   path: string | null;
@@ -187,10 +189,17 @@ export function DocViewer({ path, editable }: DocViewerProps) {
             className="h-full min-h-full w-full resize-none rounded-none border-0 font-mono text-sm focus-visible:ring-0"
           />
         ) : (
-          <div className="prose prose-sm dark:prose-invert max-w-none p-4 prose-headings:text-base prose-h1:text-lg prose-h1:font-bold prose-h2:text-base prose-h2:font-semibold prose-h3:text-sm prose-h3:font-semibold prose-p:text-sm prose-p:leading-relaxed prose-li:text-sm prose-code:text-xs prose-pre:text-xs">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {doc.content}
-            </ReactMarkdown>
+          <div className="p-4 flex flex-col gap-4">
+            {/* AI Summary + Extracted Metrics cards */}
+            <AiSummaryCard path={path} />
+            <ExtractedMetricsCard path={path} />
+
+            {/* Markdown content */}
+            <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-base prose-h1:text-lg prose-h1:font-bold prose-h2:text-base prose-h2:font-semibold prose-h3:text-sm prose-h3:font-semibold prose-p:text-sm prose-p:leading-relaxed prose-li:text-sm prose-code:text-xs prose-pre:text-xs">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {doc.content}
+              </ReactMarkdown>
+            </div>
           </div>
         )}
       </div>

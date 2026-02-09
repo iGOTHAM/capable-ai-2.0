@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { DocSidebar } from "@/components/docs/doc-sidebar";
 import { DocViewer } from "@/components/docs/doc-viewer";
 import { DocCreateModal } from "@/components/docs/doc-create-modal";
@@ -8,9 +9,12 @@ import { Loader2 } from "lucide-react";
 import type { DocEntry } from "@/lib/docs";
 
 export default function DocsPage() {
+  const searchParams = useSearchParams();
+  const initialPath = searchParams.get("path");
+
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>(initialPath);
   const [createOpen, setCreateOpen] = useState(false);
 
   const fetchDocs = useCallback(async () => {
@@ -29,6 +33,14 @@ export default function DocsPage() {
   useEffect(() => {
     fetchDocs();
   }, [fetchDocs]);
+
+  // Update selectedPath when search params change (deep-linking from search)
+  useEffect(() => {
+    const pathParam = searchParams.get("path");
+    if (pathParam) {
+      setSelectedPath(pathParam);
+    }
+  }, [searchParams]);
 
   // Find the selected doc entry for editability info
   const findDoc = (
