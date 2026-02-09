@@ -45,8 +45,9 @@ model Session {
 }
 
 model VerificationToken {
-  identifier String
+  identifier String   // email address
   token      String   @unique
+  type       String   @default("email_verification") // "email_verification" | "password_reset"
   expiresAt  DateTime
 
   @@unique([identifier, token])

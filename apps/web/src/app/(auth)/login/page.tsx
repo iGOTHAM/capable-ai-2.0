@@ -63,6 +63,14 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Signing in..." : "Sign in"}
           </Button>
+          <div className="text-center">
+            <Link
+              href="/forgot-password"
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+            >
+              Forgot your password?
+            </Link>
+          </div>
         </form>
       </CardContent>
       <CardFooter className="justify-center">
