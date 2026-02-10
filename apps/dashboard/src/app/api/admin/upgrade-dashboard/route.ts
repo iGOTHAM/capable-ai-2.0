@@ -116,11 +116,21 @@ export async function POST(req: NextRequest) {
 
     // Use spawn with detached to ensure the restart command continues even after this process dies
     // Small delay to allow response to be sent (though it likely won't make it)
-    const child = spawn("sh", ["-c", "sleep 1 && systemctl restart capable-dashboard"], {
-      detached: true,
-      stdio: "ignore",
-    });
-    child.unref();
+    if (process.env.CONTAINER_MODE === "docker") {
+      // Docker mode: rebuild and restart dashboard container
+      const child = spawn("sh", ["-c", "sleep 1 && docker restart capable-dashboard"], {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+    } else {
+      // Bare-metal mode: restart systemd service
+      const child = spawn("sh", ["-c", "sleep 1 && systemctl restart capable-dashboard"], {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+    }
 
     // Try to return success, but the restart may interrupt this
     return NextResponse.json({

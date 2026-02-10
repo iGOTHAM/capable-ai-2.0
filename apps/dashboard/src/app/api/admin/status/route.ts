@@ -115,8 +115,14 @@ export async function GET(req: NextRequest) {
     let openclawUnitFile = "";
     let curlLocalhost = "";
     try {
-      const { stdout: svcStatus } = await execAsync("systemctl is-active capable-openclaw").catch(() => ({ stdout: "inactive" }));
-      openclawService = svcStatus.trim();
+      if (process.env.CONTAINER_MODE === "docker") {
+        // Docker mode: check container status
+        const { stdout: containerStatus } = await execAsync("docker inspect -f '{{.State.Status}}' capable-openclaw 2>/dev/null").catch(() => ({ stdout: "not found" }));
+        openclawService = containerStatus.trim() === "running" ? "active" : containerStatus.trim();
+      } else {
+        const { stdout: svcStatus } = await execAsync("systemctl is-active capable-openclaw").catch(() => ({ stdout: "inactive" }));
+        openclawService = svcStatus.trim();
+      }
     } catch { /* ignore */ }
     try {
       const { stdout: portCheck } = await execAsync("ss -lntp | grep 18789").catch(() => ({ stdout: "none" }));
@@ -127,12 +133,22 @@ export async function GET(req: NextRequest) {
       allPorts = ap.slice(0, 2000);
     } catch { /* ignore */ }
     try {
-      const { stdout: journal } = await execAsync("journalctl -u capable-openclaw --no-pager -n 50 2>&1").catch(() => ({ stdout: "" }));
-      openclawJournal = journal.slice(0, 4000);
+      if (process.env.CONTAINER_MODE === "docker") {
+        const { stdout: journal } = await execAsync("docker logs --tail 50 capable-openclaw 2>&1").catch(() => ({ stdout: "" }));
+        openclawJournal = journal.slice(0, 4000);
+      } else {
+        const { stdout: journal } = await execAsync("journalctl -u capable-openclaw --no-pager -n 50 2>&1").catch(() => ({ stdout: "" }));
+        openclawJournal = journal.slice(0, 4000);
+      }
     } catch { /* ignore */ }
     try {
-      const { stdout: cj } = await execAsync("journalctl -u caddy --no-pager -n 20 2>&1").catch(() => ({ stdout: "" }));
-      caddyJournal = cj.slice(0, 2000);
+      if (process.env.CONTAINER_MODE === "docker") {
+        const { stdout: cj } = await execAsync("docker logs --tail 20 capable-caddy 2>&1").catch(() => ({ stdout: "" }));
+        caddyJournal = cj.slice(0, 2000);
+      } else {
+        const { stdout: cj } = await execAsync("journalctl -u caddy --no-pager -n 20 2>&1").catch(() => ({ stdout: "" }));
+        caddyJournal = cj.slice(0, 2000);
+      }
     } catch { /* ignore */ }
     try {
       const cfg = await fs.readFile("/root/.openclaw/openclaw.json", "utf-8");

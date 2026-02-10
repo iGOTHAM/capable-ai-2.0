@@ -342,14 +342,20 @@ export async function launchSetup(
       const { exec } = await import("child_process");
       const { promisify } = await import("util");
       const execPromise = promisify(exec);
-      // Restart ALL possible gateway service names — both may exist
-      // (onboard creates openclaw-gateway, cloud-init creates capable-openclaw)
-      const serviceNames = ["capable-openclaw", "openclaw-gateway"];
-      for (const svcName of serviceNames) {
-        try {
-          await execPromise(`systemctl restart ${svcName} 2>/dev/null || systemctl --user restart ${svcName} 2>/dev/null`);
-        } catch {
-          // Service might not exist under this name, that's fine
+
+      if (process.env.CONTAINER_MODE === "docker") {
+        // Docker mode: restart sibling container via Docker socket
+        await execPromise("docker restart capable-openclaw");
+        await new Promise(r => setTimeout(r, 5000));
+      } else {
+        // Bare-metal mode: restart systemd services
+        const serviceNames = ["capable-openclaw", "openclaw-gateway"];
+        for (const svcName of serviceNames) {
+          try {
+            await execPromise(`systemctl restart ${svcName} 2>/dev/null || systemctl --user restart ${svcName} 2>/dev/null`);
+          } catch {
+            // Service might not exist under this name, that's fine
+          }
         }
       }
     } catch {
