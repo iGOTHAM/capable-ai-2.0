@@ -397,9 +397,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("FROM node:22-alpine");
   add("WORKDIR /app");
   add("RUN apk add --no-cache curl docker-cli");
-  add("COPY dashboard-build/apps/dashboard/.next/standalone/ ./");
-  add("COPY dashboard-build/apps/dashboard/.next/static ./apps/dashboard/.next/static");
-  add("COPY dashboard-build/apps/dashboard/public ./apps/dashboard/public");
+  add("COPY dashboard-build/ ./");
   add("RUN mkdir -p /data/activity /root/.openclaw");
   add("EXPOSE 3100");
   add("ENV PORT=3100 HOSTNAME=0.0.0.0 NODE_ENV=production");
