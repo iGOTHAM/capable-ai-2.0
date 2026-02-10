@@ -217,7 +217,7 @@ export function DeployContent(props: DeployContentProps) {
             setKeyConfigStatus("success");
             try {
               sessionStorage.removeItem("capable_ai_key");
-            } catch {}
+            } catch { }
             return;
           }
         }
@@ -262,7 +262,7 @@ export function DeployContent(props: DeployContentProps) {
           setKeyConfigStatus("success");
           try {
             sessionStorage.removeItem("capable_ai_key");
-          } catch {}
+          } catch { }
         } else {
           const data = await res.json().catch(() => ({}));
           setKeyConfigStatus("error");
@@ -709,7 +709,7 @@ export function DeployContent(props: DeployContentProps) {
                     <li>Configuring your AI agent and dashboard</li>
                   </ol>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    This typically takes <strong className="text-foreground">3–5 minutes</strong>.
+                    This typically takes <strong className="text-foreground">10 minutes</strong>.
                     The page will update automatically when your agent is ready.
                     We&apos;ll also send you an email when it&apos;s live, so you can safely close this page.
                   </p>
