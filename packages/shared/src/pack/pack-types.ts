@@ -1,4 +1,4 @@
-export type TemplateId = "pe" | "realestate" | "general";
+export type TemplateId = "default" | "pe" | "realestate" | "general";
 
 export type PersonalityTone = "professional" | "casual" | "direct" | "friendly";
 
@@ -35,6 +35,7 @@ export interface ConfigPatch {
 export const DEFAULT_CONFIG_PATCH: ConfigPatch = {};
 
 export const TEMPLATE_NAMES: Record<TemplateId, string> = {
+  default: "Default",
   pe: "Private Equity",
   realestate: "Real Estate",
   general: "General",
@@ -44,6 +45,12 @@ export const DEFAULT_PACK_CONFIGS: Record<
   TemplateId,
   { personality: PersonalityTone; description: string; neverRules: string[] }
 > = {
+  default: {
+    personality: "friendly",
+    description:
+      "A general-purpose AI assistant. No domain-specific customizations — just a clean OpenClaw installation ready for anything.",
+    neverRules: [],
+  },
   pe: {
     personality: "professional",
     description:

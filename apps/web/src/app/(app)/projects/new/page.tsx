@@ -40,6 +40,13 @@ import type { TemplateId } from "@capable-ai/shared";
 
 const templates = [
   {
+    id: "default" as TemplateId,
+    name: "Default",
+    description:
+      "A clean OpenClaw installation with no domain-specific customizations. Same experience as setting up OpenClaw yourself from scratch — just your AI, ready for anything.",
+    includes: null,
+  },
+  {
     id: "pe" as TemplateId,
     name: "Private Equity",
     description:
@@ -110,6 +117,7 @@ const businessContextFields: Record<
     type: "text" | "textarea";
   }[]
 > = {
+  default: [],
   pe: [
     {
       key: "fundName",
@@ -554,7 +562,7 @@ function NewProjectWizard() {
           <div className="grid gap-4">
             {templates.map((t) => {
               const knowledge = KNOWLEDGE_TEMPLATES[t.id];
-              const lineCount = knowledge.content.split("\n").length;
+              const lineCount = knowledge ? knowledge.content.split("\n").length : 0;
 
               return (
                 <Card
@@ -579,45 +587,47 @@ function NewProjectWizard() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="mb-3">
-                      <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                        What&apos;s included ({lineCount} lines of domain
-                        knowledge):
-                      </p>
-                      <ul className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
-                        {t.includes.map((item) => (
-                          <li key={item} className="flex items-center gap-1.5">
-                            <Check className="h-3 w-3 shrink-0 text-green-500" />
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <Collapsible>
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Eye className="mr-1.5 h-3 w-3" />
-                          Preview knowledge
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div
-                          className="mt-2 max-h-64 overflow-y-auto rounded-md bg-muted p-3"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <pre className="whitespace-pre-wrap font-mono text-xs text-muted-foreground">
-                            {knowledge.content}
-                          </pre>
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </CardContent>
+                  {t.includes && knowledge && (
+                    <CardContent className="pt-0">
+                      <div className="mb-3">
+                        <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                          What&apos;s included ({lineCount} lines of domain
+                          knowledge):
+                        </p>
+                        <ul className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+                          {t.includes.map((item) => (
+                            <li key={item} className="flex items-center gap-1.5">
+                              <Check className="h-3 w-3 shrink-0 text-green-500" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <Collapsible>
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Eye className="mr-1.5 h-3 w-3" />
+                            Preview knowledge
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div
+                            className="mt-2 max-h-64 overflow-y-auto rounded-md bg-muted p-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <pre className="whitespace-pre-wrap font-mono text-xs text-muted-foreground">
+                              {knowledge.content}
+                            </pre>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </CardContent>
+                  )}
                 </Card>
               );
             })}

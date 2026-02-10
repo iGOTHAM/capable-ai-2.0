@@ -69,7 +69,7 @@ function interpolate(template: string, vars: Record<string, string | boolean | u
 // ─── Knowledge File Descriptions ────────────────────────────────────────────
 // Human-readable descriptions for the knowledge catalog in MEMORY.md
 
-const KNOWLEDGE_DESCRIPTIONS: Record<TemplateId, string> = {
+const KNOWLEDGE_DESCRIPTIONS: Partial<Record<TemplateId, string>> = {
   pe: "PE frameworks, First Look memo template, QoE red flags, diligence checklists, pipeline stages",
   realestate: "RE investment memo template, due diligence checklist, key formulas (Cap Rate, NOI, DSCR, GRM), property type primers",
   general: "Research framework, analysis templates (SWOT, cost-benefit, decision matrix, risk assessment), writing templates",
@@ -150,10 +150,12 @@ export function generatePackFiles(input: GeneratePackInput): Record<string, stri
 
   // Build knowledge catalog for MEMORY.md
   const knowledgeEntries: { path: string; description: string }[] = [];
-  knowledgeEntries.push({
-    path: knowledge.filename,
-    description: KNOWLEDGE_DESCRIPTIONS[templateId],
-  });
+  if (knowledge) {
+    knowledgeEntries.push({
+      path: knowledge.filename,
+      description: KNOWLEDGE_DESCRIPTIONS[templateId] ?? "Domain knowledge",
+    });
+  }
 
   // Add custom knowledge files
   const customKnowledgeFiles: Record<string, string> = {};
@@ -276,7 +278,7 @@ Pack deployed. Awaiting first interaction.
     "AGENTS.md": agentsMd,
     "MEMORY.md": memoryMd,
     "USER.md": userMd,
-    [knowledge.filename]: knowledge.content,
+    ...(knowledge ? { [knowledge.filename]: knowledge.content } : {}),
     "memory/directives.md": directivesMd,
     [`memory/${dateStr}.md`]: dailyLogMd,
     "memory/lessons-learned.md": lessonsLearnedMd,

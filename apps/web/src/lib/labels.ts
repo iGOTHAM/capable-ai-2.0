@@ -1,5 +1,6 @@
 /** Human-readable labels for template IDs */
 export const TEMPLATE_LABELS: Record<string, string> = {
+  default: "Default",
   pe: "Private Equity",
   realestate: "Real Estate",
   general: "General",
