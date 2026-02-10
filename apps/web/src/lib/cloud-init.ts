@@ -1,6 +1,82 @@
 /** Known-good OpenClaw version — update deliberately after testing each release */
 export const OPENCLAW_VERSION = "2026.2.6-3";
 
+// GitHub repo info for dashboard release download
+const GH_OWNER = "iGOTHAM";
+const GH_REPO = "capable-ai-2.0";
+const GH_RELEASE_TAG = "dashboard-latest";
+const GH_ASSET_NAME = "dashboard-standalone.tar.gz";
+
+/**
+ * Get a temporary signed download URL for the dashboard standalone tarball.
+ *
+ * The repo is private, so the public release download URL doesn't work for
+ * unauthenticated requests (like from a freshly-created DO droplet).
+ * Instead, we call the GitHub API with a server-side token to get a 302
+ * redirect to a time-limited Azure Blob Storage URL (~1 hour expiry).
+ *
+ * This signed URL is embedded in the cloud-init script at deploy time.
+ */
+export async function getDashboardDownloadUrl(): Promise<string> {
+  const token = process.env.GITHUB_RELEASE_TOKEN;
+  if (!token) {
+    throw new Error(
+      "GITHUB_RELEASE_TOKEN is not set — required to download dashboard release from private repo",
+    );
+  }
+
+  // Step 1: Get the release to find the asset ID
+  const releaseRes = await fetch(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/releases/tags/${GH_RELEASE_TAG}`,
+    {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "capable-ai-deploy",
+      },
+    },
+  );
+
+  if (!releaseRes.ok) {
+    throw new Error(
+      `Failed to fetch GitHub release (${releaseRes.status}): ${await releaseRes.text()}`,
+    );
+  }
+
+  const release = (await releaseRes.json()) as {
+    assets: Array<{ id: number; name: string }>;
+  };
+  const asset = release.assets.find((a) => a.name === GH_ASSET_NAME);
+  if (!asset) {
+    throw new Error(
+      `Dashboard asset "${GH_ASSET_NAME}" not found in release "${GH_RELEASE_TAG}"`,
+    );
+  }
+
+  // Step 2: Request the asset with Accept: application/octet-stream to get a 302 redirect
+  // We use redirect: "manual" to capture the Location header instead of following the redirect.
+  const assetRes = await fetch(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/releases/assets/${asset.id}`,
+    {
+      headers: {
+        Accept: "application/octet-stream",
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "capable-ai-deploy",
+      },
+      redirect: "manual",
+    },
+  );
+
+  const signedUrl = assetRes.headers.get("location");
+  if (!signedUrl) {
+    throw new Error(
+      `GitHub API did not return a redirect for asset download (status ${assetRes.status})`,
+    );
+  }
+
+  return signedUrl;
+}
+
 export interface CloudInitParams {
   appUrl: string;
   projectId: string;
@@ -8,11 +84,17 @@ export interface CloudInitParams {
   packVersion: number;
   subdomain?: string; // e.g. "jarvis" → jarvis.capable.ai
   openclawVersion?: string; // defaults to OPENCLAW_VERSION
+  dashboardDownloadUrl?: string; // Signed URL for dashboard-standalone.tar.gz (auto-deploy)
 }
 
 export function generateCloudInitScript(params: CloudInitParams): string {
   const { appUrl, projectId, projectToken, packVersion, subdomain } = params;
   const openclawVersion = params.openclawVersion ?? OPENCLAW_VERSION;
+
+  // Use the signed download URL if available, otherwise fall back to direct GitHub URL
+  // (direct URL only works if the repo is public)
+  const dashboardTarballUrl = params.dashboardDownloadUrl
+    ?? `https://github.com/${GH_OWNER}/${GH_REPO}/releases/download/${GH_RELEASE_TAG}/${GH_ASSET_NAME}`;
 
   // Determine the total step count and dashboard URL format based on subdomain
   const hasSub = !!subdomain;
@@ -249,7 +331,7 @@ report "6-firewall" "done"
 
 echo ">>> [7/${totalSteps}] Downloading pre-built dashboard..."
 mkdir -p /opt/capable-ai
-curl -fsSL https://github.com/iGOTHAM/capable-ai-2.0/releases/download/dashboard-latest/dashboard-standalone.tar.gz -o /tmp/dashboard.tar.gz
+curl -fsSL "${dashboardTarballUrl}" -o /tmp/dashboard.tar.gz
 tar -xzf /tmp/dashboard.tar.gz -C /opt/capable-ai
 rm /tmp/dashboard.tar.gz
 report "7-dashboard-download" "done"

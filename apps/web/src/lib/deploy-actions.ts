@@ -11,7 +11,7 @@ import {
   refreshAccessToken,
 } from "./digitalocean";
 import { deleteDnsRecord } from "./cloudflare-dns";
-import { generateCloudInitScript } from "./cloud-init";
+import { generateCloudInitScript, getDashboardDownloadUrl } from "./cloud-init";
 import { getActiveSubscription } from "./subscription-guard";
 
 type ActionResult = { error?: string };
@@ -110,6 +110,17 @@ export async function deployDroplet(
   const { token, error: tokenError } = await getDoToken(user.id);
   if (tokenError) return { error: tokenError };
 
+  // Get a signed download URL for the dashboard tarball (private repo, needs auth)
+  let dashboardDownloadUrl: string;
+  try {
+    dashboardDownloadUrl = await getDashboardDownloadUrl();
+  } catch (err) {
+    const msg =
+      err instanceof Error ? err.message : "Failed to get dashboard download URL";
+    console.error("Dashboard download URL error:", msg);
+    return { error: msg };
+  }
+
   // Generate cloud-init script
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const cloudInit = generateCloudInitScript({
@@ -118,6 +129,7 @@ export async function deployDroplet(
     projectToken: project.deployment.projectToken,
     packVersion: project.packVersions[0]!.version,
     subdomain: project.deployment.subdomain ?? undefined,
+    dashboardDownloadUrl,
   });
 
   try {
