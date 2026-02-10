@@ -49,7 +49,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        window.location.href = "/pipeline";
+        window.location.href = "/timeline";
       } else {
         setError("Invalid password");
       }

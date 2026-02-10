@@ -22,7 +22,9 @@ import {
   Trash2,
   RotateCcw,
   Loader2,
+  ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import { generateCloudInitScript } from "@/lib/cloud-init";
 import {
   deployDroplet,
@@ -153,12 +155,8 @@ export function DeployContent(props: DeployContentProps) {
       ? `http://${ipForUrl}:3100`
       : null;
 
-  // Chat URL with gateway auth token (auto-authenticates the Control UI)
-  const chatUrl = dashboardUrl && gwToken
-    ? `${dashboardUrl}/chat/?token=${gwToken}`
-    : dashboardUrl
-      ? `${dashboardUrl}/chat/`
-      : null;
+  // Chat URL — routes to /open-chat which handles auth internally within the dashboard shell
+  const chatUrl = dashboardUrl ? `${dashboardUrl}/open-chat` : null;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(cloudInit);
@@ -354,6 +352,13 @@ export function DeployContent(props: DeployContentProps) {
   return (
     <div className="flex flex-col gap-6">
       <div>
+        <Link
+          href={`/projects/${props.projectId}`}
+          className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to {props.projectName}
+        </Link>
         <h1 className="text-2xl font-bold">Deploy: {props.projectName}</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Deploy your Capable Pack to a DigitalOcean droplet. Once live,

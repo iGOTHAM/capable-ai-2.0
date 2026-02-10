@@ -17,10 +17,9 @@ interface AgentInfo {
 }
 
 const tabs = [
-  { href: "/pipeline", label: "Projects" },
+  { href: "/timeline", label: "Activity" },
   { href: "/tasks", label: "All Tasks" },
   { href: "/docs", label: "Docs" },
-  { href: "/timeline", label: "Activity" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -150,8 +149,7 @@ export function Header() {
           {tabs.map((tab) => {
             const isActive =
               pathname === tab.href ||
-              (tab.href === "/pipeline" && pathname === "/") ||
-              (tab.href === "/pipeline" && pathname.startsWith("/pipeline/"));
+              (tab.href === "/timeline" && pathname === "/");
             return (
               <Link
                 key={tab.href}
