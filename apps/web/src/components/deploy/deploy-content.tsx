@@ -88,11 +88,6 @@ const REGIONS = [
 
 const SIZES = [
   {
-    slug: "s-1vcpu-1gb",
-    label: "$6/mo — 1 GB RAM, 1 vCPU",
-    description: "Good for testing and light usage",
-  },
-  {
     slug: "s-1vcpu-2gb",
     label: "$12/mo — 2 GB RAM, 1 vCPU",
     description: "Recommended for most users",
@@ -703,13 +698,17 @@ export function DeployContent(props: DeployContentProps) {
                 <div className="rounded-md border bg-muted/30 px-4 py-3">
                   <p className="text-sm font-medium">What&apos;s happening now:</p>
                   <ol className="mt-2 list-inside list-decimal space-y-1 text-xs text-muted-foreground">
-                    <li>Creating your DigitalOcean droplet</li>
-                    <li>Installing OpenClaw and your Capable Pack</li>
-                    <li>Setting up HTTPS and your custom subdomain</li>
-                    <li>Configuring your AI agent and dashboard</li>
+                    <li className={ip ? "text-green-600 dark:text-green-400" : ""}>
+                      {ip ? "✓ " : ""}Creating your DigitalOcean droplet
+                    </li>
+                    <li className={ip ? "text-green-600 dark:text-green-400" : ""}>
+                      {ip ? "✓ " : ""}Installing Docker and downloading components
+                    </li>
+                    <li>Building containers (this is the slow part)</li>
+                    <li>Starting your AI agent and dashboard</li>
                   </ol>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    This typically takes <strong className="text-foreground">~10 minutes</strong>.
+                    This typically takes <strong className="text-foreground">~15 minutes</strong>.
                     The page will update automatically when your agent is ready.
                     We&apos;ll also send you an email when it&apos;s live, so you can safely close this page.
                   </p>

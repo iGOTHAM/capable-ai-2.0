@@ -251,7 +251,7 @@ export default async function ProjectDetailPage({
                     Provisioning...
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    ~10 min
+                    ~15 min
                   </span>
                 </div>
               ) : project.deployment?.status === "PENDING" ? (
@@ -326,7 +326,7 @@ export default async function ProjectDetailPage({
               <div>
                 <p className="text-sm font-medium">Deploy to your server</p>
                 <p className="text-xs text-muted-foreground">
-                  Click Deploy above to get a setup script for your DigitalOcean droplet. It takes about 10 minutes.
+                  Click Deploy above to get a setup script for your DigitalOcean droplet. It takes about 15 minutes.
                 </p>
               </div>
             </div>

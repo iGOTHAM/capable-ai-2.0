@@ -16,7 +16,7 @@ const heartbeatSchema = z.object({
   projectToken: z.string().min(1),
   dropletIp: z.string().optional(),
   packVersion: z.number().optional(),
-  status: z.enum(["active", "stopping"]).default("active"),
+  status: z.enum(["active", "provisioning", "stopping"]).default("active"),
   dashboardPassword: z.string().optional(),
   adminSecret: z.string().optional(),
   gatewayToken: z.string().optional(),
@@ -52,7 +52,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const newStatus = status === "stopping" ? "DEACTIVATED" : "ACTIVE";
+  const newStatus =
+    status === "stopping"
+      ? "DEACTIVATED"
+      : status === "provisioning"
+        ? "PROVISIONING"
+        : "ACTIVE";
   const currentIp = dropletIp ?? deployment.dropletIp;
 
   // Preserve existing credentials if not provided in this heartbeat.

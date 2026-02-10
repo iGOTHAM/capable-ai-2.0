@@ -197,6 +197,14 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add('report "4-credentials" "done"');
   add("");
 
+  // Early heartbeat — register the IP and credentials before the slow Docker builds
+  // This lets the UI show progress instead of appearing stuck
+  add("# Send early heartbeat so the deploy page shows progress");
+  add("curl -sf -X POST " + appUrl + "/api/deployments/heartbeat \\");
+  add('  -H "Content-Type: application/json" \\');
+  add("  -d '{\"projectToken\":\"" + projectToken + "\",\"dropletIp\":\"'\"$DROPLET_IP\"'\",\"packVersion\":" + packVersion + ",\"status\":\"provisioning\",\"dashboardPassword\":\"'\"$DASH_PASSWORD\"'\",\"adminSecret\":\"'\"$ADMIN_SECRET\"'\",\"gatewayToken\":\"'\"$GATEWAY_TOKEN\"'\"}' || true");
+  add("");
+
   // Step 5: Write Docker Compose + container files
   add('echo ">>> [5/' + totalSteps + '] Writing Docker Compose configuration..."');
   add("");
