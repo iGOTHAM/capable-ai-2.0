@@ -54,7 +54,6 @@ export async function getDashboardDownloadUrl(): Promise<string> {
   }
 
   // Step 2: Request the asset with Accept: application/octet-stream to get a 302 redirect
-  // We use redirect: "manual" to capture the Location header instead of following the redirect.
   const assetRes = await fetch(
     `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/releases/assets/${asset.id}`,
     {
@@ -84,437 +83,388 @@ export interface CloudInitParams {
   packVersion: number;
   subdomain?: string; // e.g. "jarvis" → jarvis.capable.ai
   openclawVersion?: string; // defaults to OPENCLAW_VERSION
-  dashboardDownloadUrl?: string; // Signed URL for dashboard-standalone.tar.gz (auto-deploy)
+  dashboardDownloadUrl?: string; // Signed URL for dashboard-standalone.tar.gz
 }
 
+/**
+ * Generate a cloud-init bash script that deploys the full Capable.ai stack
+ * using Docker Compose (Dashboard + OpenClaw + Caddy).
+ *
+ * This replaces the previous bare-metal/systemd approach with containers
+ * for portability across VPS providers.
+ */
 export function generateCloudInitScript(params: CloudInitParams): string {
   const { appUrl, projectId, projectToken, packVersion, subdomain } = params;
   const openclawVersion = params.openclawVersion ?? OPENCLAW_VERSION;
+  const hasSub = !!subdomain;
 
-  // Use the signed download URL if available, otherwise fall back to direct GitHub URL
-  // (direct URL only works if the repo is public)
   const dashboardTarballUrl = params.dashboardDownloadUrl
     ?? `https://github.com/${GH_OWNER}/${GH_REPO}/releases/download/${GH_RELEASE_TAG}/${GH_ASSET_NAME}`;
 
-  // Determine the total step count and dashboard URL format based on subdomain
-  const hasSub = !!subdomain;
-  const totalSteps = hasSub ? 12 : 10;
-
-  // Build Caddy install + config steps (only when subdomain is present)
-  const caddySteps = hasSub
-    ? `
-echo ">>> [11/${totalSteps}] Installing Caddy..."
-apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-apt-get update
-apt-get install -y caddy
-
-echo ">>> [12/${totalSteps}] Configuring Caddy for ${subdomain}.capable.ai..."
-
-# Generate a self-signed origin certificate for Caddy.
-# Cloudflare proxy (orange cloud) terminates public TLS at the edge and connects
-# to our origin over HTTPS in "Full" mode, which accepts any valid server cert.
-# This avoids Let's Encrypt rate limits from repeated rebuilds.
-openssl req -x509 -newkey rsa:2048 \\
-  -keyout /etc/caddy/origin.key -out /etc/caddy/origin.crt \\
-  -days 3650 -nodes \\
-  -subj "/CN=${subdomain}.capable.ai" \\
-  -addext "subjectAltName=DNS:${subdomain}.capable.ai"
-chown caddy:caddy /etc/caddy/origin.key /etc/caddy/origin.crt
-chmod 600 /etc/caddy/origin.key
-
-cat > /etc/caddy/Caddyfile << 'CADDY'
-${subdomain}.capable.ai {
-    tls /etc/caddy/origin.crt /etc/caddy/origin.key
-
-    # WebSocket upgrade requests (any path) → OpenClaw gateway
-    # The Control UI opens wss://host/ (root) for its gateway connection
-    @websockets {
-        header Connection *Upgrade*
-        header Upgrade websocket
-    }
-    handle @websockets {
-        reverse_proxy localhost:18789
-    }
-
-    # OpenClaw Web UI — preserve /chat prefix (OpenClaw uses basePath=/chat)
-    handle /chat* {
-        reverse_proxy localhost:18789
-    }
-
-    # Dashboard — everything else
-    handle {
-        reverse_proxy localhost:3100
-    }
-}
-CADDY
-
-systemctl restart caddy
-systemctl enable caddy
-
-# Open HTTP (80) + HTTPS (443) for Caddy / Cloudflare proxy
-# Port 3100 is NOT opened — all traffic goes through Caddy with TLS.
-# Admin API (set-key, push-pack) is accessed via HTTPS subdomain, not direct IP.
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw deny 3100/tcp
-`
-    : "";
-
-  // Dashboard URL shown in final output
   const dashboardUrl = hasSub
-    ? `https://${subdomain}.capable.ai`
+    ? "https://" + subdomain + ".capable.ai"
     : "http://$DROPLET_IP:3100";
 
-  return `#!/bin/bash
-# =========================================
-# Capable.ai — Cloud-Init Script
-# Paste this into your DigitalOcean droplet User Data field
-# =========================================
+  const totalSteps = hasSub ? 8 : 7;
 
-set -euo pipefail
+  // Build the script using string arrays to avoid template-literal escaping issues
+  const L: string[] = [];
+  const add = (s: string) => L.push(s);
 
-export DEBIAN_FRONTEND=noninteractive
+  add("#!/bin/bash");
+  add("# =========================================");
+  add("# Capable.ai — Cloud-Init Script (Docker)");
+  add("# Generated for project: " + projectId);
+  add("# Deploy method: Docker Compose (portable)");
+  add("# =========================================");
+  add("");
+  add("set -euo pipefail");
+  add("export DEBIAN_FRONTEND=noninteractive");
+  add("");
+  add("# Disable forced password change (DO sets this when no SSH key)");
+  add("chage -d $(date +%Y-%m-%d) root");
+  add("mkdir -p /root/.ssh");
+  add("chmod 700 /root/.ssh");
+  add("");
+  add("# Progress reporting helper");
+  add("report() {");
+  add('  local step="$1" status="$2" error="${3:-}"');
+  add("  curl -sf -X POST " + appUrl + "/api/deployments/cloud-init-log \\");
+  add('    -H "Content-Type: application/json" \\');
+  add('    -d "{\\"projectToken\\":\\"' + projectToken + '\\",\\"step\\":\\"$step\\",\\"status\\":\\"$status\\",\\"error\\":\\"$error\\"}" > /dev/null 2>&1 || true');
+  add("}");
+  add("");
+  add('trap \'report "unexpected-error" "failed" "line $LINENO exited with code $?"\' ERR');
+  add('report "cloud-init" "started"');
+  add("");
 
-# Disable forced password change (DO sets this when no SSH key is on the account)
-chage -d $(date +%Y-%m-%d) root
+  // Step 1: Swap
+  add('echo ">>> [1/' + totalSteps + '] Setting up swap space..."');
+  add("fallocate -l 2G /swapfile");
+  add("chmod 600 /swapfile");
+  add("mkswap /swapfile");
+  add("swapon /swapfile");
+  add("echo '/swapfile none swap sw 0 0' >> /etc/fstab");
+  add('report "1-swap" "done"');
+  add("");
 
-# SSH access: DigitalOcean injects the user's SSH key via their account settings.
-# No hardcoded admin keys — if debugging is needed, use the dashboard admin endpoints
-# or DigitalOcean's web console.
-mkdir -p /root/.ssh
-chmod 700 /root/.ssh
+  // Step 2: Install Docker
+  add('echo ">>> [2/' + totalSteps + '] Installing Docker..."');
+  add("curl -fsSL https://get.docker.com | sh");
+  add('report "2-docker" "done"');
+  add("");
 
-# Progress reporting helper — sends step status to capable.ai for debugging
-report() {
-  local step="$1" status="$2" error="\${3:-}"
-  curl -sf -X POST ${appUrl}/api/deployments/cloud-init-log \\
-    -H "Content-Type: application/json" \\
-    -d "{\\"projectToken\\":\\"${projectToken}\\",\\"step\\":\\"$step\\",\\"status\\":\\"$status\\",\\"error\\":\\"$error\\"}" > /dev/null 2>&1 || true
-}
+  // Step 3: Setup directory + download dashboard tarball
+  add('echo ">>> [3/' + totalSteps + '] Downloading pre-built dashboard..."');
+  add("mkdir -p /opt/capable/caddy/certs");
+  add("mkdir -p /opt/capable/openclaw");
+  add('curl -fsSL "' + dashboardTarballUrl + '" -o /tmp/dashboard.tar.gz');
+  add("mkdir -p /opt/capable/dashboard-build");
+  add("tar -xzf /tmp/dashboard.tar.gz -C /opt/capable/dashboard-build");
+  add("rm /tmp/dashboard.tar.gz");
+  add('report "3-dashboard-download" "done"');
+  add("");
 
-# Trap errors to report which step failed
-trap 'report "unexpected-error" "failed" "line $LINENO exited with code $?"' ERR
+  // Step 4: Generate credentials
+  add('echo ">>> [4/' + totalSteps + '] Generating credentials..."');
+  add("DASH_PASSWORD=$(openssl rand -base64 16)");
+  add("ADMIN_SECRET=$(openssl rand -hex 32)");
+  add("GATEWAY_TOKEN=$(openssl rand -hex 32)");
+  add("DROPLET_IP=$(curl -4 -s ifconfig.me)");
+  add("");
+  add("cat > /opt/capable/.env << ENV");
+  add("PROJECT_ID=" + projectId);
+  add("PROJECT_TOKEN=" + projectToken);
+  add("PACK_VERSION=" + packVersion);
+  add("AUTH_PASSWORD=$DASH_PASSWORD");
+  add("ADMIN_SECRET=$ADMIN_SECRET");
+  add("GATEWAY_TOKEN=$GATEWAY_TOKEN");
+  add("SUBDOMAIN=" + (subdomain || ""));
+  add("OPENCLAW_VERSION=" + openclawVersion);
+  add("NEXT_PUBLIC_APP_URL=" + appUrl);
+  add("ENV");
+  add("");
+  add("cat > /root/dashboard-credentials.txt << CREDENTIALS");
+  add("Capable Dashboard Credentials");
+  add("==============================");
+  add("URL:      " + dashboardUrl);
+  add("Password: $DASH_PASSWORD");
+  add("Admin:    $ADMIN_SECRET");
+  add("Gateway:  $GATEWAY_TOKEN");
+  add('Created:  $(date -u +"%Y-%m-%d %H:%M:%S UTC")');
+  add("CREDENTIALS");
+  add("chmod 600 /root/dashboard-credentials.txt");
+  add('report "4-credentials" "done"');
+  add("");
 
-report "cloud-init" "started"
+  // Step 5: Write Docker Compose + container files
+  add('echo ">>> [5/' + totalSteps + '] Writing Docker Compose configuration..."');
+  add("");
 
-echo ">>> [1/${totalSteps}] Setting up swap space..."
-fallocate -l 2G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
-report "1-swap" "done"
+  // docker-compose.yml (single-quoted heredoc — no shell expansion)
+  add("cat > /opt/capable/docker-compose.yml << 'COMPOSE'");
+  add("services:");
+  add("  dashboard:");
+  add("    image: capable-ai/dashboard:latest");
+  add("    container_name: capable-dashboard");
+  add("    restart: unless-stopped");
+  add("    ports:");
+  add('      - "3100:3100"');
+  add("    volumes:");
+  add("      - activity-data:/data/activity");
+  add("    environment:");
+  add("      - NODE_ENV=production");
+  add("      - PORT=3100");
+  add("      - HOSTNAME=0.0.0.0");
+  add("      - AUTH_PASSWORD=${AUTH_PASSWORD}");
+  add("      - ADMIN_SECRET=${ADMIN_SECRET}");
+  add("      - DATA_DIR=/data/activity");
+  add("      - OPENCLAW_GATEWAY_HOST=openclaw");
+  add("      - OPENCLAW_CONFIG=/root/.openclaw/openclaw.json");
+  add("      - OPENCLAW_DIR=/root/.openclaw");
+  add("    depends_on:");
+  add("      openclaw:");
+  add("        condition: service_started");
+  add("");
+  add("  openclaw:");
+  add("    build:");
+  add("      context: ./openclaw");
+  add("      args:");
+  add("        OPENCLAW_VERSION: ${OPENCLAW_VERSION:-2026.2.6-3}");
+  add("    container_name: capable-openclaw");
+  add("    restart: unless-stopped");
+  add("    volumes:");
+  add("      - openclaw-workspace:/root/.openclaw/workspace");
+  add("      - openclaw-config:/root/.openclaw");
+  add("      - activity-data:/data/activity");
+  add("    environment:");
+  add("      - PROJECT_ID=${PROJECT_ID}");
+  add("      - PROJECT_TOKEN=${PROJECT_TOKEN}");
+  add("      - PACK_VERSION=${PACK_VERSION:-1}");
+  add("      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://capable.ai}");
+  add("      - GATEWAY_TOKEN=${GATEWAY_TOKEN}");
+  add("      - OPENCLAW_GATEWAY_PORT=18789");
+  add("    expose:");
+  add('      - "18789"');
 
-echo ">>> [2/${totalSteps}] Installing Node.js 22 + Chromium..."
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y nodejs curl ufw jq chromium-browser
+  if (hasSub) {
+    add("");
+    add("  caddy:");
+    add("    image: caddy:2-alpine");
+    add("    container_name: capable-caddy");
+    add("    restart: unless-stopped");
+    add("    ports:");
+    add('      - "80:80"');
+    add('      - "443:443"');
+    add("    volumes:");
+    add("      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro");
+    add("      - caddy-data:/data");
+    add("      - caddy-config:/config");
+    add("      - ./caddy/certs:/etc/caddy/certs:ro");
+    add("    environment:");
+    add("      - CAPABLE_SUBDOMAIN=${SUBDOMAIN:-localhost}");
+    add("    depends_on:");
+    add("      - dashboard");
+    add("      - openclaw");
+  }
 
-# Set Chromium path for OpenClaw's browser tool
-# --no-sandbox is required when running as root on a server
-export CHROME_PATH=$(which chromium-browser)
-echo "export CHROME_PATH=$CHROME_PATH" >> /root/.bashrc
-echo "  Chromium installed: $CHROME_PATH"
-report "2-nodejs" "done"
+  add("");
+  add("volumes:");
+  add("  activity-data:");
+  add("  openclaw-workspace:");
+  add("  openclaw-config:");
+  if (hasSub) {
+    add("  caddy-data:");
+    add("  caddy-config:");
+  }
+  add("COMPOSE");
+  add("");
 
-echo ">>> [3/${totalSteps}] Creating directories..."
-mkdir -p /root/.openclaw/workspace
-mkdir -p /data/activity
+  // OpenClaw Dockerfile
+  add("cat > /opt/capable/openclaw/Dockerfile << 'OCDOCKER'");
+  add("FROM node:22-bookworm-slim");
+  add("RUN apt-get update && apt-get install -y --no-install-recommends \\");
+  add("    chromium curl jq openssl && rm -rf /var/lib/apt/lists/*");
+  add("ENV CHROME_PATH=/usr/bin/chromium");
+  add("ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium");
+  add("ENV PUPPETEER_CHROMIUM_REVISION=skip");
+  add("ARG OPENCLAW_VERSION=2026.2.6-3");
+  add("RUN npm install -g openclaw@${OPENCLAW_VERSION}");
+  add("RUN mkdir -p /root/.openclaw/workspace /data/activity");
+  add("COPY entrypoint.sh /entrypoint.sh");
+  add("RUN chmod +x /entrypoint.sh");
+  add("ENV OPENCLAW_GATEWAY_PORT=18789");
+  add("EXPOSE 18789");
+  add('ENTRYPOINT ["/entrypoint.sh"]');
+  add("OCDOCKER");
+  add("");
 
-echo ">>> [4/${totalSteps}] Downloading Capable Pack v${packVersion}..."
-PACK_URL=$(curl -sf -X POST ${appUrl}/api/packs/${projectId}/download-url \\
-  -H "Content-Type: application/json" \\
-  -d '{"version":${packVersion},"projectToken":"${projectToken}"}' | jq -r '.url')
+  // OpenClaw entrypoint
+  add("cat > /opt/capable/openclaw/entrypoint.sh << 'OCENTRYPOINT'");
+  add("#!/bin/bash");
+  add("set -e");
+  add("OPENCLAW_BIN=$(npm prefix -g)/bin/openclaw");
+  add('WORKSPACE_DIR="${WORKSPACE_DIR:-/root/.openclaw/workspace}"');
+  add('CONFIG_FILE="/root/.openclaw/openclaw.json"');
+  add("");
+  add('if [ -n "$PROJECT_ID" ] && [ -n "$PROJECT_TOKEN" ]; then');
+  add('  APP_URL="${NEXT_PUBLIC_APP_URL:-https://capable.ai}"');
+  add('  PACK_URL=$(curl -sf -X POST "${APP_URL}/api/packs/${PROJECT_ID}/download-url" \\');
+  add('    -H "Content-Type: application/json" \\');
+  add('    -d "{\\"version\\":${PACK_VERSION:-1},\\"projectToken\\":\\"${PROJECT_TOKEN}\\"}" | jq -r \'.url\')');
+  add('  if [ -n "$PACK_URL" ] && [ "$PACK_URL" != "null" ]; then');
+  add('    curl -fsSL "${PACK_URL}&format=json" -o /tmp/pack.json');
+  add('    cd "$WORKSPACE_DIR"');
+  add("    for filename in $(jq -r '.files | keys[]' /tmp/pack.json); do");
+  add('      mkdir -p "$(dirname "$filename")"');
+  add("      jq -r --arg f \"$filename\" '.files[$f]' /tmp/pack.json > \"$filename\"");
+  add("    done");
+  add("    rm /tmp/pack.json");
+  add('    [ -d "$WORKSPACE_DIR/activity" ] && cp -r "$WORKSPACE_DIR/activity/"* /data/activity/ 2>/dev/null || true');
+  add('    mkdir -p "$WORKSPACE_DIR/memory"');
+  add('    rm -f "$WORKSPACE_DIR/configPatch.json"');
+  add("  fi");
+  add("fi");
+  add("");
+  add('GATEWAY_TOKEN="${GATEWAY_TOKEN:-$(openssl rand -hex 32)}"');
+  add('[ ! -f "$CONFIG_FILE" ] && echo \'{}\' > "$CONFIG_FILE"');
+  add("cat \"$CONFIG_FILE\" | jq --arg token \"$GATEWAY_TOKEN\" '. + {");
+  add('  gateway: (.gateway // {} | . + {mode:"local",auth:{mode:"token",token:$token},controlUi:{basePath:"/chat",allowInsecureAuth:true},trustedProxies:["127.0.0.1","::1","172.16.0.0/12","10.0.0.0/8"]}),');
+  add('  browser: {executablePath:"/usr/bin/chromium"}');
+  add("}' > \"${CONFIG_FILE}.tmp\" && mv \"${CONFIG_FILE}.tmp\" \"$CONFIG_FILE\"");
+  add('chmod 600 "$CONFIG_FILE"');
+  add("");
+  add('exec $OPENCLAW_BIN gateway --port "${OPENCLAW_GATEWAY_PORT:-18789}" --verbose');
+  add("OCENTRYPOINT");
+  add("chmod +x /opt/capable/openclaw/entrypoint.sh");
+  add('report "5-compose-files" "done"');
+  add("");
 
-# Download pack files as JSON (fast — avoids zip/archiver timeout on serverless)
-curl -fsSL "\${PACK_URL}&format=json" -o /tmp/pack.json
+  // Step 6: Caddy (subdomain only)
+  if (hasSub) {
+    add('echo ">>> [6/' + totalSteps + '] Configuring Caddy for ' + subdomain + '.capable.ai..."');
+    add("cat > /opt/capable/caddy/Caddyfile << CADDYFILE");
+    add(subdomain + ".capable.ai {");
+    add("    tls /etc/caddy/certs/origin.crt /etc/caddy/certs/origin.key");
+    add("");
+    add("    @websockets {");
+    add("        header Connection *Upgrade*");
+    add("        header Upgrade websocket");
+    add("    }");
+    add("    handle @websockets {");
+    add("        reverse_proxy openclaw:18789");
+    add("    }");
+    add("");
+    add("    handle /chat* {");
+    add("        reverse_proxy openclaw:18789");
+    add("    }");
+    add("");
+    add("    handle {");
+    add("        reverse_proxy dashboard:3100");
+    add("    }");
+    add("}");
+    add("CADDYFILE");
+    add("");
+    add("openssl req -x509 -newkey rsa:2048 \\");
+    add("  -keyout /opt/capable/caddy/certs/origin.key -out /opt/capable/caddy/certs/origin.crt \\");
+    add("  -days 3650 -nodes \\");
+    add("  -subj \"/CN=" + subdomain + ".capable.ai\" \\");
+    add("  -addext \"subjectAltName=DNS:" + subdomain + ".capable.ai\" 2>/dev/null");
+    add('report "6-caddy" "done"');
+    add("");
+  }
 
-# Extract files from JSON and write to workspace
-cd /root/.openclaw/workspace
-for filename in $(jq -r '.files | keys[]' /tmp/pack.json); do
-  mkdir -p "$(dirname "$filename")"
-  jq -r --arg f "$filename" '.files[$f]' /tmp/pack.json > "$filename"
-done
-rm /tmp/pack.json
+  // Build dashboard Docker image from tarball
+  const buildStep = hasSub ? 7 : 6;
+  add('echo ">>> [' + buildStep + '/' + totalSteps + '] Building and starting containers..."');
+  add("cd /opt/capable");
+  add("");
+  add("# Build dashboard image from the downloaded standalone tarball");
+  add("cat > /opt/capable/Dockerfile.dashboard << 'DASHDOCKER'");
+  add("FROM node:22-alpine");
+  add("WORKDIR /app");
+  add("RUN addgroup --system --gid 1001 nodejs");
+  add("RUN adduser --system --uid 1001 nextjs");
+  add("RUN apk add --no-cache curl");
+  add("COPY dashboard-build/apps/dashboard/.next/standalone/ ./");
+  add("COPY dashboard-build/apps/dashboard/.next/static ./apps/dashboard/.next/static");
+  add("COPY dashboard-build/apps/dashboard/public ./apps/dashboard/public");
+  add("RUN mkdir -p /data/activity && chown nextjs:nodejs /data/activity");
+  add("USER nextjs");
+  add("EXPOSE 3100");
+  add("ENV PORT=3100 HOSTNAME=0.0.0.0 NODE_ENV=production");
+  add('CMD ["node", "apps/dashboard/server.js"]');
+  add("DASHDOCKER");
+  add("");
+  add("docker build -f Dockerfile.dashboard -t capable-ai/dashboard:latest .");
+  add("docker compose build openclaw");
+  add(hasSub ? "docker compose up -d" : "docker compose up -d dashboard openclaw");
+  add("");
+  add("# Wait for containers to be healthy");
+  add("sleep 10");
+  add("OPENCLAW_ACTIVE=false");
+  add("for i in 1 2 3 4 5; do");
+  add("  if docker exec capable-openclaw curl -sf http://localhost:18789/ > /dev/null 2>&1; then");
+  add('    echo "  OpenClaw gateway is running"');
+  add("    OPENCLAW_ACTIVE=true");
+  add("    break");
+  add("  fi");
+  add('  echo "  Waiting for OpenClaw to start (attempt $i)..."');
+  add("  sleep 5");
+  add("done");
+  add('if [ "$OPENCLAW_ACTIVE" = "false" ]; then');
+  add('  echo "  WARNING: OpenClaw gateway may not be running"');
+  add('  docker logs capable-openclaw 2>&1 | tail -30');
+  add('  report "' + buildStep + '-containers" "warning" "openclaw may not be running"');
+  add("fi");
+  add('report "' + buildStep + '-containers" "done"');
+  add("");
 
-# Copy activity files to data dir
-if [ -d "/root/.openclaw/workspace/activity" ]; then
-  cp -r /root/.openclaw/workspace/activity/* /data/activity/ 2>/dev/null || true
-fi
+  // Heartbeat
+  const hbStep = hasSub ? 8 : 7;
+  add('echo ">>> [' + hbStep + '/' + totalSteps + '] Setting up heartbeat..."');
+  add("curl -sf -X POST " + appUrl + "/api/deployments/heartbeat \\");
+  add('  -H "Content-Type: application/json" \\');
+  add("  -d '{\"projectToken\":\"" + projectToken + "\",\"dropletIp\":\"'\"$DROPLET_IP\"'\",\"packVersion\":" + packVersion + ",\"status\":\"active\",\"dashboardPassword\":\"'\"$DASH_PASSWORD\"'\",\"adminSecret\":\"'\"$ADMIN_SECRET\"'\",\"gatewayToken\":\"'\"$GATEWAY_TOKEN\"'\"}' || true");
+  add("");
+  add("cat > /etc/cron.d/capable-heartbeat << 'CRON'");
+  add("*/5 * * * * root DROPLET_IP=$(/usr/bin/curl -4 -s ifconfig.me); /usr/bin/curl -sf -X POST " + appUrl + "/api/deployments/heartbeat -H \"Content-Type: application/json\" -d \"{\\\"projectToken\\\":\\\"" + projectToken + "\\\",\\\"dropletIp\\\":\\\"$DROPLET_IP\\\",\\\"packVersion\\\":" + packVersion + ",\\\"status\\\":\\\"active\\\"}\" > /dev/null 2>&1");
+  add("CRON");
+  add("chmod 644 /etc/cron.d/capable-heartbeat");
+  add("");
 
-# Ensure memory/ directory exists for OpenClaw daily logs
-mkdir -p /root/.openclaw/workspace/memory
+  // Firewall
+  add("# Firewall");
+  add("ufw default deny incoming");
+  add("ufw default allow outgoing");
+  add("ufw allow 22/tcp");
+  if (hasSub) {
+    add("ufw allow 80/tcp");
+    add("ufw allow 443/tcp");
+    add("ufw deny 3100/tcp");
+  } else {
+    add("ufw allow 3100/tcp");
+  }
+  add("ufw --force enable");
+  add("");
 
-# Remove configPatch.json from workspace — these settings are applied via openclaw config set
-# after OpenClaw is installed (configPatch keys like compaction/memorySearch are version-dependent)
-rm -f /root/.openclaw/workspace/configPatch.json
-report "4-pack" "done"
+  add('echo ""');
+  add('echo "========================================="');
+  add('echo "  Capable.ai deployment complete!"');
+  add('echo "========================================="');
+  add('echo "  Dashboard: ' + dashboardUrl + '"');
+  if (hasSub) {
+    add('echo "  Chat:      ' + dashboardUrl + '/chat/"');
+  }
+  add('echo "  Password:  $DASH_PASSWORD"');
+  add('echo ""');
+  add('echo "  Your AI provider will be configured"');
+  add('echo "  automatically from the deploy page."');
+  add('echo ""');
+  add('echo "  Credentials saved to:"');
+  add('echo "  /root/dashboard-credentials.txt"');
+  add('echo "========================================="');
+  add('report "cloud-init" "completed"');
 
-echo ">>> [5/${totalSteps}] Installing OpenClaw v${openclawVersion}..."
-npm install -g openclaw@${openclawVersion}
-# Verify install & find binary
-OPENCLAW_BIN=$(npm prefix -g)/bin/openclaw
-echo "  OpenClaw binary: $OPENCLAW_BIN"
-ls -la "$OPENCLAW_BIN" || { echo "ERROR: openclaw binary not found"; report "5-openclaw" "failed" "binary not found at $OPENCLAW_BIN"; }
-
-# Verify installed version matches expected (supply chain defense)
-INSTALLED_VER=$($OPENCLAW_BIN --version 2>/dev/null || echo "unknown")
-if [ "$INSTALLED_VER" != "${openclawVersion}" ]; then
-  echo "  WARNING: Version mismatch — expected ${openclawVersion}, got $INSTALLED_VER"
-  report "5-openclaw" "warning" "version mismatch: expected ${openclawVersion}, got $INSTALLED_VER"
-fi
-
-# Run non-interactive onboarding — sets up agents dir, gateway config, auth, systemd daemon
-# --accept-risk acknowledges AI agent permissions
-# --install-daemon creates systemd user service for the gateway
-echo "  Running OpenClaw onboard (non-interactive)..."
-OPENCLAW_GATEWAY_PORT=18789 $OPENCLAW_BIN onboard --non-interactive --accept-risk --install-daemon 2>&1 | tee /var/log/openclaw-onboard.log | tail -30 || {
-  echo "  WARNING: openclaw onboard failed (exit $?)"
-  report "5-openclaw-onboard" "failed" "onboard exit $?. $(tail -5 /var/log/openclaw-onboard.log | head -c 400)"
-}
-
-# Verify config was created and ensure gateway.mode is set
-if [ -f /root/.openclaw/openclaw.json ]; then
-  echo "  OpenClaw config exists: $(cat /root/.openclaw/openclaw.json | head -c 200)"
-else
-  echo "  WARNING: openclaw.json not created by onboard, creating minimal config"
-  echo '{}' > /root/.openclaw/openclaw.json
-fi
-
-# CRITICAL: Set gateway config — without these, the gateway refuses to start:
-# 1. "Gateway start blocked: set gateway.mode=local (current: unset)"
-# 2. "Gateway auth is set to token, but no token is configured"
-GATEWAY_TOKEN=$(openssl rand -hex 32)
-CURRENT_CONFIG=$(cat /root/.openclaw/openclaw.json)
-echo "$CURRENT_CONFIG" | jq --arg token "$GATEWAY_TOKEN" '. + {gateway: (.gateway // {} | . + {mode: "local", auth: {mode: "token", token: $token}, controlUi: {basePath: "/chat", allowInsecureAuth: true}, trustedProxies: ["127.0.0.1", "::1"]})}' > /root/.openclaw/openclaw.json || {
-  # If jq merge fails (e.g., current config isn't valid JSON), write a known-good config
-  echo '{"gateway":{"mode":"local","auth":{"mode":"token","token":"'"$GATEWAY_TOKEN"'"},"controlUi":{"basePath":"/chat","allowInsecureAuth":true},"trustedProxies":["127.0.0.1","::1"]}}' > /root/.openclaw/openclaw.json
-}
-# Save gateway token for reference
-echo "$GATEWAY_TOKEN" > /root/.openclaw/gateway-token
-chmod 600 /root/.openclaw/gateway-token
-chmod 600 /root/.openclaw/openclaw.json
-
-# Add browser config — point to system Chromium
-# Note: only executablePath is supported by OpenClaw; --no-sandbox args are set internally
-BROWSER_CONFIG=$(cat /root/.openclaw/openclaw.json)
-echo "$BROWSER_CONFIG" | jq '. + {browser: {executablePath: "/usr/bin/chromium-browser"}}' > /root/.openclaw/openclaw.json || true
-echo "  Final config: $(cat /root/.openclaw/openclaw.json | head -c 400)"
-
-# Run OpenClaw doctor to check what's missing (diagnostic, non-blocking)
-$OPENCLAW_BIN doctor 2>&1 | head -30 || true
-
-# CRITICAL: Restart any gateway that was started by onboard with a DIFFERENT token.
-# The onboard step may have started the gateway with its own default token. We just
-# overwrote the config with OUR token, so the running process has a stale token in memory.
-# Without this restart, the gateway rejects all connections with "token_mismatch".
-echo "  Restarting gateway to pick up final config (token + trustedProxies)..."
-systemctl restart capable-openclaw 2>/dev/null || true
-systemctl --user restart openclaw-gateway 2>/dev/null || true
-# Give the gateway a moment before the port verification loop below
-sleep 3
-
-report "5-openclaw-config" "done"
-
-echo ">>> [6/${totalSteps}] Applying security hardening..."
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow 22/tcp
-${hasSub ? `# Subdomain configured: Caddy handles TLS on 80/443. Port 3100 is blocked
-# externally — only Caddy on localhost can reach the dashboard.
-# This prevents admin endpoints from being exposed over plaintext HTTP.` : `# No subdomain: dashboard accessed directly over HTTP on port 3100.
-# This is inherently less secure (no TLS) but required for IP-only access.
-ufw allow 3100/tcp`}
-ufw --force enable
-report "6-firewall" "done"
-
-echo ">>> [7/${totalSteps}] Downloading pre-built dashboard..."
-mkdir -p /opt/capable-ai
-curl -fsSL "${dashboardTarballUrl}" -o /tmp/dashboard.tar.gz
-tar -xzf /tmp/dashboard.tar.gz -C /opt/capable-ai
-rm /tmp/dashboard.tar.gz
-report "7-dashboard-download" "done"
-
-echo ">>> [8/${totalSteps}] Generating dashboard credentials..."
-DASH_PASSWORD=$(openssl rand -base64 16)
-ADMIN_SECRET=$(openssl rand -hex 32)
-DROPLET_IP=$(curl -4 -s ifconfig.me)
-
-cat > /root/dashboard-credentials.txt << CREDENTIALS
-Capable Dashboard Credentials
-==============================
-URL:      ${dashboardUrl}
-Password: $DASH_PASSWORD
-Admin:    $ADMIN_SECRET
-Created:  $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-CREDENTIALS
-chmod 600 /root/dashboard-credentials.txt
-
-# Store admin secret separately for env file
-echo "AUTH_PASSWORD=$DASH_PASSWORD" > /etc/capable-dashboard.env
-echo "ADMIN_SECRET=$ADMIN_SECRET" >> /etc/capable-dashboard.env
-chmod 600 /etc/capable-dashboard.env
-
-echo ">>> [9/${totalSteps}] Starting dashboard..."
-# Create systemd service for the dashboard
-cat > /etc/systemd/system/capable-dashboard.service << SYSTEMD
-[Unit]
-Description=Capable.ai Dashboard
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/capable-ai/apps/dashboard
-ExecStart=/usr/bin/node server.js
-Restart=always
-RestartSec=5
-EnvironmentFile=/etc/capable-dashboard.env
-Environment=NODE_ENV=production
-Environment=PORT=3100
-Environment=HOSTNAME=0.0.0.0
-Environment=DATA_DIR=/data/activity
-Environment=OPENCLAW_CONFIG=/root/.openclaw/openclaw.json
-Environment=OPENCLAW_DIR=/root/.openclaw
-
-[Install]
-WantedBy=multi-user.target
-SYSTEMD
-
-systemctl daemon-reload
-systemctl enable capable-dashboard
-systemctl start capable-dashboard
-
-# Check if onboard installed a gateway daemon (user or system service)
-# If not, install it via the gateway install command, then fall back to manual
-echo "  Checking OpenClaw gateway service..."
-GATEWAY_INSTALLED=false
-
-# Check for user-level systemd service (onboard typically creates this)
-if systemctl --user is-enabled openclaw-gateway 2>/dev/null; then
-  echo "  Found user-level openclaw-gateway service"
-  systemctl --user start openclaw-gateway 2>&1 || true
-  GATEWAY_INSTALLED=true
-fi
-
-# Check for system-level service
-if [ "$GATEWAY_INSTALLED" = "false" ] && systemctl is-enabled openclaw-gateway 2>/dev/null; then
-  echo "  Found system-level openclaw-gateway service"
-  systemctl start openclaw-gateway 2>&1 || true
-  GATEWAY_INSTALLED=true
-fi
-
-# Try 'openclaw gateway install' if no service found
-if [ "$GATEWAY_INSTALLED" = "false" ]; then
-  echo "  No gateway service found, trying 'openclaw gateway install'..."
-  $OPENCLAW_BIN gateway install 2>&1 | tee -a /var/log/openclaw-onboard.log | tail -10 || true
-
-  # Check again after install
-  if systemctl --user is-enabled openclaw-gateway 2>/dev/null; then
-    echo "  Gateway service installed (user-level)"
-    systemctl --user start openclaw-gateway 2>&1 || true
-    GATEWAY_INSTALLED=true
-  elif systemctl is-enabled openclaw-gateway 2>/dev/null; then
-    echo "  Gateway service installed (system-level)"
-    systemctl start openclaw-gateway 2>&1 || true
-    GATEWAY_INSTALLED=true
-  fi
-fi
-
-# Last resort: create a system service manually
-if [ "$GATEWAY_INSTALLED" = "false" ]; then
-  echo "  Creating manual system service for OpenClaw gateway..."
-  cat > /etc/systemd/system/capable-openclaw.service << SYSTEMD
-[Unit]
-Description=OpenClaw Gateway
-After=network.target capable-dashboard.service
-
-[Service]
-Type=simple
-ExecStart=$OPENCLAW_BIN gateway --port 18789 --verbose
-Restart=always
-RestartSec=5
-Environment=NODE_ENV=production
-Environment=HOME=/root
-Environment=OPENCLAW_GATEWAY_PORT=18789
-Environment=CHROME_PATH=/usr/bin/chromium-browser
-Environment=PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-Environment=PUPPETEER_CHROMIUM_REVISION=skip
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-StandardOutput=append:/var/log/openclaw.log
-StandardError=append:/var/log/openclaw.log
-
-[Install]
-WantedBy=multi-user.target
-SYSTEMD
-
-  systemctl daemon-reload
-  systemctl enable capable-openclaw
-  systemctl start capable-openclaw
-fi
-
-# Check gateway status
-$OPENCLAW_BIN gateway status 2>&1 | head -10 || true
-
-# Verify OpenClaw is running (give it time to start and bind port)
-sleep 8
-OPENCLAW_ACTIVE=false
-for i in 1 2 3 4 5; do
-  if ss -lntp | grep -q 18789; then
-    echo "  OpenClaw gateway is listening on port 18789"
-    OPENCLAW_ACTIVE=true
-    break
-  fi
-  echo "  Waiting for OpenClaw to bind port 18789 (attempt $i)..."
-  sleep 5
-done
-
-if [ "$OPENCLAW_ACTIVE" = "false" ]; then
-  echo "  WARNING: OpenClaw gateway is NOT listening on port 18789"
-  echo "  --- Service status ---"
-  systemctl is-active capable-openclaw 2>/dev/null || echo "  capable-openclaw: not found"
-  systemctl --user is-active openclaw-gateway 2>/dev/null || echo "  openclaw-gateway (user): not found"
-  echo "  --- Onboard log ---"
-  cat /var/log/openclaw-onboard.log 2>/dev/null | tail -30 || echo "  No onboard log"
-  echo "  --- OpenClaw log ---"
-  cat /var/log/openclaw.log 2>/dev/null | tail -30 || echo "  No openclaw log"
-  echo "  --- Journal ---"
-  journalctl -u capable-openclaw --no-pager -n 20 2>&1 || true
-  journalctl --user-unit openclaw-gateway --no-pager -n 20 2>&1 || true
-  echo "  --- Running gateway manually for error output ---"
-  timeout 10 $OPENCLAW_BIN gateway --port 18789 --verbose 2>&1 | tail -30 || true
-  report "9-openclaw-start" "failed" "port 18789 not listening. onboard: $(tail -3 /var/log/openclaw-onboard.log 2>/dev/null | head -c 200). log: $(tail -3 /var/log/openclaw.log 2>/dev/null | head -c 200)"
-fi
-report "9-dashboard-started" "done"
-
-echo ">>> [10/${totalSteps}] Setting up heartbeat..."
-# Save IP for cron reuse
-echo "$DROPLET_IP" > /etc/capable-droplet-ip
-
-# Send initial heartbeat (includes password + admin secret + gateway token so web app can manage the dashboard)
-curl -sf -X POST ${appUrl}/api/deployments/heartbeat \\
-  -H "Content-Type: application/json" \\
-  -d '{"projectToken":"${projectToken}","dropletIp":"'"$DROPLET_IP"'","packVersion":${packVersion},"status":"active","dashboardPassword":"'"$DASH_PASSWORD"'","adminSecret":"'"$ADMIN_SECRET"'","gatewayToken":"'"$GATEWAY_TOKEN"'"}' || true
-
-# Set up recurring heartbeat every 5 minutes (no password — only sent once)
-cat > /etc/cron.d/capable-heartbeat << 'CRON'
-*/5 * * * * root DROPLET_IP=$(/bin/cat /etc/capable-droplet-ip); /usr/bin/curl -sf -X POST ${appUrl}/api/deployments/heartbeat -H "Content-Type: application/json" -d "{\\"projectToken\\":\\"${projectToken}\\",\\"dropletIp\\":\\"$DROPLET_IP\\",\\"packVersion\\":${packVersion},\\"status\\":\\"active\\"}" > /dev/null 2>&1
-CRON
-chmod 644 /etc/cron.d/capable-heartbeat
-${caddySteps}
-echo ""
-echo "========================================="
-echo "  Capable.ai deployment complete!"
-echo "========================================="
-echo "  Dashboard: ${dashboardUrl}"
-echo "  Chat:      ${dashboardUrl}/chat/"
-echo "  Password:  $DASH_PASSWORD"
-echo ""
-echo "  Your AI provider will be configured"
-echo "  automatically from the deploy page."
-echo ""
-echo "  Credentials saved to:"
-echo "  /root/dashboard-credentials.txt"
-echo "========================================="
-report "cloud-init" "completed"`;
+  return L.join("\n");
 }
