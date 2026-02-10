@@ -154,42 +154,66 @@ export async function POST(req: NextRequest) {
     }
 
     // Restart OpenClaw service so it picks up the new config
-    // Try multiple service names (onboard creates openclaw-gateway, manual creates capable-openclaw)
     const { promisify } = await import("util");
     const execPromise = promisify(exec);
 
     let serviceStatus = "unknown";
     let journalOutput = "";
 
-    // Restart ALL possible gateway service names — both may exist
-    // (onboard creates openclaw-gateway, cloud-init creates capable-openclaw)
-    // Don't break on first success — restart all to avoid stale processes
-    const serviceNames = ["capable-openclaw", "openclaw-gateway"];
-    for (const svcName of serviceNames) {
+    const isDocker = process.env.CONTAINER_MODE === "docker";
+
+    if (isDocker) {
+      // Docker mode: restart the OpenClaw container so it picks up new config
+      // Dashboard has Docker socket mounted + docker-cli installed
       try {
-        await execPromise(`systemctl restart ${svcName} 2>/dev/null || systemctl --user restart ${svcName} 2>/dev/null`);
+        await execPromise("docker restart capable-openclaw");
+        // Give it time to restart and bind port
+        await new Promise(r => setTimeout(r, 8000));
+      } catch (restartErr) {
+        console.error("Docker restart failed:", restartErr);
+      }
+
+      // Health check
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        const gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || "openclaw";
+        const gatewayPort = process.env.OPENCLAW_GATEWAY_PORT || "18789";
+        const res = await fetch(`http://${gatewayHost}:${gatewayPort}/`, {
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
+        serviceStatus = res ? "active" : "inactive";
       } catch {
-        // Service might not exist under this name, that's fine
+        serviceStatus = "inactive";
       }
-    }
-
-    // Give it time to start
-    await new Promise(r => setTimeout(r, 5000));
-
-    // Check if port 18789 is now listening
-    try {
-      const { stdout: portCheck } = await execPromise("ss -lntp | grep 18789 || echo 'not listening'");
-      serviceStatus = portCheck.includes("18789") ? "active" : "inactive";
-
-      if (serviceStatus !== "active") {
-        // Gather diagnostics
-        const { stdout: journal } = await execPromise(
-          "journalctl -u capable-openclaw --no-pager -n 20 2>&1; journalctl --user-unit openclaw-gateway --no-pager -n 20 2>&1; cat /var/log/openclaw.log 2>/dev/null | tail -20"
-        ).catch(() => ({ stdout: "" }));
-        journalOutput = journal.slice(0, 3000);
+    } else {
+      // Bare-metal mode: use systemctl
+      const serviceNames = ["capable-openclaw", "openclaw-gateway"];
+      for (const svcName of serviceNames) {
+        try {
+          await execPromise(`systemctl restart ${svcName} 2>/dev/null || systemctl --user restart ${svcName} 2>/dev/null`);
+        } catch {
+          // Service might not exist under this name, that's fine
+        }
       }
-    } catch {
-      serviceStatus = "check-failed";
+
+      // Give it time to start
+      await new Promise(r => setTimeout(r, 5000));
+
+      // Check if port 18789 is now listening
+      try {
+        const { stdout: portCheck } = await execPromise("ss -lntp | grep 18789 || echo 'not listening'");
+        serviceStatus = portCheck.includes("18789") ? "active" : "inactive";
+
+        if (serviceStatus !== "active") {
+          const { stdout: journal } = await execPromise(
+            "journalctl -u capable-openclaw --no-pager -n 20 2>&1; journalctl --user-unit openclaw-gateway --no-pager -n 20 2>&1; cat /var/log/openclaw.log 2>/dev/null | tail -20"
+          ).catch(() => ({ stdout: "" }));
+          journalOutput = journal.slice(0, 3000);
+        }
+      } catch {
+        serviceStatus = "check-failed";
+      }
     }
 
     return NextResponse.json({ success: true, serviceStatus, journalOutput: journalOutput || undefined });

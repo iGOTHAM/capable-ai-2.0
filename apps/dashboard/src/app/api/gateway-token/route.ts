@@ -17,6 +17,12 @@ export async function GET() {
   }
 
   try {
+    // Fast path: Docker mode passes GATEWAY_TOKEN as env var
+    const envToken = process.env.GATEWAY_TOKEN;
+    if (envToken) {
+      return NextResponse.json({ token: envToken });
+    }
+
     const configPath =
       process.env.OPENCLAW_CONFIG ||
       process.env.CONFIG_FILE ||

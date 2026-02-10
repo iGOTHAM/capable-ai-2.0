@@ -16,15 +16,21 @@ services:
       - "3100:3100"
     volumes:
       - activity-data:/data/activity
+      - openclaw-config:/root/.openclaw
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - NODE_ENV=production
       - PORT=3100
       - HOSTNAME=0.0.0.0
       - AUTH_PASSWORD=${AUTH_PASSWORD}
+      - ADMIN_SECRET=${ADMIN_SECRET}
+      - GATEWAY_TOKEN=${GATEWAY_TOKEN}
       - DATA_DIR=/data/activity
       - OPENCLAW_GATEWAY_HOST=openclaw
+      - OPENCLAW_GATEWAY_PORT=18789
       - OPENCLAW_CONFIG=/root/.openclaw/openclaw.json
       - OPENCLAW_DIR=/root/.openclaw
+      - CONTAINER_MODE=docker
     depends_on:
       openclaw:
         condition: service_started
