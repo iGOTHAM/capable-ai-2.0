@@ -126,7 +126,7 @@ export function Header() {
             </button>
             <ThemeToggle />
             <a
-              href="/chat/"
+              href="/open-chat"
               target="_blank"
               rel="noopener noreferrer"
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

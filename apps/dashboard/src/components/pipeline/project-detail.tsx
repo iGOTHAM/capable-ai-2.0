@@ -64,13 +64,13 @@ export function ProjectDetailView({ detail, stages }: ProjectDetailViewProps) {
     try {
       const res = await fetch("/api/gateway-token");
       if (!res.ok) {
-        window.open("/chat/", "_blank");
+        window.open("/open-chat", "_blank");
         return;
       }
       const { token } = await res.json();
       window.open(`/chat/?token=${token}`, "_blank");
     } catch {
-      window.open("/chat/", "_blank");
+      window.open("/open-chat", "_blank");
     }
   };
 
@@ -212,7 +212,7 @@ export function ProjectDetailView({ detail, stages }: ProjectDetailViewProps) {
                         <span
                           className={cn(
                             step.done &&
-                              "text-muted-foreground line-through",
+                            "text-muted-foreground line-through",
                           )}
                         >
                           {step.text}

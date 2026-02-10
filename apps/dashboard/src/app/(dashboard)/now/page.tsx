@@ -56,9 +56,8 @@ export default async function DashboardHome() {
       <Card className="border-primary/20">
         <CardContent className="flex items-center gap-4 p-6">
           <div
-            className={`h-4 w-4 rounded-full shrink-0 ${
-              activeRun ? "bg-blue-500 animate-pulse" : "bg-green-500"
-            }`}
+            className={`h-4 w-4 rounded-full shrink-0 ${activeRun ? "bg-blue-500 animate-pulse" : "bg-green-500"
+              }`}
           />
           <div className="flex-1 min-w-0">
             <p className="text-lg font-semibold">
@@ -147,24 +146,22 @@ export default async function DashboardHome() {
                     className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
                   >
                     <div
-                      className={`h-2 w-2 rounded-full shrink-0 ${
-                        task.status === "in-progress"
+                      className={`h-2 w-2 rounded-full shrink-0 ${task.status === "in-progress"
                           ? "bg-orange-500"
                           : task.status === "done"
                             ? "bg-green-500"
                             : "bg-blue-500"
-                      }`}
+                        }`}
                     />
                     <span className="truncate flex-1">{task.title}</span>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                        task.priority === "high"
+                      className={`text-[10px] px-1.5 py-0 shrink-0 ${task.priority === "high"
                           ? "text-red-500"
                           : task.priority === "medium"
                             ? "text-orange-500"
                             : "text-gray-500"
-                      }`}
+                        }`}
                     >
                       {task.priority}
                     </Badge>
@@ -230,7 +227,7 @@ export default async function DashboardHome() {
             </div>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <a href="/chat/">Open Settings</a>
+            <a href="/open-chat">Open Settings</a>
           </Button>
         </CardContent>
       </Card>

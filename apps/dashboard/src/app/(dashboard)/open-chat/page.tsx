@@ -46,7 +46,7 @@ export default function ChatPage() {
             Could not connect to the agent. It may still be starting up.
           </p>
           <Button variant="outline" size="sm" asChild>
-            <a href="/chat/">Open Chat Directly</a>
+            <a href="/open-chat">Retry</a>
           </Button>
         </div>
       </div>

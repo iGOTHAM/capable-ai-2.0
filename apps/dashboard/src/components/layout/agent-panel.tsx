@@ -105,7 +105,7 @@ export function AgentPanel() {
       {/* Bottom actions */}
       <div className="flex flex-col items-center gap-2">
         <a
-          href="/chat/"
+          href="/open-chat"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[10px] font-medium text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"

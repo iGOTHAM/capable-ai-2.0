@@ -125,7 +125,7 @@ export function ChatPopup() {
                 setWsState("error");
                 setError(
                   frame.error?.message ||
-                    "Failed to authenticate with agent."
+                  "Failed to authenticate with agent."
                 );
               }
             }
@@ -354,7 +354,7 @@ export function ChatPopup() {
             </div>
             <div className="flex items-center gap-1">
               <a
-                href="/chat/"
+                href="/open-chat"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
