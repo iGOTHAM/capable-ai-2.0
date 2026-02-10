@@ -65,8 +65,17 @@ COPY --from=builder /app/apps/dashboard/.next/static ./apps/dashboard/.next/stat
 # Create data directory
 RUN mkdir -p /data/activity && chown nextjs:nodejs /data/activity
 
+# Install runtime dependencies for bootstrap script
+RUN apk add --no-cache curl unzip
+
+# Copy bootstrap script
+COPY apps/dashboard/scripts/bootstrap-pack.mjs ./scripts/bootstrap-pack.mjs
+
+# Create workspace directory
+RUN mkdir -p /workspace && chown nextjs:nodejs /workspace
+
 USER nextjs
 
 EXPOSE 3100
 
-CMD ["node", "apps/dashboard/server.js"]
+CMD ["sh", "-c", "node scripts/bootstrap-pack.mjs && node apps/dashboard/server.js"]

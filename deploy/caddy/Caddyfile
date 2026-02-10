@@ -1,0 +1,33 @@
+# =========================================
+# Capable.ai — Caddy Configuration
+# =========================================
+# This Caddyfile is used when a subdomain is configured.
+# If no subdomain, traffic goes directly to dashboard:3100.
+#
+# Usage: Set CAPABLE_SUBDOMAIN env var (e.g., "jarvis")
+#        to enable TLS + reverse proxy.
+# =========================================
+
+{$CAPABLE_SUBDOMAIN:localhost}.capable.ai {
+    # Use self-signed origin cert (Cloudflare proxy handles public TLS)
+    tls /etc/caddy/certs/origin.crt /etc/caddy/certs/origin.key
+
+    # WebSocket upgrade requests → OpenClaw gateway
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    handle @websockets {
+        reverse_proxy openclaw:18789
+    }
+
+    # OpenClaw Web UI
+    handle /chat* {
+        reverse_proxy openclaw:18789
+    }
+
+    # Dashboard — everything else
+    handle {
+        reverse_proxy dashboard:3100
+    }
+}

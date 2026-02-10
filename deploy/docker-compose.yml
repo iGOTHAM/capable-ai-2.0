@@ -1,0 +1,80 @@
+# =========================================
+# Capable.ai — Full Stack Deployment
+# =========================================
+# Usage:
+#   1. Copy .env.example to .env and fill in values
+#   2. docker compose up -d
+# =========================================
+
+services:
+  # ─── Dashboard (Next.js Web UI) ───
+  dashboard:
+    image: capable-ai/dashboard:latest
+    container_name: capable-dashboard
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - activity-data:/data/activity
+    environment:
+      - NODE_ENV=production
+      - PORT=3100
+      - HOSTNAME=0.0.0.0
+      - AUTH_PASSWORD=${AUTH_PASSWORD}
+      - DATA_DIR=/data/activity
+      - OPENCLAW_GATEWAY_HOST=openclaw
+      - OPENCLAW_CONFIG=/root/.openclaw/openclaw.json
+      - OPENCLAW_DIR=/root/.openclaw
+    depends_on:
+      openclaw:
+        condition: service_started
+
+  # ─── OpenClaw (AI Agent Runtime) ───
+  openclaw:
+    build:
+      context: ./openclaw
+      args:
+        OPENCLAW_VERSION: ${OPENCLAW_VERSION:-2026.2.6-3}
+    container_name: capable-openclaw
+    restart: unless-stopped
+    volumes:
+      - openclaw-workspace:/root/.openclaw/workspace
+      - openclaw-config:/root/.openclaw
+      - activity-data:/data/activity
+    environment:
+      - PROJECT_ID=${PROJECT_ID}
+      - PROJECT_TOKEN=${PROJECT_TOKEN}
+      - PACK_VERSION=${PACK_VERSION:-1}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://capable.ai}
+      - GATEWAY_TOKEN=${GATEWAY_TOKEN}
+      - OPENCLAW_GATEWAY_PORT=18789
+    expose:
+      - "18789"
+
+  # ─── Caddy (Reverse Proxy + TLS) ───
+  # Only needed when using a subdomain (e.g., jarvis.capable.ai)
+  # If accessing via IP:3100 directly, this service can be omitted.
+  caddy:
+    image: caddy:2-alpine
+    container_name: capable-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+      - ./caddy/certs:/etc/caddy/certs:ro
+    environment:
+      - CAPABLE_SUBDOMAIN=${SUBDOMAIN:-localhost}
+    depends_on:
+      - dashboard
+      - openclaw
+
+volumes:
+  activity-data:
+  openclaw-workspace:
+  openclaw-config:
+  caddy-data:
+  caddy-config:

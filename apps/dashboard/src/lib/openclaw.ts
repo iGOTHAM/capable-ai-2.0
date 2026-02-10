@@ -137,15 +137,33 @@ export async function removeSetupMarker(): Promise<void> {
 }
 
 // ─── Agent Status ────────────────────────────────────────────────────────────
-// The dashboard itself serves as the agent runtime. Chat requests go through
-// the dashboard API which calls the configured LLM provider directly.
-// "Running" means: config exists with provider + apiKey + model.
+// Checks whether the OpenClaw gateway is actually running by probing port 18789.
+// Falls back to config-based check if the network probe can't be performed.
+
+const GATEWAY_HOST = process.env.OPENCLAW_GATEWAY_HOST || "127.0.0.1";
+const GATEWAY_PORT = parseInt(process.env.OPENCLAW_GATEWAY_PORT || "18789", 10);
 
 export async function getDaemonStatus(): Promise<DaemonStatus> {
+  // 1. Try a real health check — probe the gateway over HTTP
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(`http://${GATEWAY_HOST}:${GATEWAY_PORT}/`, {
+      method: "GET",
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+    // Any response (even 4xx/5xx) means the process is alive
+    if (res) {
+      return { running: true, pid: undefined };
+    }
+  } catch {
+    // fetch failed — gateway is not listening, fall through to config check
+  }
+
+  // 2. Fallback: check if config has API key + model (legacy heuristic)
   const config = await readConfig();
   if (!config) return { running: false };
 
-  // Check both old schema and new OpenClaw schema
   const env = config.env as Record<string, string> | undefined;
   const hasApiKey =
     (config.provider && config.apiKey) ||
