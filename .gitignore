@@ -46,3 +46,11 @@ TODO.md
 .env*.local
 
 .env*.local
+
+# Scripts with secrets or local utils
+scripts/check-deployments.mjs
+scripts/fix-ipv6-deployments.mjs
+scripts/send-password-heartbeat.mjs
+scripts/e2e-deps/
+scripts/e2e-test-data.json
+scripts/e2e-test.mjs
