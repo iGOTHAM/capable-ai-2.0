@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      resend:
+        specifier: ^6.9.1
+        version: 6.9.1
     devDependencies:
       next:
         specifier: ^15.1.0

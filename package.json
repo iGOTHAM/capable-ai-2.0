@@ -28,5 +28,8 @@
   "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "resend": "^6.9.1"
   }
 }
