@@ -109,7 +109,8 @@ export async function POST(
           "X-Admin-Secret": adminSecret,
         },
         body: JSON.stringify(parsed.data),
-        signal: AbortSignal.timeout(10000),
+        // set-key handler restarts OpenClaw (8s sleep + health check) — needs generous timeout
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
