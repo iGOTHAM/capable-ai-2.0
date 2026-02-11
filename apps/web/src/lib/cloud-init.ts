@@ -302,7 +302,9 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium");
   add("ENV PUPPETEER_CHROMIUM_REVISION=skip");
   add("ARG OPENCLAW_VERSION=2026.2.6-3");
-  add("RUN npm install -g openclaw@${OPENCLAW_VERSION}");
+  add("RUN git config --global url.\"https://github.com/\".insteadOf git@github.com: \\");
+  add("    && git config --global url.\"https://github.com/\".insteadOf ssh://git@github.com/ \\");
+  add("    && npm install -g openclaw@${OPENCLAW_VERSION}");
   add("RUN mkdir -p /root/.openclaw/workspace /data/activity");
   add("COPY entrypoint.sh /entrypoint.sh");
   add("RUN chmod +x /entrypoint.sh");
