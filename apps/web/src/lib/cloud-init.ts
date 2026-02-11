@@ -297,7 +297,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("cat > /opt/capable/openclaw/Dockerfile << 'OCDOCKER'");
   add("FROM node:22-bookworm-slim");
   add("RUN apt-get update && apt-get install -y --no-install-recommends \\");
-  add("    chromium curl git jq openssl && rm -rf /var/lib/apt/lists/*");
+  add("    ca-certificates chromium curl git jq openssl && rm -rf /var/lib/apt/lists/*");
   add("ENV CHROME_PATH=/usr/bin/chromium");
   add("ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium");
   add("ENV PUPPETEER_CHROMIUM_REVISION=skip");
