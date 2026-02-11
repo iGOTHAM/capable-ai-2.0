@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFileSync, readFileSync, existsSync } from "fs";
+import { exec } from "child_process";
 import { safeCompare } from "@/lib/auth";
 import { adminLimiter } from "@/lib/rate-limit";
 
@@ -114,19 +115,37 @@ export async function POST(req: NextRequest) {
       // Non-critical
     }
 
-    // Schedule a graceful process exit AFTER this response is sent.
-    // Why: Next.js middleware runs in Edge Runtime which has its own
-    // copy of process.env. Mutating process.env in Node.js API routes
-    // does NOT propagate to Edge Runtime. The only way to get middleware
-    // to see the new password is to restart the process so it re-reads
-    // AUTH_PASSWORD from the .env file on startup.
+    // Schedule a container recreation AFTER this response is sent.
     //
-    // Docker restart policy (unless-stopped) auto-restarts the container.
-    // The 1.5s delay ensures the HTTP response is fully sent first.
+    // Why we can't just mutate process.env:
+    //   Next.js middleware runs in Edge Runtime which has its own copy of
+    //   process.env. Mutations in Node.js API routes do NOT propagate.
+    //
+    // Why we can't just process.exit(0):
+    //   Docker "restart: unless-stopped" restarts the same container with
+    //   the ORIGINAL env vars baked in at creation time. It does NOT
+    //   re-read the .env file or docker-compose.yml.
+    //
+    // Solution: `docker compose up -d dashboard` recreates the container,
+    // reading fresh env vars from /opt/capable/.env. The 2s delay ensures
+    // the HTTP response is fully sent before the container is replaced.
+    const isDocker2 = process.env.CONTAINER_MODE === "docker";
     setTimeout(() => {
-      console.log("[set-password] Restarting process to propagate new password to middleware...");
-      process.exit(0);
-    }, 1500);
+      if (isDocker2) {
+        console.log("[set-password] Recreating container to propagate new password...");
+        exec(
+          "cd /opt/capable && docker compose up -d dashboard",
+          (err, stdout, stderr) => {
+            if (err) console.error("[set-password] docker compose failed:", stderr);
+            else console.log("[set-password] container recreated:", stdout);
+          }
+        );
+      } else {
+        // Bare-metal: restart the process so it re-reads env from disk
+        console.log("[set-password] Restarting process for bare-metal env reload...");
+        process.exit(0);
+      }
+    }, 2000);
 
     return NextResponse.json({ success: true });
   } catch (err) {

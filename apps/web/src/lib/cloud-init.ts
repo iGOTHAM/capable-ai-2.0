@@ -228,6 +228,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("      - openclaw-config:/root/.openclaw");
   add("      - /var/run/docker.sock:/var/run/docker.sock");
   add("      - /opt/capable/.env:/opt/capable/.env");
+  add("      - /opt/capable/docker-compose.yml:/opt/capable/docker-compose.yml:ro");
   add("    environment:");
   add("      - NODE_ENV=production");
   add("      - PORT=3100");
