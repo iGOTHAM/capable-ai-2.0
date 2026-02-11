@@ -114,10 +114,19 @@ export async function POST(req: NextRequest) {
       // Non-critical
     }
 
-    // NOTE: We do NOT restart the container/service here.
-    // The in-memory process.env update takes effect immediately.
-    // Restarting the container from inside itself would kill this
-    // request handler before it can respond → timeout on the caller.
+    // Schedule a graceful process exit AFTER this response is sent.
+    // Why: Next.js middleware runs in Edge Runtime which has its own
+    // copy of process.env. Mutating process.env in Node.js API routes
+    // does NOT propagate to Edge Runtime. The only way to get middleware
+    // to see the new password is to restart the process so it re-reads
+    // AUTH_PASSWORD from the .env file on startup.
+    //
+    // Docker restart policy (unless-stopped) auto-restarts the container.
+    // The 1.5s delay ensures the HTTP response is fully sent first.
+    setTimeout(() => {
+      console.log("[set-password] Restarting process to propagate new password to middleware...");
+      process.exit(0);
+    }, 1500);
 
     return NextResponse.json({ success: true });
   } catch (err) {
