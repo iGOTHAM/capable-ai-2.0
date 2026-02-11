@@ -71,4 +71,4 @@ echo "$GATEWAY_TOKEN" > /root/.openclaw/gateway-token
 chmod 600 /root/.openclaw/gateway-token
 
 echo ">>> [OpenClaw] Starting gateway on port ${OPENCLAW_GATEWAY_PORT:-18789}..."
-exec $OPENCLAW_BIN gateway --host 0.0.0.0 --port "${OPENCLAW_GATEWAY_PORT:-18789}" --verbose
+exec $OPENCLAW_BIN gateway --port "${OPENCLAW_GATEWAY_PORT:-18789}" --verbose
