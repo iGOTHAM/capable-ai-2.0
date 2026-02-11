@@ -62,18 +62,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Validate the cookie by calling our Node.js API endpoint.
+  // Validate the cookie by calling our Node.js API endpoint via localhost.
   //
   // Why not just use process.env.AUTH_PASSWORD here?
-  //   Edge Runtime has its own process.env copy that is frozen at container
-  //   start time. When the password changes (via /api/admin/set-password),
-  //   only the Node.js runtime sees the update. The Edge Runtime's
-  //   process.env is stale and would reject valid cookies.
+  //   Edge Runtime has its own process.env copy frozen at container start.
+  //   When the password changes, only Node.js runtime sees the update.
   //
-  // This internal fetch adds ~1-2ms (localhost) but ensures the middleware
-  // always validates against the CURRENT password, not a stale copy.
+  // Why localhost instead of request.url?
+  //   Using the external URL would route through Cloudflare → Caddy → back
+  //   to the same process, which can fail or loop. Localhost goes direct.
+  const port = process.env.PORT || "3100";
   try {
-    const verifyUrl = new URL("/api/auth/verify", request.url);
+    const verifyUrl = `http://localhost:${port}/api/auth/verify`;
     const res = await fetch(verifyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,7 +83,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
   } catch {
-    // If the verify endpoint is unreachable, fall back to env-based check
+    // If localhost verify fails, fall back to env-based check.
+    // This works for the initial password (before any changes).
     const secret = process.env.AUTH_PASSWORD || "changeme";
     const expected = await makeExpectedToken(secret);
     const isValid = await safeCompareEdge(token, expected);
