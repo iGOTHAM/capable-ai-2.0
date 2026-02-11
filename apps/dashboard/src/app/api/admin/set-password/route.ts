@@ -86,11 +86,20 @@ export async function POST(req: NextRequest) {
         { mode: 0o600 }
       );
 
-      // Restart dashboard container to pick up new password
+      // Recreate dashboard container to pick up new env vars from .env
+      // docker restart just restarts the same container with old env vars;
+      // docker compose up -d re-reads .env and recreates if env changed
       try {
-        execSync("docker restart capable-dashboard", { timeout: 15000 });
+        execSync("docker compose -f /opt/capable/docker-compose.yml up -d dashboard", {
+          timeout: 30000,
+        });
       } catch {
-        console.log("Note: Could not restart Docker container");
+        // Fallback to simple restart if compose fails
+        try {
+          execSync("docker restart capable-dashboard", { timeout: 15000 });
+        } catch {
+          console.log("Note: Could not restart Docker container");
+        }
       }
     } else {
       // Bare-metal mode: update systemd config

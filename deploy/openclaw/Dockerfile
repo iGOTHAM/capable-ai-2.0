@@ -7,8 +7,10 @@ FROM node:22-bookworm-slim
 
 # Install Chromium and utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     chromium \
     curl \
+    git \
     jq \
     openssl \
     && rm -rf /var/lib/apt/lists/*
@@ -20,7 +22,9 @@ ENV PUPPETEER_CHROMIUM_REVISION=skip
 
 # Install OpenClaw globally
 ARG OPENCLAW_VERSION=2026.2.6-3
-RUN npm install -g openclaw@${OPENCLAW_VERSION}
+RUN git config --global url."https://github.com/".insteadOf git@github.com: \
+    && git config --global url."https://github.com/".insteadOf ssh://git@github.com/ \
+    && npm install -g openclaw@${OPENCLAW_VERSION}
 
 # Create workspace and config directories
 RUN mkdir -p /root/.openclaw/workspace /data/activity

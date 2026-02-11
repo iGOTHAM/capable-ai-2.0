@@ -57,6 +57,7 @@ fi
 cat "$CONFIG_FILE" | jq --arg token "$GATEWAY_TOKEN" '. + {
   gateway: (.gateway // {} | . + {
     mode: "local",
+    bind: "lan",
     auth: { mode: "token", token: $token },
     controlUi: { basePath: "/chat", allowInsecureAuth: true },
     trustedProxies: ["127.0.0.1", "::1", "172.16.0.0/12", "10.0.0.0/8"]

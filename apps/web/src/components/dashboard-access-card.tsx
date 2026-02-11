@@ -67,8 +67,8 @@ export function DashboardAccessCard({
     if (!canChangePassword || !newPassword.trim()) return;
 
     // Validate password
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
 
@@ -231,7 +231,7 @@ export function DashboardAccessCard({
               autoFocus
             />
             <p className="text-xs text-muted-foreground">
-              Choose something easy to type on mobile. Minimum 6 characters.
+              Choose something easy to type on mobile. Minimum 8 characters.
             </p>
             <div className="flex gap-2">
               <Button
