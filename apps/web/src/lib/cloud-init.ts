@@ -217,7 +217,6 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("    container_name: capable-dashboard");
   add("    restart: unless-stopped");
   if (hasSub) {
-    // Caddy is the front door — no need to expose port on host
     add("    expose:");
     add('      - "3100"');
   } else {
@@ -228,6 +227,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("      - activity-data:/data/activity");
   add("      - openclaw-config:/root/.openclaw");
   add("      - /var/run/docker.sock:/var/run/docker.sock");
+  add("      - /opt/capable/.env:/opt/capable/.env");
   add("    environment:");
   add("      - NODE_ENV=production");
   add("      - PORT=3100");
@@ -308,8 +308,8 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium");
   add("ENV PUPPETEER_CHROMIUM_REVISION=skip");
   add("ARG OPENCLAW_VERSION=2026.2.6-3");
-  add("RUN git config --global url.\"https://github.com/\".insteadOf git@github.com: \\");
-  add("    && git config --global url.\"https://github.com/\".insteadOf ssh://git@github.com/ \\");
+  add('RUN git config --global url."https://github.com/".insteadOf git@github.com: \\');
+  add('    && git config --global url."https://github.com/".insteadOf ssh://git@github.com/ \\');
   add("    && npm install -g openclaw@${OPENCLAW_VERSION}");
   add("RUN mkdir -p /root/.openclaw/workspace /data/activity");
   add("COPY entrypoint.sh /entrypoint.sh");
