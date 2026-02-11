@@ -78,6 +78,7 @@ export async function middleware(request: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
+      cache: "no-store",
     });
     if (res.ok) {
       return NextResponse.next();
@@ -100,5 +101,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|favicon.ico).*)"],
+  matcher: ["/((?!_next|favicon.ico|api/auth|api/admin|api/agent-public).*)"],
 };
