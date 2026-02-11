@@ -117,7 +117,7 @@ export async function POST(
           "X-Admin-Secret": adminSecret,
         },
         body: JSON.stringify({ password }),
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(15000),
       });
 
       if (!response.ok) {
