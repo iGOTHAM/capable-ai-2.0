@@ -35,7 +35,33 @@ interface CloudflareResult {
 }
 
 /**
+ * Deletes all existing A records for a given subdomain.
+ * Prevents duplicate records when redeploying to a new IP.
+ */
+async function deleteExistingRecords(subdomain: string): Promise<void> {
+  const { apiToken, zoneId } = getConfig();
+  const name = `${subdomain}.capable.ai`;
+
+  const res = await fetch(
+    `${CF_API}/zones/${zoneId}/dns_records?type=A&name=${encodeURIComponent(name)}`,
+    { headers: headers(apiToken) },
+  );
+
+  const data = (await res.json()) as {
+    success: boolean;
+    result?: Array<{ id: string }>;
+  };
+
+  if (!data.success || !data.result) return;
+
+  for (const record of data.result) {
+    await deleteDnsRecord(record.id);
+  }
+}
+
+/**
  * Creates an A record: {subdomain}.capable.ai → IP
+ * Deletes any existing A records for the subdomain first to prevent duplicates.
  * Returns the Cloudflare record ID for later updates/deletion.
  */
 export async function createDnsRecord(
@@ -43,6 +69,9 @@ export async function createDnsRecord(
   ip: string,
 ): Promise<string> {
   const { apiToken, zoneId } = getConfig();
+
+  // Clean up any stale records for this subdomain before creating
+  await deleteExistingRecords(subdomain);
 
   const res = await fetch(`${CF_API}/zones/${zoneId}/dns_records`, {
     method: "POST",
