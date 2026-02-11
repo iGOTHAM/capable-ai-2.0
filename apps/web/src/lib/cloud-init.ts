@@ -216,8 +216,14 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("    image: capable-ai/dashboard:latest");
   add("    container_name: capable-dashboard");
   add("    restart: unless-stopped");
-  add("    ports:");
-  add('      - "3100:3100"');
+  if (hasSub) {
+    // Caddy is the front door — no need to expose port on host
+    add("    expose:");
+    add('      - "3100"');
+  } else {
+    add("    ports:");
+    add('      - "3100:3100"');
+  }
   add("    volumes:");
   add("      - activity-data:/data/activity");
   add("      - openclaw-config:/root/.openclaw");
@@ -451,7 +457,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   if (hasSub) {
     add("ufw allow 80/tcp");
     add("ufw allow 443/tcp");
-    add("ufw deny 3100/tcp");
+    // Port 3100 not exposed to host when Caddy is present — no deny needed
   } else {
     add("ufw allow 3100/tcp");
   }
