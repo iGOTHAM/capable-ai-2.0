@@ -377,7 +377,10 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add("    }");
     add("");
     add("    handle /chat* {");
-    add("        reverse_proxy openclaw:18789");
+    add("        reverse_proxy openclaw:18789 {");
+    add("            header_down -X-Frame-Options");
+    add("            header_down -Content-Security-Policy");
+    add("        }");
     add("    }");
     add("");
     add("    handle {");
