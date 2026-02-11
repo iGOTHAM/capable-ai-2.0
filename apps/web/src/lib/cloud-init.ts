@@ -350,7 +350,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add('GATEWAY_TOKEN="${GATEWAY_TOKEN:-$(openssl rand -hex 32)}"');
   add('[ ! -f "$CONFIG_FILE" ] && echo \'{}\' > "$CONFIG_FILE"');
   add("cat \"$CONFIG_FILE\" | jq --arg token \"$GATEWAY_TOKEN\" '. + {");
-  add('  gateway: (.gateway // {} | . + {mode:"local",auth:{mode:"token",token:$token},controlUi:{basePath:"/chat",allowInsecureAuth:true},trustedProxies:["127.0.0.1","::1","172.16.0.0/12","10.0.0.0/8"]}),');
+  add('  gateway: (.gateway // {} | . + {mode:"local",bind:"lan",auth:{mode:"token",token:$token},controlUi:{basePath:"/chat",allowInsecureAuth:true},trustedProxies:["127.0.0.1","::1","172.16.0.0/12","10.0.0.0/8"]}),');
   add('  browser: {executablePath:"/usr/bin/chromium"}');
   add("}' > \"${CONFIG_FILE}.tmp\" && mv \"${CONFIG_FILE}.tmp\" \"$CONFIG_FILE\"");
   add('chmod 600 "$CONFIG_FILE"');
