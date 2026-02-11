@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFileSync, readFileSync, existsSync } from "fs";
-import { exec } from "child_process";
 import { safeCompare } from "@/lib/auth";
 import { adminLimiter } from "@/lib/rate-limit";
 
@@ -115,37 +114,10 @@ export async function POST(req: NextRequest) {
       // Non-critical
     }
 
-    // Schedule a container recreation AFTER this response is sent.
-    //
-    // Why we can't just mutate process.env:
-    //   Next.js middleware runs in Edge Runtime which has its own copy of
-    //   process.env. Mutations in Node.js API routes do NOT propagate.
-    //
-    // Why we can't just process.exit(0):
-    //   Docker "restart: unless-stopped" restarts the same container with
-    //   the ORIGINAL env vars baked in at creation time. It does NOT
-    //   re-read the .env file or docker-compose.yml.
-    //
-    // Solution: `docker compose up -d dashboard` recreates the container,
-    // reading fresh env vars from /opt/capable/.env. The 2s delay ensures
-    // the HTTP response is fully sent before the container is replaced.
-    const isDocker2 = process.env.CONTAINER_MODE === "docker";
-    setTimeout(() => {
-      if (isDocker2) {
-        console.log("[set-password] Recreating container to propagate new password...");
-        exec(
-          "cd /opt/capable && docker compose up -d dashboard",
-          (err, stdout, stderr) => {
-            if (err) console.error("[set-password] docker compose failed:", stderr);
-            else console.log("[set-password] container recreated:", stdout);
-          }
-        );
-      } else {
-        // Bare-metal: restart the process so it re-reads env from disk
-        console.log("[set-password] Restarting process for bare-metal env reload...");
-        process.exit(0);
-      }
-    }, 2000);
+    // No container restart needed! Middleware now validates cookies by
+    // calling /api/auth/verify (Node.js runtime) instead of checking
+    // process.env directly in Edge Runtime. The in-memory process.env
+    // update above is sufficient for the Node.js API routes.
 
     return NextResponse.json({ success: true });
   } catch (err) {

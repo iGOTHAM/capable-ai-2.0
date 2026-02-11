@@ -48,3 +48,8 @@ export async function setAuthCookie(): Promise<void> {
 export function checkPassword(password: string): boolean {
   return safeCompare(password, getAuthSecret());
 }
+
+/** Verify a dashboard_auth cookie token against the current password */
+export function verifyToken(token: string): boolean {
+  return safeCompare(token, makeToken());
+}

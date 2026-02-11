@@ -62,20 +62,40 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Validate the HMAC token matches the current AUTH_PASSWORD
-  const secret = process.env.AUTH_PASSWORD || "changeme";
-  const expected = await makeExpectedToken(secret);
-  const isValid = await safeCompareEdge(token, expected);
-  if (!isValid) {
-    // Clear stale/invalid cookie and redirect to login
-    const response = NextResponse.redirect(
-      new URL("/login", request.url),
-    );
-    response.cookies.delete("dashboard_auth");
-    return response;
+  // Validate the cookie by calling our Node.js API endpoint.
+  //
+  // Why not just use process.env.AUTH_PASSWORD here?
+  //   Edge Runtime has its own process.env copy that is frozen at container
+  //   start time. When the password changes (via /api/admin/set-password),
+  //   only the Node.js runtime sees the update. The Edge Runtime's
+  //   process.env is stale and would reject valid cookies.
+  //
+  // This internal fetch adds ~1-2ms (localhost) but ensures the middleware
+  // always validates against the CURRENT password, not a stale copy.
+  try {
+    const verifyUrl = new URL("/api/auth/verify", request.url);
+    const res = await fetch(verifyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    if (res.ok) {
+      return NextResponse.next();
+    }
+  } catch {
+    // If the verify endpoint is unreachable, fall back to env-based check
+    const secret = process.env.AUTH_PASSWORD || "changeme";
+    const expected = await makeExpectedToken(secret);
+    const isValid = await safeCompareEdge(token, expected);
+    if (isValid) {
+      return NextResponse.next();
+    }
   }
 
-  return NextResponse.next();
+  // Clear stale/invalid cookie and redirect to login
+  const response = NextResponse.redirect(new URL("/login", request.url));
+  response.cookies.delete("dashboard_auth");
+  return response;
 }
 
 export const config = {
