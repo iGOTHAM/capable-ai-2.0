@@ -2,7 +2,11 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 
 const COOKIE_NAME = "dashboard_auth";
-const AUTH_SECRET = process.env.AUTH_PASSWORD || "changeme";
+
+/** Read AUTH_PASSWORD dynamically so in-process updates take effect immediately */
+function getAuthSecret(): string {
+  return process.env.AUTH_PASSWORD || "changeme";
+}
 
 /**
  * Constant-time string comparison to prevent timing side-channel attacks.
@@ -20,7 +24,7 @@ export function safeCompare(a: string, b: string): boolean {
 }
 
 function makeToken(): string {
-  return createHmac("sha256", AUTH_SECRET).update("dashboard-auth").digest("hex");
+  return createHmac("sha256", getAuthSecret()).update("dashboard-auth").digest("hex");
 }
 
 export async function verifyAuth(): Promise<boolean> {
@@ -42,5 +46,5 @@ export async function setAuthCookie(): Promise<void> {
 }
 
 export function checkPassword(password: string): boolean {
-  return safeCompare(password, AUTH_SECRET);
+  return safeCompare(password, getAuthSecret());
 }

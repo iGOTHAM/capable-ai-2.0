@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFileSync, readFileSync, existsSync } from "fs";
-import { execSync } from "child_process";
 import { safeCompare } from "@/lib/auth";
 import { adminLimiter } from "@/lib/rate-limit";
 
@@ -58,67 +57,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // ── 1. Update process.env in-memory so auth uses the new password immediately ──
+    // auth.ts reads process.env.AUTH_PASSWORD dynamically (via getAuthSecret()),
+    // and middleware.ts reads it on every request. No restart needed.
+    process.env.AUTH_PASSWORD = password;
+
+    // ── 2. Persist to disk so the password survives container/service restarts ──
     const isDocker = process.env.CONTAINER_MODE === "docker";
+    const envPath = isDocker ? "/opt/capable/.env" : "/etc/capable-dashboard.env";
 
-    if (isDocker) {
-      // Docker mode: update .env file on host and restart container
-      // The password is set via docker-compose env vars, so updating
-      // /opt/capable/.env is the correct approach
-      const envPath = "/opt/capable/.env";
-      try {
-        const envContent = readFileSync(envPath, "utf8");
-        const lines = envContent.split("\n").filter((line) => line.trim());
-        const newLines = lines.filter(
-          (line) => !line.startsWith("AUTH_PASSWORD=")
-        );
-        newLines.push(`AUTH_PASSWORD=${password}`);
-        writeFileSync(envPath, newLines.join("\n") + "\n", { mode: 0o600 });
-      } catch {
-        // .env might not exist, create it
-        writeFileSync(envPath, `AUTH_PASSWORD=${password}\n`, { mode: 0o600 });
-      }
-
-      // Update credentials file for reference
-      const credentialsPath = "/root/dashboard-credentials.txt";
-      writeFileSync(
-        credentialsPath,
-        `Dashboard Password: ${password}\nUpdated: ${new Date().toISOString()}\n`,
-        { mode: 0o600 }
-      );
-
-      // Recreate dashboard container to pick up new env vars from .env
-      // docker restart just restarts the same container with old env vars;
-      // docker compose up -d re-reads .env and recreates if env changed
-      try {
-        execSync("docker compose -f /opt/capable/docker-compose.yml up -d dashboard", {
-          timeout: 30000,
-        });
-      } catch {
-        // Fallback to simple restart if compose fails
-        try {
-          execSync("docker restart capable-dashboard", { timeout: 15000 });
-        } catch {
-          console.log("Note: Could not restart Docker container");
-        }
-      }
-    } else {
-      // Bare-metal mode: update systemd config
-      const servicePath = "/etc/systemd/system/capable-dashboard.service";
-      const envPath = "/etc/capable-dashboard.env";
-
-      // Strategy 1: Update systemd unit file inline Environment= directives
-      if (existsSync(servicePath)) {
-        const serviceContent = readFileSync(servicePath, "utf8");
-        if (serviceContent.includes("Environment=AUTH_PASSWORD=")) {
-          const updated = serviceContent.replace(
-            /Environment=AUTH_PASSWORD=.*/,
-            `Environment=AUTH_PASSWORD=${password}`
-          );
-          writeFileSync(servicePath, updated);
-        }
-      }
-
-      // Strategy 2: Update env file (for EnvironmentFile= setups)
+    try {
       if (existsSync(envPath)) {
         const envContent = readFileSync(envPath, "utf8");
         const lines = envContent.split("\n").filter((line) => line.trim());
@@ -127,26 +75,49 @@ export async function POST(req: NextRequest) {
         );
         newLines.push(`AUTH_PASSWORD=${password}`);
         writeFileSync(envPath, newLines.join("\n") + "\n", { mode: 0o600 });
+      } else {
+        writeFileSync(envPath, `AUTH_PASSWORD=${password}\n`, { mode: 0o600 });
       }
+    } catch (fsErr) {
+      console.error("Failed to persist password to disk:", fsErr);
+      // In-memory update still worked, so continue
+    }
 
-      // Update the credentials file for reference
+    if (!isDocker) {
+      // Bare-metal: also update systemd unit file if it has inline env
+      const servicePath = "/etc/systemd/system/capable-dashboard.service";
+      if (existsSync(servicePath)) {
+        try {
+          const serviceContent = readFileSync(servicePath, "utf8");
+          if (serviceContent.includes("Environment=AUTH_PASSWORD=")) {
+            const updated = serviceContent.replace(
+              /Environment=AUTH_PASSWORD=.*/,
+              `Environment=AUTH_PASSWORD=${password}`
+            );
+            writeFileSync(servicePath, updated);
+          }
+        } catch {
+          // Non-critical — env file is the primary persistence
+        }
+      }
+    }
+
+    // ── 3. Update credentials reference file ──
+    try {
       const credentialsPath = "/root/dashboard-credentials.txt";
       writeFileSync(
         credentialsPath,
         `Dashboard Password: ${password}\nUpdated: ${new Date().toISOString()}\n`,
         { mode: 0o600 }
       );
-
-      // Reload systemd daemon (picks up unit file changes) and restart service
-      try {
-        execSync("systemctl daemon-reload && systemctl restart capable-dashboard", {
-          timeout: 15000,
-        });
-      } catch {
-        // Service might not be running via systemd in dev mode
-        console.log("Note: Could not restart systemd service (may be dev mode)");
-      }
+    } catch {
+      // Non-critical
     }
+
+    // NOTE: We do NOT restart the container/service here.
+    // The in-memory process.env update takes effect immediately.
+    // Restarting the container from inside itself would kill this
+    // request handler before it can respond → timeout on the caller.
 
     return NextResponse.json({ success: true });
   } catch (err) {
