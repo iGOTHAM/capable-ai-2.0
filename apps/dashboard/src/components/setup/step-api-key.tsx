@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import type { SetupData, Provider } from "@/app/(setup)/setup/page";
+import { Loader2, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
+import { PROVIDERS, getProvider } from "@/lib/providers";
+import type { SetupData } from "@/app/(setup)/setup/page";
 
 interface StepApiKeyProps {
   data: SetupData;
@@ -15,14 +16,53 @@ interface StepApiKeyProps {
   onNext: () => void;
 }
 
+type Screen = "provider-grid" | "auth-config";
+
 export function StepApiKey({ data, updateData, onNext }: StepApiKeyProps) {
+  const [screen, setScreen] = useState<Screen>(
+    data.provider ? "auth-config" : "provider-grid",
+  );
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
   const [error, setError] = useState("");
 
+  const selectedProvider = data.provider ? getProvider(data.provider) : null;
+
+  const handleSelectProvider = (providerId: string) => {
+    const prov = getProvider(providerId);
+    if (!prov) return;
+    const defaultAuth = prov.authMethods[0]?.id ?? "api-key";
+    updateData({
+      provider: providerId,
+      authMethod: defaultAuth,
+      apiKey: "",
+      model: "",
+    });
+    setValidated(false);
+    setError("");
+    setScreen("auth-config");
+  };
+
+  const handleBackToGrid = () => {
+    updateData({ provider: "", authMethod: "api-key", apiKey: "", model: "" });
+    setValidated(false);
+    setError("");
+    setScreen("provider-grid");
+  };
+
+  const handleAuthMethodChange = (method: string) => {
+    updateData({ authMethod: method, apiKey: "" });
+    setValidated(false);
+    setError("");
+  };
+
   const handleValidate = async () => {
     if (!data.apiKey.trim()) {
-      setError("Please enter your API key");
+      setError(
+        data.authMethod === "setup-token"
+          ? "Please enter your setup token"
+          : "Please enter your API key",
+      );
       return;
     }
 
@@ -37,6 +77,7 @@ export function StepApiKey({ data, updateData, onNext }: StepApiKeyProps) {
         body: JSON.stringify({
           provider: data.provider,
           apiKey: data.apiKey.trim(),
+          authMethod: data.authMethod,
         }),
       });
 
@@ -54,64 +95,98 @@ export function StepApiKey({ data, updateData, onNext }: StepApiKeyProps) {
     }
   };
 
-  const handleProviderChange = (provider: string) => {
-    updateData({ provider: provider as Provider, apiKey: "", model: "" });
-    setValidated(false);
-    setError("");
-  };
+  // ── Screen 1: Provider Grid ────────────────────────────────────────────
+
+  if (screen === "provider-grid") {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <Label className="text-base">Choose your AI provider</Label>
+          <p className="text-sm text-muted-foreground">
+            Select the provider you have an account with. Your API key stays on
+            this server and is never sent to Capable.ai.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {PROVIDERS.map((prov) => (
+            <button
+              key={prov.id}
+              type="button"
+              onClick={() => handleSelectProvider(prov.id)}
+              className="flex flex-col items-start gap-1 rounded-lg border border-input p-4 text-left transition-colors hover:border-primary hover:bg-primary/5"
+            >
+              <span className="font-medium text-sm">{prov.name}</span>
+              <span className="text-xs text-muted-foreground leading-tight">
+                {prov.description}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Screen 2: Auth Configuration ───────────────────────────────────────
+
+  if (!selectedProvider) return null;
+
+  const hasMultipleAuthMethods = selectedProvider.authMethods.length > 1;
+  const isSetupToken = data.authMethod === "setup-token";
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <Label>AI Provider</Label>
-        <RadioGroup
-          value={data.provider}
-          onValueChange={handleProviderChange}
-          className="grid grid-cols-2 gap-3"
-        >
-          <label
-            htmlFor="provider-anthropic"
-            className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
-              data.provider === "anthropic"
-                ? "border-primary bg-primary/5"
-                : "border-input hover:bg-accent/50"
-            }`}
+      {/* Auth method selection (only for providers with multiple methods) */}
+      {hasMultipleAuthMethods && (
+        <div className="flex flex-col gap-3">
+          <Label>Authentication method for {selectedProvider.name}</Label>
+          <RadioGroup
+            value={data.authMethod}
+            onValueChange={handleAuthMethodChange}
+            className="grid gap-3"
           >
-            <RadioGroupItem value="anthropic" id="provider-anthropic" />
-            <div>
-              <div className="font-medium">Anthropic</div>
-              <div className="text-xs text-muted-foreground">
-                Claude models (recommended)
-              </div>
-            </div>
-          </label>
-          <label
-            htmlFor="provider-openai"
-            className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
-              data.provider === "openai"
-                ? "border-primary bg-primary/5"
-                : "border-input hover:bg-accent/50"
-            }`}
-          >
-            <RadioGroupItem value="openai" id="provider-openai" />
-            <div>
-              <div className="font-medium">OpenAI</div>
-              <div className="text-xs text-muted-foreground">GPT models</div>
-            </div>
-          </label>
-        </RadioGroup>
-      </div>
+            {selectedProvider.authMethods.map((method) => (
+              <label
+                key={method.id}
+                htmlFor={`auth-${method.id}`}
+                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                  data.authMethod === method.id
+                    ? "border-primary bg-primary/5"
+                    : "border-input hover:bg-accent/50"
+                }`}
+              >
+                <RadioGroupItem
+                  value={method.id}
+                  id={`auth-${method.id}`}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <div className="font-medium">{method.label}</div>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {method.description}
+                  </p>
+                </div>
+              </label>
+            ))}
+          </RadioGroup>
+        </div>
+      )}
 
+      {/* API key / Setup token input */}
       <div className="flex flex-col gap-2">
         <Label htmlFor="api-key">
-          {data.provider === "anthropic" ? "Anthropic" : "OpenAI"} API Key
+          {isSetupToken
+            ? `${selectedProvider.name} Setup Token`
+            : `${selectedProvider.name} API Key`}
         </Label>
         <div className="flex gap-2">
           <Input
             id="api-key"
             type="password"
             placeholder={
-              data.provider === "anthropic" ? "sk-ant-..." : "sk-..."
+              isSetupToken
+                ? "Paste your setup token..."
+                : selectedProvider.keyPlaceholder || "Enter your API key..."
             }
             value={data.apiKey}
             onChange={(e) => {
@@ -136,32 +211,36 @@ export function StepApiKey({ data, updateData, onNext }: StepApiKeyProps) {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Your API key stays on this server and is never sent to Capable.ai.
-          {data.provider === "anthropic" ? (
+          {isSetupToken ? (
             <>
-              {" "}
-              Get one at{" "}
-              <a
-                href="https://console.anthropic.com/settings/keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline"
-              >
-                console.anthropic.com
-              </a>
+              Run{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                openclaw setup-token
+              </code>{" "}
+              in your terminal to generate a token, or get one from your Claude
+              account settings.
             </>
           ) : (
             <>
-              {" "}
-              Get one at{" "}
-              <a
-                href="https://platform.openai.com/api-keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline"
-              >
-                platform.openai.com
-              </a>
+              Your API key stays on this server and is never sent to
+              Capable.ai.
+              {selectedProvider.docsUrl && (
+                <>
+                  {" "}
+                  Get one at{" "}
+                  <a
+                    href={selectedProvider.docsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    {new URL(selectedProvider.docsUrl).hostname.replace(
+                      "www.",
+                      "",
+                    )}
+                  </a>
+                </>
+              )}
             </>
           )}
         </p>
@@ -177,13 +256,25 @@ export function StepApiKey({ data, updateData, onNext }: StepApiKeyProps) {
       {validated && (
         <Alert variant="success">
           <CheckCircle2 className="h-4 w-4" />
-          <AlertDescription>API key is valid!</AlertDescription>
+          <AlertDescription>
+            {isSetupToken ? "Setup token accepted!" : "API key is valid!"}
+          </AlertDescription>
         </Alert>
       )}
 
-      <Button onClick={onNext} disabled={!validated} className="w-full">
-        Continue
-      </Button>
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          onClick={handleBackToGrid}
+          className="gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+        <Button onClick={onNext} disabled={!validated} className="flex-1">
+          Continue
+        </Button>
+      </div>
     </div>
   );
 }

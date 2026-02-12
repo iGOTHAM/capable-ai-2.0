@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft } from "lucide-react";
+import { getProvider } from "@/lib/providers";
 import type { SetupData } from "@/app/(setup)/setup/page";
 
 interface StepModelProps {
@@ -13,69 +14,9 @@ interface StepModelProps {
   onBack: () => void;
 }
 
-interface ModelOption {
-  id: string;
-  name: string;
-  description: string;
-  recommended?: boolean;
-}
-
-const ANTHROPIC_MODELS: ModelOption[] = [
-  {
-    id: "claude-sonnet-4-5-20250929",
-    name: "Claude Sonnet 4.5",
-    description: "Most intelligent Sonnet — best for coding and complex agents",
-    recommended: true,
-  },
-  {
-    id: "claude-sonnet-4-20250514",
-    name: "Claude Sonnet 4",
-    description: "Fast and highly capable — great balance of speed and quality",
-  },
-  {
-    id: "claude-opus-4-20250514",
-    name: "Claude Opus 4",
-    description: "Most powerful model — best for complex reasoning tasks",
-  },
-  {
-    id: "claude-haiku-4-20250414",
-    name: "Claude Haiku 4",
-    description: "Fastest responses — great for simple tasks and chat",
-  },
-];
-
-const OPENAI_MODELS: ModelOption[] = [
-  {
-    id: "gpt-5.2",
-    name: "GPT-5.2",
-    description: "Latest flagship — best reasoning, coding, and agentic tasks",
-    recommended: true,
-  },
-  {
-    id: "gpt-5-mini",
-    name: "GPT-5 Mini",
-    description: "Powerful small model — great balance of speed and quality",
-  },
-  {
-    id: "gpt-4.1",
-    name: "GPT-4.1",
-    description: "Strong coding and instruction following — 1M token context",
-  },
-  {
-    id: "gpt-4.1-mini",
-    name: "GPT-4.1 Mini",
-    description: "Fast and affordable — good for most tasks",
-  },
-  {
-    id: "o4-mini",
-    name: "o4-mini",
-    description: "Reasoning model — thinks step-by-step for complex problems",
-  },
-];
-
 export function StepModel({ data, updateData, onNext, onBack }: StepModelProps) {
-  const models =
-    data.provider === "anthropic" ? ANTHROPIC_MODELS : OPENAI_MODELS;
+  const providerDef = getProvider(data.provider);
+  const models = providerDef?.models ?? [];
 
   return (
     <div className="flex flex-col gap-6">

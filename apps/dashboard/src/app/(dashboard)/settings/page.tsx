@@ -28,6 +28,7 @@ import { AgentIdentityCard } from "@/components/settings/agent-identity-card";
 import { SoulEditorCard } from "@/components/settings/soul-editor-card";
 import { PipelineStagesCard } from "@/components/settings/pipeline-stages-card";
 import { WorkspaceInfoCard } from "@/components/settings/workspace-info-card";
+import { PROVIDERS, getProvider } from "@/lib/providers";
 
 interface ConfigData {
   provider: string;
@@ -40,18 +41,6 @@ interface DaemonStatus {
   running: boolean;
   pid?: number;
 }
-
-const MODEL_OPTIONS: Record<string, { id: string; name: string }[]> = {
-  anthropic: [
-    { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
-    { id: "claude-opus-4-20250514", name: "Claude Opus 4" },
-    { id: "claude-haiku-4-20250414", name: "Claude Haiku 4" },
-  ],
-  openai: [
-    { id: "gpt-4o", name: "GPT-4o" },
-    { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-  ],
-};
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<ConfigData | null>(null);
@@ -102,6 +91,9 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const selectedProviderDef = provider ? getProvider(provider) : null;
+  const providerModels = selectedProviderDef?.models ?? [];
 
   const handleSaveProvider = async () => {
     setSaving(true);
@@ -228,40 +220,28 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Provider</Label>
-            <RadioGroup
-              value={provider}
-              onValueChange={(v) => {
-                setProvider(v);
-                setModel("");
-              }}
-              className="grid grid-cols-2 gap-3"
-            >
-              <label
-                htmlFor="settings-anthropic"
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${
-                  provider === "anthropic"
-                    ? "border-primary bg-primary/5"
-                    : "border-input hover:bg-accent/50"
-                }`}
-              >
-                <RadioGroupItem
-                  value="anthropic"
-                  id="settings-anthropic"
-                />
-                <span className="font-medium">Anthropic</span>
-              </label>
-              <label
-                htmlFor="settings-openai"
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${
-                  provider === "openai"
-                    ? "border-primary bg-primary/5"
-                    : "border-input hover:bg-accent/50"
-                }`}
-              >
-                <RadioGroupItem value="openai" id="settings-openai" />
-                <span className="font-medium">OpenAI</span>
-              </label>
-            </RadioGroup>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {PROVIDERS.map((prov) => (
+                <button
+                  key={prov.id}
+                  type="button"
+                  onClick={() => {
+                    setProvider(prov.id);
+                    setModel("");
+                  }}
+                  className={`flex flex-col items-start gap-0.5 rounded-lg border p-3 text-left text-sm transition-colors ${
+                    provider === prov.id
+                      ? "border-primary bg-primary/5"
+                      : "border-input hover:bg-accent/50"
+                  }`}
+                >
+                  <span className="font-medium">{prov.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {prov.description}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -274,7 +254,10 @@ export default function SettingsPage() {
             <Input
               id="settings-api-key"
               type="password"
-              placeholder="Enter new API key to update"
+              placeholder={
+                selectedProviderDef?.keyPlaceholder ||
+                "Enter new API key to update"
+              }
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />
@@ -282,29 +265,42 @@ export default function SettingsPage() {
 
           <div className="space-y-2">
             <Label>Model</Label>
-            <RadioGroup
-              value={model}
-              onValueChange={setModel}
-              className="grid gap-2"
-            >
-              {(MODEL_OPTIONS[provider] || []).map((m) => (
-                <label
-                  key={m.id}
-                  htmlFor={`settings-model-${m.id}`}
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${
-                    model === m.id
-                      ? "border-primary bg-primary/5"
-                      : "border-input hover:bg-accent/50"
-                  }`}
-                >
-                  <RadioGroupItem
-                    value={m.id}
-                    id={`settings-model-${m.id}`}
-                  />
-                  <span className="font-medium">{m.name}</span>
-                </label>
-              ))}
-            </RadioGroup>
+            {providerModels.length > 0 ? (
+              <RadioGroup
+                value={model}
+                onValueChange={setModel}
+                className="grid gap-2"
+              >
+                {providerModels.map((m) => (
+                  <label
+                    key={m.id}
+                    htmlFor={`settings-model-${m.id}`}
+                    className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                      model === m.id
+                        ? "border-primary bg-primary/5"
+                        : "border-input hover:bg-accent/50"
+                    }`}
+                  >
+                    <RadioGroupItem
+                      value={m.id}
+                      id={`settings-model-${m.id}`}
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{m.name}</span>
+                      {m.recommended && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          Recommended
+                        </span>
+                      )}
+                    </div>
+                  </label>
+                ))}
+              </RadioGroup>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Select a provider to see available models
+              </p>
+            )}
           </div>
 
           {saveMsg && (

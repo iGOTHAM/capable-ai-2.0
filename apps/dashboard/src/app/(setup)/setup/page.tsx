@@ -14,10 +14,11 @@ import { StepChannels } from "@/components/setup/step-channels";
 import { StepLaunch } from "@/components/setup/step-launch";
 import { Loader2 } from "lucide-react";
 
-export type Provider = "anthropic" | "openai";
+export type Provider = string;
 
 export interface SetupData {
   provider: Provider;
+  authMethod: string;
   apiKey: string;
   model: string;
   telegramToken: string;
@@ -34,7 +35,8 @@ export default function SetupPage() {
   const [step, setStep] = useState(0);
   const [checking, setChecking] = useState(true);
   const [data, setData] = useState<SetupData>({
-    provider: "anthropic",
+    provider: "",
+    authMethod: "api-key",
     apiKey: "",
     model: "",
     telegramToken: "",
