@@ -13,6 +13,7 @@ import { StepModel } from "@/components/setup/step-model";
 import { StepChannels } from "@/components/setup/step-channels";
 import { StepPersonalize } from "@/components/setup/step-personalize";
 import { StepLaunch } from "@/components/setup/step-launch";
+import { StepWorkspace } from "@/components/setup/step-workspace";
 import { Loader2 } from "lucide-react";
 
 export type Provider = "anthropic" | "openai";
@@ -34,6 +35,7 @@ const STEPS = [
   { title: "Model", description: "Choose your AI model" },
   { title: "Channels", description: "Connect messaging (optional)" },
   { title: "Personalize", description: "Customize your agent" },
+  { title: "Workspace", description: "Set up a workspace (optional)" },
   { title: "Launch", description: "Start your AI agent" },
 ];
 
@@ -159,7 +161,10 @@ export default function SetupPage() {
               onBack={back}
             />
           )}
-          {step === 4 && <StepLaunch data={data} onBack={back} />}
+          {step === 4 && (
+            <StepWorkspace data={data} onNext={next} onBack={back} />
+          )}
+          {step === 5 && <StepLaunch data={data} onBack={back} />}
         </CardContent>
       </Card>
     </>

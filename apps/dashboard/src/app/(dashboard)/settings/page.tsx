@@ -28,6 +28,8 @@ import { AgentIdentityCard } from "@/components/settings/agent-identity-card";
 import { SoulEditorCard } from "@/components/settings/soul-editor-card";
 import { PipelineStagesCard } from "@/components/settings/pipeline-stages-card";
 import { WorkspaceInfoCard } from "@/components/settings/workspace-info-card";
+import { GoogleWorkspaceCard } from "@/components/settings/google-workspace-card";
+import { AdvancedConfigCard } from "@/components/settings/advanced-config-card";
 
 interface ConfigData {
   provider: string;
@@ -396,6 +398,9 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Google Workspace */}
+      <GoogleWorkspaceCard />
+
       {/* Agent Status */}
       <Card>
         <CardHeader>
@@ -470,6 +475,9 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Advanced Configuration */}
+      <AdvancedConfigCard />
 
       {/* Workspace Info */}
       <WorkspaceInfoCard />
