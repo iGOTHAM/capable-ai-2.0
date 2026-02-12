@@ -213,12 +213,17 @@ export function StepApiKey({ data, updateData, onNext }: StepApiKeyProps) {
         <p className="text-xs text-muted-foreground">
           {isSetupToken ? (
             <>
-              Run{" "}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-                openclaw setup-token
-              </code>{" "}
-              in your terminal to generate a token, or get one from your Claude
-              account settings.
+              Get your setup token from your{" "}
+              <a
+                href="https://console.anthropic.com/settings/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline"
+              >
+                Claude account settings
+              </a>
+              . This uses your existing Claude Pro/Max subscription instead of
+              API billing.
             </>
           ) : (
             <>

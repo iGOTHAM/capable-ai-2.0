@@ -6,6 +6,7 @@ import { getProvider, detectProviderFromEnv, getAllEnvKeys } from "./providers";
 const OPENCLAW_DIR = process.env.OPENCLAW_DIR || "/root/.openclaw";
 const OPENCLAW_CONFIG = process.env.OPENCLAW_CONFIG || path.join(OPENCLAW_DIR, "openclaw.json");
 const SETUP_MARKER = path.join(OPENCLAW_DIR, ".setup-pending");
+const AGENT_IDENTITY_FILE = path.join(OPENCLAW_DIR, "agent-identity.json");
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -446,4 +447,77 @@ export async function launchSetup(
     const message = err instanceof Error ? err.message : "Launch failed";
     return { success: false, error: message };
   }
+}
+
+// ─── Agent Identity (separate file — NOT in openclaw.json) ─────────────────
+
+export interface AgentIdentity {
+  name: string;
+  emoji: string;
+  tagline: string;
+}
+
+const DEFAULT_IDENTITY: AgentIdentity = {
+  name: "Atlas",
+  emoji: "🤖",
+  tagline: "Your AI Assistant",
+};
+
+/**
+ * Read agent identity from agent-identity.json.
+ * Falls back to defaults if the file doesn't exist, and also migrates
+ * any legacy identity fields from openclaw.json on first read.
+ */
+export async function readAgentIdentity(): Promise<AgentIdentity> {
+  try {
+    const raw = await readFile(AGENT_IDENTITY_FILE, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<AgentIdentity>;
+    return {
+      name: parsed.name || DEFAULT_IDENTITY.name,
+      emoji: parsed.emoji || DEFAULT_IDENTITY.emoji,
+      tagline: parsed.tagline ?? DEFAULT_IDENTITY.tagline,
+    };
+  } catch {
+    // File doesn't exist — try to migrate from openclaw.json
+    try {
+      const config = await readConfig();
+      const agents = config?.agents as Record<string, unknown> | undefined;
+      const defaults = agents?.defaults as Record<string, unknown> | undefined;
+      if (defaults?.name || defaults?.emoji || defaults?.tagline) {
+        const migrated: AgentIdentity = {
+          name: (defaults?.name as string) || DEFAULT_IDENTITY.name,
+          emoji: (defaults?.emoji as string) || DEFAULT_IDENTITY.emoji,
+          tagline: (defaults?.tagline as string) ?? DEFAULT_IDENTITY.tagline,
+        };
+        // Write to separate file
+        await writeAgentIdentity(migrated);
+        // Clean up legacy keys from openclaw.json
+        delete defaults.name;
+        delete defaults.emoji;
+        delete defaults.tagline;
+        const existing = config as unknown as Record<string, unknown>;
+        existing.agents = { ...agents, defaults };
+        await writeFile(OPENCLAW_CONFIG, JSON.stringify(existing, null, 2), "utf-8");
+        await chmod(OPENCLAW_CONFIG, 0o600);
+        return migrated;
+      }
+    } catch {
+      // Ignore migration errors
+    }
+    return { ...DEFAULT_IDENTITY };
+  }
+}
+
+/**
+ * Write agent identity to agent-identity.json (never touches openclaw.json).
+ */
+export async function writeAgentIdentity(identity: Partial<AgentIdentity>): Promise<void> {
+  const current = await readAgentIdentity();
+  const merged: AgentIdentity = {
+    name: identity.name ?? current.name,
+    emoji: identity.emoji ?? current.emoji,
+    tagline: identity.tagline ?? current.tagline,
+  };
+  await writeFile(AGENT_IDENTITY_FILE, JSON.stringify(merged, null, 2), "utf-8");
+  await chmod(AGENT_IDENTITY_FILE, 0o600);
 }
