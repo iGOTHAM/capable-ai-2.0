@@ -8,7 +8,7 @@ FROM node:20-alpine AS base
 
 # ---- Dependencies ----
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 
 # Install pnpm
@@ -62,14 +62,22 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/apps/dashboard/.next/standalone ./
 COPY --from=builder /app/apps/dashboard/.next/static ./apps/dashboard/.next/static
 
+# Copy node-pty native binding + ws for the terminal sidecar server
+COPY --from=deps /app/node_modules/node-pty ./node_modules/node-pty
+COPY --from=deps /app/node_modules/ws ./node_modules/ws
+
 # Create data directory
 RUN mkdir -p /data/activity && chown nextjs:nodejs /data/activity
 
-# Install runtime dependencies for bootstrap script
-RUN apk add --no-cache curl unzip
+# Install runtime dependencies
+# - curl/unzip: bootstrap script
+# - docker-cli: needed for `docker exec` to reach OpenClaw container
+# - libc6-compat: runtime dependency for node-pty native addon
+RUN apk add --no-cache curl unzip docker-cli libc6-compat
 
-# Copy bootstrap script
+# Copy scripts
 COPY apps/dashboard/scripts/bootstrap-pack.mjs ./scripts/bootstrap-pack.mjs
+COPY apps/dashboard/scripts/ws-terminal-server.mjs ./scripts/ws-terminal-server.mjs
 
 # Create workspace directory
 RUN mkdir -p /workspace && chown nextjs:nodejs /workspace
@@ -77,5 +85,7 @@ RUN mkdir -p /workspace && chown nextjs:nodejs /workspace
 USER nextjs
 
 EXPOSE 3100
+EXPOSE 3101
 
-CMD ["sh", "-c", "node scripts/bootstrap-pack.mjs && node apps/dashboard/server.js"]
+# Start both the terminal WebSocket server (background) and Next.js (foreground)
+CMD ["sh", "-c", "node scripts/ws-terminal-server.mjs & node scripts/bootstrap-pack.mjs && node apps/dashboard/server.js"]

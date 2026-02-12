@@ -12,6 +12,16 @@
     # Use self-signed origin cert (Cloudflare proxy handles public TLS)
     tls /etc/caddy/certs/origin.crt /etc/caddy/certs/origin.key
 
+    # Terminal WebSocket → dashboard sidecar (must be before generic @websockets)
+    @terminal_ws {
+        path /api/terminal/ws
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    handle @terminal_ws {
+        reverse_proxy dashboard:3101
+    }
+
     # WebSocket upgrade requests → OpenClaw gateway
     @websockets {
         header Connection *Upgrade*

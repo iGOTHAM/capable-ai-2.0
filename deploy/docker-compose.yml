@@ -14,6 +14,8 @@ services:
     restart: unless-stopped
     ports:
       - "3100:3100"
+    expose:
+      - "3101"
     volumes:
       - activity-data:/data/activity
       - openclaw-config:/root/.openclaw
@@ -31,6 +33,7 @@ services:
       - OPENCLAW_CONFIG=/root/.openclaw/openclaw.json
       - OPENCLAW_DIR=/root/.openclaw
       - CONTAINER_MODE=docker
+      - WS_TERMINAL_PORT=3101
     depends_on:
       openclaw:
         condition: service_started
