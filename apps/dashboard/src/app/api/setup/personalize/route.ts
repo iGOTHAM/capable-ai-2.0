@@ -179,9 +179,9 @@ const COMM_ADDITIONS: Record<string, string> = {
 };
 
 function generateSoulMd(workType: string, commStyle: string): string {
-  const base = SOUL_TEMPLATES[workType] || SOUL_TEMPLATES.general;
-  const comm = COMM_ADDITIONS[commStyle] || COMM_ADDITIONS.balanced;
-  return base + comm;
+  const base = SOUL_TEMPLATES[workType] ?? SOUL_TEMPLATES.general;
+  const comm = COMM_ADDITIONS[commStyle] ?? COMM_ADDITIONS.balanced;
+  return (base ?? "") + (comm ?? "");
 }
 
 function generateUserMd(userName: string): string {
