@@ -39,6 +39,9 @@ jobs:
           if [ -d "apps/dashboard/public" ]; then
             cp -r apps/dashboard/public apps/dashboard/.next/standalone/apps/dashboard/public
           fi
+          # Copy sidecar scripts (ws-terminal-server, bootstrap-pack)
+          mkdir -p apps/dashboard/.next/standalone/scripts
+          cp apps/dashboard/scripts/*.mjs apps/dashboard/.next/standalone/scripts/
           # Create tarball from standalone output
           cd apps/dashboard/.next/standalone
           tar -czf /tmp/dashboard-standalone.tar.gz .

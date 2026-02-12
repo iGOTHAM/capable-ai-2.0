@@ -219,9 +219,12 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   if (hasSub) {
     add("    expose:");
     add('      - "3100"');
+    add('      - "3101"');
   } else {
     add("    ports:");
     add('      - "3100:3100"');
+    add("    expose:");
+    add('      - "3101"');
   }
   add("    volumes:");
   add("      - activity-data:/data/activity");
@@ -241,6 +244,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("      - OPENCLAW_CONFIG=/root/.openclaw/openclaw.json");
   add("      - OPENCLAW_DIR=/root/.openclaw");
   add("      - CONTAINER_MODE=docker");
+  add("      - WS_TERMINAL_PORT=3101");
   add("    depends_on:");
   add("      openclaw:");
   add("        condition: service_started");
@@ -368,6 +372,16 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add(subdomain + ".capable.ai {");
     add("    tls /etc/caddy/certs/origin.crt /etc/caddy/certs/origin.key");
     add("");
+    add("    # Terminal WebSocket → dashboard sidecar (must be before generic @websockets)");
+    add("    @terminal_ws {");
+    add("        path /api/terminal/ws");
+    add("        header Connection *Upgrade*");
+    add("        header Upgrade websocket");
+    add("    }");
+    add("    handle @terminal_ws {");
+    add("        reverse_proxy dashboard:3101");
+    add("    }");
+    add("");
     add("    @websockets {");
     add("        header Connection *Upgrade*");
     add("        header Upgrade websocket");
@@ -407,12 +421,15 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("cat > /opt/capable/Dockerfile.dashboard << 'DASHDOCKER'");
   add("FROM node:22-alpine");
   add("WORKDIR /app");
-  add("RUN apk add --no-cache curl docker-cli");
+  add("RUN apk add --no-cache curl docker-cli python3 make g++ libc6-compat");
   add("COPY dashboard-build/ ./");
+  add("# Install native modules for terminal WebSocket server");
+  add("RUN npm install --no-save node-pty ws");
+  add("RUN apk del python3 make g++");
   add("RUN mkdir -p /data/activity /root/.openclaw");
-  add("EXPOSE 3100");
-  add("ENV PORT=3100 HOSTNAME=0.0.0.0 NODE_ENV=production");
-  add('CMD ["node", "apps/dashboard/server.js"]');
+  add("EXPOSE 3100 3101");
+  add("ENV PORT=3100 HOSTNAME=0.0.0.0 NODE_ENV=production WS_TERMINAL_PORT=3101");
+  add('CMD ["sh", "-c", "node scripts/ws-terminal-server.mjs & node scripts/bootstrap-pack.mjs && node apps/dashboard/server.js"]');
   add("DASHDOCKER");
   add("");
   add("docker build -f Dockerfile.dashboard -t capable-ai/dashboard:latest .");
