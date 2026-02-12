@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Terminal, AlertCircle } from "lucide-react";
+import "@xterm/xterm/css/xterm.css";
 
 interface OnboardTerminalProps {
   open: boolean;
@@ -48,13 +49,17 @@ export function OnboardTerminal({ open, onOpenChange }: OnboardTerminalProps) {
 
     (async () => {
       // Dynamic imports (xterm needs DOM — can't run server-side)
-      const [{ Terminal }, { FitAddon }, { WebLinksAddon }] = await Promise.all([
+      const [xtermMod, fitMod, linksMod] = await Promise.all([
         import("@xterm/xterm"),
         import("@xterm/addon-fit"),
         import("@xterm/addon-web-links"),
       ]);
 
       if (cancelled || !terminalRef.current) return;
+
+      const { Terminal } = xtermMod;
+      const { FitAddon } = fitMod;
+      const { WebLinksAddon } = linksMod;
 
       // ─── Create terminal ───────────────────────────────────
       const term = new Terminal({
@@ -167,7 +172,13 @@ export function OnboardTerminal({ open, onOpenChange }: OnboardTerminalProps) {
       });
       resizeObserver.observe(terminalRef.current);
       observerRef.current = resizeObserver;
-    })();
+    })().catch((err) => {
+      if (!cancelled) {
+        console.error("[OnboardTerminal] init failed:", err);
+        setStatus("error");
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    });
 
     return () => {
       cancelled = true;
