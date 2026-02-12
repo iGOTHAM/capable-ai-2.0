@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
-import { launchSetup } from "@/lib/openclaw";
-import { getProvider } from "@/lib/providers";
+import { launchSetup, type Provider } from "@/lib/openclaw";
 
 export async function POST(request: NextRequest) {
   const authed = await verifyAuth();
@@ -10,11 +9,10 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { provider, apiKey, model, authMethod, telegramToken } = body as {
+  const { provider, apiKey, model, telegramToken } = body as {
     provider: string;
     apiKey: string;
     model: string;
-    authMethod?: string;
     telegramToken?: string;
   };
 
@@ -25,16 +23,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!getProvider(provider)) {
+  if (provider !== "anthropic" && provider !== "openai") {
     return NextResponse.json(
-      { error: `Unknown provider: ${provider}` },
+      { error: "Invalid provider" },
       { status: 400 },
     );
   }
 
   const result = await launchSetup({
-    provider,
-    authMethod: authMethod ?? "api-key",
+    provider: provider as Provider,
     apiKey,
     model,
     telegramToken: telegramToken || undefined,

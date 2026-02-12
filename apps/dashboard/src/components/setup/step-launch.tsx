@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { getProvider } from "@/lib/providers";
 import type { SetupData } from "@/app/(setup)/setup/page";
 
 interface StepLaunchProps {
@@ -35,6 +34,18 @@ const PHASE_LABELS: Record<LaunchPhase, string> = {
   error: "Something went wrong",
 };
 
+const MODEL_NAMES: Record<string, string> = {
+  "claude-sonnet-4-5-20250929": "Claude Sonnet 4.5",
+  "claude-sonnet-4-20250514": "Claude Sonnet 4",
+  "claude-opus-4-20250514": "Claude Opus 4",
+  "claude-haiku-4-20250414": "Claude Haiku 4",
+  "gpt-5.2": "GPT-5.2",
+  "gpt-5-mini": "GPT-5 Mini",
+  "gpt-4.1": "GPT-4.1",
+  "gpt-4.1-mini": "GPT-4.1 Mini",
+  "o4-mini": "o4-mini",
+};
+
 export function StepLaunch({ data, onBack }: StepLaunchProps) {
   const [phase, setPhase] = useState<LaunchPhase>("idle");
   const [error, setError] = useState("");
@@ -52,7 +63,6 @@ export function StepLaunch({ data, onBack }: StepLaunchProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: data.provider,
-          authMethod: data.authMethod,
           apiKey: data.apiKey,
           model: data.model,
           telegramToken: data.telegramToken || undefined,
@@ -89,14 +99,10 @@ export function StepLaunch({ data, onBack }: StepLaunchProps) {
         <h3 className="mb-3 text-sm font-medium">Configuration Summary</h3>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           <dt className="text-muted-foreground">Provider</dt>
-          <dd className="font-medium">
-            {getProvider(data.provider)?.name ?? data.provider}
-          </dd>
+          <dd className="font-medium capitalize">{data.provider}</dd>
           <dt className="text-muted-foreground">Model</dt>
           <dd className="font-medium">
-            {getProvider(data.provider)?.models.find(
-              (m) => m.id === data.model,
-            )?.name ?? data.model}
+            {MODEL_NAMES[data.model] || data.model}
           </dd>
           <dt className="text-muted-foreground">Telegram</dt>
           <dd className="font-medium">

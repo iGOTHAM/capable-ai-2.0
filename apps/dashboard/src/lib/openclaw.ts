@@ -1,18 +1,16 @@
 import { readFile, writeFile, unlink, access, chmod } from "fs/promises";
 import path from "path";
-import { getProvider, detectProviderFromEnv, getAllEnvKeys } from "./providers";
 
 // Paths — configurable via env vars (set in systemd service by cloud-init)
 const OPENCLAW_DIR = process.env.OPENCLAW_DIR || "/root/.openclaw";
 const OPENCLAW_CONFIG = process.env.OPENCLAW_CONFIG || path.join(OPENCLAW_DIR, "openclaw.json");
 const SETUP_MARKER = path.join(OPENCLAW_DIR, ".setup-pending");
-const AGENT_IDENTITY_FILE = path.join(OPENCLAW_DIR, "agent-identity.json");
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type SetupState = "pending" | "configured" | "running" | "error";
 
-export type Provider = string;
+export type Provider = "anthropic" | "openai";
 
 export interface OpenClawConfig {
   workspace: string;
@@ -54,7 +52,6 @@ export interface OpenClawConfig {
 
 export interface SetupLaunchParams {
   provider: Provider;
-  authMethod: string;
   apiKey: string;
   model: string;
   telegramToken?: string;
@@ -111,10 +108,13 @@ export async function getSetupState(): Promise<SetupState> {
   const config = await readConfig();
   if (!config) return "pending";
 
-  // Check all known provider env keys (not just anthropic/openai)
-  const env = (config.env as Record<string, string>) ?? {};
+  // Check both old schema (config.provider/apiKey/model) and new OpenClaw schema
+  // (config.env.ANTHROPIC_API_KEY or OPENAI_API_KEY + config.agents.defaults.model.primary)
+  const env = config.env as Record<string, string> | undefined;
   const hasApiKey =
-    (config.provider && config.apiKey) || detectProviderFromEnv(env);
+    (config.provider && config.apiKey) ||
+    env?.ANTHROPIC_API_KEY ||
+    env?.OPENAI_API_KEY;
 
   if (!hasApiKey) return "pending";
 
@@ -164,9 +164,11 @@ export async function getDaemonStatus(): Promise<DaemonStatus> {
   const config = await readConfig();
   if (!config) return { running: false };
 
-  const env = (config.env as Record<string, string>) ?? {};
+  const env = config.env as Record<string, string> | undefined;
   const hasApiKey =
-    (config.provider && config.apiKey) || detectProviderFromEnv(env);
+    (config.provider && config.apiKey) ||
+    env?.ANTHROPIC_API_KEY ||
+    env?.OPENAI_API_KEY;
 
   const agents = config.agents as Record<string, unknown> | undefined;
   const defaults = agents?.defaults as Record<string, unknown> | undefined;
@@ -197,23 +199,8 @@ export async function restartDaemon(): Promise<void> {
 export async function validateApiKey(
   provider: Provider,
   apiKey: string,
-  authMethod: string = "api-key",
 ): Promise<{ valid: boolean; error?: string }> {
   try {
-    // Setup tokens are not validated against the API — they're used at runtime
-    if (authMethod === "setup-token") {
-      if (!apiKey.trim()) {
-        return { valid: false, error: "Please enter your setup token" };
-      }
-      return { valid: true };
-    }
-
-    const providerDef = getProvider(provider);
-    if (!providerDef) {
-      return { valid: false, error: `Unknown provider: ${provider}` };
-    }
-
-    // Anthropic has its own API format (not OpenAI-compatible)
     if (provider === "anthropic") {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -243,41 +230,19 @@ export async function validateApiKey(
       };
     }
 
-    // Google Gemini has its own API format
-    if (provider === "google-gemini") {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      );
-      if (response.ok) return { valid: true };
-      if (response.status === 400 || response.status === 401) {
-        return { valid: false, error: "Invalid API key" };
-      }
-      return { valid: false, error: "Failed to validate key" };
-    }
-
-    // OpenAI-compatible providers: GET /models with Bearer token
-    const baseUrl =
-      providerDef.validationBaseUrl ||
-      providerDef.customProvider?.baseUrl;
-
-    if (baseUrl) {
-      const modelsUrl = baseUrl.endsWith("/v1")
-        ? `${baseUrl}/models`
-        : `${baseUrl}/models`;
-      const response = await fetch(modelsUrl, {
+    if (provider === "openai") {
+      const response = await fetch("https://api.openai.com/v1/models", {
         headers: { Authorization: `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(10000),
       });
 
       if (response.ok) return { valid: true };
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         return { valid: false, error: "Invalid API key" };
       }
       return { valid: false, error: "Failed to validate key" };
     }
 
-    // No validation endpoint known — accept and let OpenClaw validate at runtime
-    return { valid: true };
+    return { valid: false, error: `Unknown provider: ${provider}` };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Validation failed";
     return { valid: false, error: message };
@@ -315,53 +280,19 @@ export async function launchSetup(
     delete existing.apiKey;
     delete existing.model;
 
-    // Look up provider from registry
-    const providerDef = getProvider(params.provider);
-    if (!providerDef) {
-      return { success: false, error: `Unknown provider: ${params.provider}` };
-    }
-
-    // Set env with provider API key (or setup token)
+    // Set env with provider API key
     const env = (existing.env as Record<string, string>) ?? {};
-    if (params.authMethod === "setup-token" && providerDef.setupTokenEnvKey) {
-      env[providerDef.setupTokenEnvKey] = params.apiKey;
-      // Remove the regular API key if it exists (user switched from API key to token)
-      delete env[providerDef.envKey];
-    } else {
-      env[providerDef.envKey] = params.apiKey;
-      // Remove setup token if it exists (user switched from token to API key)
-      if (providerDef.setupTokenEnvKey) {
-        delete env[providerDef.setupTokenEnvKey];
-      }
+    if (params.provider === "anthropic") {
+      env.ANTHROPIC_API_KEY = params.apiKey;
+    } else if (params.provider === "openai") {
+      env.OPENAI_API_KEY = params.apiKey;
     }
     existing.env = env;
-
-    // For custom providers, write models.providers block
-    if (providerDef.configType === "custom" && providerDef.customProvider) {
-      const models = (existing as Record<string, unknown>).models as Record<string, unknown> ?? {};
-      models.mode = "merge";
-      const providers = (models.providers as Record<string, unknown>) ?? {};
-      providers[params.provider] = {
-        baseUrl: providerDef.customProvider.baseUrl,
-        apiKey: `$env:${providerDef.envKey}`,
-        api: providerDef.customProvider.api,
-        models: providerDef.models.map((m) => m.id),
-      };
-      models.providers = providers;
-      (existing as Record<string, unknown>).models = models;
-    }
 
     // Set agents.defaults.model.primary as "provider/model"
     const agents = (existing.agents as Record<string, unknown>) ?? {};
     const defaults = (agents.defaults as Record<string, unknown>) ?? {};
     defaults.model = { primary: `${params.provider}/${params.model}` };
-    // For custom providers, add selected model to allowlist
-    if (providerDef.configType === "custom") {
-      const existingModels = (defaults.models as string[]) ?? [];
-      if (!existingModels.includes(params.model)) {
-        defaults.models = [params.model, ...existingModels];
-      }
-    }
     agents.defaults = defaults;
     existing.agents = agents as OpenClawConfig["agents"];
 
@@ -433,9 +364,9 @@ export async function launchSetup(
 
     // 5. Verify the config is readable
     const config = await readConfig();
-    const verifyEnv = (config?.env as Record<string, string>) ?? {};
-    const detectedProvider = detectProviderFromEnv(verifyEnv);
-    if (detectedProvider) {
+    const verifyEnv = config?.env as Record<string, string> | undefined;
+    const hasKey = verifyEnv?.ANTHROPIC_API_KEY || verifyEnv?.OPENAI_API_KEY;
+    if (hasKey) {
       return { success: true };
     }
 
@@ -447,77 +378,4 @@ export async function launchSetup(
     const message = err instanceof Error ? err.message : "Launch failed";
     return { success: false, error: message };
   }
-}
-
-// ─── Agent Identity (separate file — NOT in openclaw.json) ─────────────────
-
-export interface AgentIdentity {
-  name: string;
-  emoji: string;
-  tagline: string;
-}
-
-const DEFAULT_IDENTITY: AgentIdentity = {
-  name: "Atlas",
-  emoji: "🤖",
-  tagline: "Your AI Assistant",
-};
-
-/**
- * Read agent identity from agent-identity.json.
- * Falls back to defaults if the file doesn't exist, and also migrates
- * any legacy identity fields from openclaw.json on first read.
- */
-export async function readAgentIdentity(): Promise<AgentIdentity> {
-  try {
-    const raw = await readFile(AGENT_IDENTITY_FILE, "utf-8");
-    const parsed = JSON.parse(raw) as Partial<AgentIdentity>;
-    return {
-      name: parsed.name || DEFAULT_IDENTITY.name,
-      emoji: parsed.emoji || DEFAULT_IDENTITY.emoji,
-      tagline: parsed.tagline ?? DEFAULT_IDENTITY.tagline,
-    };
-  } catch {
-    // File doesn't exist — try to migrate from openclaw.json
-    try {
-      const config = await readConfig();
-      const agents = config?.agents as Record<string, unknown> | undefined;
-      const defaults = agents?.defaults as Record<string, unknown> | undefined;
-      if (defaults?.name || defaults?.emoji || defaults?.tagline) {
-        const migrated: AgentIdentity = {
-          name: (defaults?.name as string) || DEFAULT_IDENTITY.name,
-          emoji: (defaults?.emoji as string) || DEFAULT_IDENTITY.emoji,
-          tagline: (defaults?.tagline as string) ?? DEFAULT_IDENTITY.tagline,
-        };
-        // Write to separate file
-        await writeAgentIdentity(migrated);
-        // Clean up legacy keys from openclaw.json
-        delete defaults.name;
-        delete defaults.emoji;
-        delete defaults.tagline;
-        const existing = config as unknown as Record<string, unknown>;
-        existing.agents = { ...agents, defaults };
-        await writeFile(OPENCLAW_CONFIG, JSON.stringify(existing, null, 2), "utf-8");
-        await chmod(OPENCLAW_CONFIG, 0o600);
-        return migrated;
-      }
-    } catch {
-      // Ignore migration errors
-    }
-    return { ...DEFAULT_IDENTITY };
-  }
-}
-
-/**
- * Write agent identity to agent-identity.json (never touches openclaw.json).
- */
-export async function writeAgentIdentity(identity: Partial<AgentIdentity>): Promise<void> {
-  const current = await readAgentIdentity();
-  const merged: AgentIdentity = {
-    name: identity.name ?? current.name,
-    emoji: identity.emoji ?? current.emoji,
-    tagline: identity.tagline ?? current.tagline,
-  };
-  await writeFile(AGENT_IDENTITY_FILE, JSON.stringify(merged, null, 2), "utf-8");
-  await chmod(AGENT_IDENTITY_FILE, 0o600);
 }

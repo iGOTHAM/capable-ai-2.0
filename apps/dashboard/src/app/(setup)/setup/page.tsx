@@ -15,11 +15,10 @@ import { StepPersonalize } from "@/components/setup/step-personalize";
 import { StepLaunch } from "@/components/setup/step-launch";
 import { Loader2 } from "lucide-react";
 
-export type Provider = string;
+export type Provider = "anthropic" | "openai";
 
 export interface SetupData {
   provider: Provider;
-  authMethod: string;
   apiKey: string;
   model: string;
   telegramToken: string;
@@ -42,8 +41,7 @@ export default function SetupPage() {
   const [step, setStep] = useState(0);
   const [checking, setChecking] = useState(true);
   const [data, setData] = useState<SetupData>({
-    provider: "",
-    authMethod: "api-key",
+    provider: "anthropic",
     apiKey: "",
     model: "",
     telegramToken: "",

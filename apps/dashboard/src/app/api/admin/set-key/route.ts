@@ -5,13 +5,11 @@ import { exec } from "child_process";
 import path from "path";
 import { safeCompare } from "@/lib/auth";
 import { adminLimiter } from "@/lib/rate-limit";
-import { getProvider, PROVIDERS } from "@/lib/providers";
 
 const setKeySchema = z.object({
-  provider: z.string().min(1),
+  provider: z.enum(["anthropic", "openai"]),
   apiKey: z.string().min(1),
   model: z.string().min(1),
-  authMethod: z.string().optional(),
 });
 
 /**
@@ -66,16 +64,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { provider, apiKey, model, authMethod } = parsed.data;
-
-  // Validate provider against registry
-  const providerDef = getProvider(provider);
-  if (!providerDef) {
-    return NextResponse.json(
-      { error: `Unknown provider: ${provider}. Available: ${PROVIDERS.map(p => p.id).join(", ")}` },
-      { status: 400 }
-    );
-  }
+  const { provider, apiKey, model } = parsed.data;
 
   try {
     const configPath =
@@ -92,50 +81,28 @@ export async function POST(req: NextRequest) {
       // Config doesn't exist yet, start fresh
     }
 
+    // Update config using OpenClaw's documented schema format:
+    // - env.ANTHROPIC_API_KEY or env.OPENAI_API_KEY for API keys
+    // - agents.defaults.model.primary for model selection (e.g. "anthropic/claude-sonnet-4-5")
     // Remove any legacy fields from previous config attempts
     delete config.provider;
     delete config.apiKey;
     delete config.model;
+    delete config.models; // Remove old models.providers format
 
-    // Set env with provider API key using registry-driven env var name
+    // Set env with provider API key
     const env = (config.env as Record<string, string>) ?? {};
-    if (authMethod === "setup-token" && providerDef.setupTokenEnvKey) {
-      env[providerDef.setupTokenEnvKey] = apiKey;
-      delete env[providerDef.envKey];
-    } else {
-      env[providerDef.envKey] = apiKey;
-      if (providerDef.setupTokenEnvKey) {
-        delete env[providerDef.setupTokenEnvKey];
-      }
+    if (provider === "anthropic") {
+      env.ANTHROPIC_API_KEY = apiKey;
+    } else if (provider === "openai") {
+      env.OPENAI_API_KEY = apiKey;
     }
     config.env = env;
-
-    // For custom providers, write models.providers block
-    if (providerDef.configType === "custom" && providerDef.customProvider) {
-      const models = (config.models as Record<string, unknown>) ?? {};
-      models.mode = "merge";
-      const providers = (models.providers as Record<string, unknown>) ?? {};
-      providers[provider] = {
-        baseUrl: providerDef.customProvider.baseUrl,
-        apiKey: `$env:${providerDef.envKey}`,
-        api: providerDef.customProvider.api,
-        models: providerDef.models.map((m) => m.id),
-      };
-      models.providers = providers;
-      config.models = models;
-    }
 
     // Set agents.defaults.model.primary as "provider/model"
     const agents = (config.agents as Record<string, unknown>) ?? {};
     const defaults = (agents.defaults as Record<string, unknown>) ?? {};
     defaults.model = { primary: `${provider}/${model}` };
-    // For custom providers, add selected model to allowlist
-    if (providerDef.configType === "custom") {
-      const existingModels = (defaults.models as string[]) ?? [];
-      if (!existingModels.includes(model)) {
-        defaults.models = [model, ...existingModels];
-      }
-    }
     agents.defaults = defaults;
     config.agents = agents;
 

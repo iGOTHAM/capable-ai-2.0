@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
-import { validateApiKey } from "@/lib/openclaw";
-import { getProvider } from "@/lib/providers";
+import { validateApiKey, type Provider } from "@/lib/openclaw";
 
 export async function POST(request: NextRequest) {
   const authed = await verifyAuth();
@@ -10,11 +9,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { provider, apiKey, authMethod } = body as {
-    provider: string;
-    apiKey: string;
-    authMethod?: string;
-  };
+  const { provider, apiKey } = body as { provider: string; apiKey: string };
 
   if (!provider || !apiKey) {
     return NextResponse.json(
@@ -23,13 +18,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!getProvider(provider)) {
+  if (provider !== "anthropic" && provider !== "openai") {
     return NextResponse.json(
-      { error: `Unknown provider: ${provider}` },
+      { error: "Invalid provider. Must be 'anthropic' or 'openai'" },
       { status: 400 },
     );
   }
 
-  const result = await validateApiKey(provider, apiKey, authMethod ?? "api-key");
+  const result = await validateApiKey(provider as Provider, apiKey);
   return NextResponse.json(result);
 }
