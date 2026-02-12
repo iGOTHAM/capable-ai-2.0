@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capable.ai — Quick Start Wizard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0a0a0b; color: #fafafa; font-family: system-ui, -apple-system, sans-serif; }
+    .card { background: #18181b; border: 1px solid #27272a; }
+    .card:hover { border-color: #3f3f46; }
+    .card.selected { border-color: #3b82f6; background: #1e3a5f20; }
+    .badge { background: #27272a; }
+    .badge-blue { background: #1e3a5f; color: #60a5fa; }
+    .badge-green { background: #14532d; color: #4ade80; }
+    .btn-primary { background: #2563eb; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-primary:disabled { background: #1e3a5f; opacity: 0.5; cursor: not-allowed; }
+    .btn-outline { border: 1px solid #3f3f46; }
+    .btn-outline:hover { background: #27272a; }
+    .step-active { background: #2563eb; color: white; }
+    .step-done { background: #22c55e; color: white; }
+    .step-pending { background: #27272a; color: #71717a; }
+    .check-icon { display: none; }
+    .card.selected .check-icon { display: block; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- Header -->
+  <header class="border-b border-zinc-800 px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">⚡</span>
+        <div>
+          <h1 class="text-lg font-semibold">Capable.ai</h1>
+          <span class="text-xs text-zinc-400">Quick Start Wizard</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-6 py-12">
+    
+    <!-- Progress Steps -->
+    <div class="flex items-center justify-center gap-4 mb-12">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full step-done flex items-center justify-center text-sm font-medium">✓</div>
+        <span class="text-sm text-zinc-300">Account</span>
+      </div>
+      <div class="w-12 h-0.5 bg-emerald-500"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full step-active flex items-center justify-center text-sm font-medium">2</div>
+        <span class="text-sm text-white font-medium">Use Case</span>
+      </div>
+      <div class="w-12 h-0.5 bg-zinc-700"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full step-pending flex items-center justify-center text-sm font-medium">3</div>
+        <span class="text-sm text-zinc-500">Channels</span>
+      </div>
+      <div class="w-12 h-0.5 bg-zinc-700"></div>
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full step-pending flex items-center justify-center text-sm font-medium">4</div>
+        <span class="text-sm text-zinc-500">Launch</span>
+      </div>
+    </div>
+
+    <!-- Step Content -->
+    <div class="text-center mb-8">
+      <h2 class="text-2xl font-bold mb-2">What will you use your agent for?</h2>
+      <p class="text-zinc-400">Select one or more use cases. We'll pre-configure the right skills for you.</p>
+    </div>
+
+    <!-- Use Case Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      
+      <!-- Personal Productivity -->
+      <div class="card rounded-xl p-5 cursor-pointer selected relative" onclick="this.classList.toggle('selected')">
+        <div class="check-icon absolute top-4 right-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="text-3xl">🎯</div>
+          <div>
+            <h3 class="font-bold mb-1">Personal Productivity</h3>
+            <p class="text-zinc-400 text-sm mb-3">Reminders, notetaking, task tracking, and personal knowledge management</p>
+            <div class="flex flex-wrap gap-1">
+              <span class="badge text-xs px-2 py-0.5 rounded">⏰ Reminders</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">🧠 Memory</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">📁 Files</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Research & Writing -->
+      <div class="card rounded-xl p-5 cursor-pointer relative" onclick="this.classList.toggle('selected')">
+        <div class="check-icon absolute top-4 right-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="text-3xl">✍️</div>
+          <div>
+            <h3 class="font-bold mb-1">Research & Writing</h3>
+            <p class="text-zinc-400 text-sm mb-3">Web research, content drafting, fact checking, and document summarization</p>
+            <div class="flex flex-wrap gap-1">
+              <span class="badge text-xs px-2 py-0.5 rounded">🔍 Web Search</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">📄 Files</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">👁️ Vision</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Team Coordination -->
+      <div class="card rounded-xl p-5 cursor-pointer relative" onclick="this.classList.toggle('selected')">
+        <div class="check-icon absolute top-4 right-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="text-3xl">👥</div>
+          <div>
+            <h3 class="font-bold mb-1">Team Coordination</h3>
+            <p class="text-zinc-400 text-sm mb-3">Status updates, announcements, meeting notes, and group routing</p>
+            <div class="flex flex-wrap gap-1">
+              <span class="badge text-xs px-2 py-0.5 rounded">💬 Messaging</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">🎙️ Transcription</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">⏰ Scheduling</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cross-Platform Hub -->
+      <div class="card rounded-xl p-5 cursor-pointer selected relative" onclick="this.classList.toggle('selected')">
+        <div class="check-icon absolute top-4 right-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="text-3xl">🌐</div>
+          <div>
+            <h3 class="font-bold mb-1">Cross-Platform Hub</h3>
+            <p class="text-zinc-400 text-sm mb-3">Unified inbox across Telegram, Slack, Discord, Email, SMS</p>
+            <div class="flex flex-wrap gap-1">
+              <span class="badge text-xs px-2 py-0.5 rounded">💬 Multi-Channel</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">🔔 Alerts</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">📊 Summaries</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DevOps & Security -->
+      <div class="card rounded-xl p-5 cursor-pointer relative" onclick="this.classList.toggle('selected')">
+        <div class="check-icon absolute top-4 right-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="text-3xl">🔒</div>
+          <div>
+            <h3 class="font-bold mb-1">DevOps & Security</h3>
+            <p class="text-zinc-400 text-sm mb-3">Server monitoring, security audits, health checks, status dashboards</p>
+            <div class="flex flex-wrap gap-1">
+              <span class="badge text-xs px-2 py-0.5 rounded">🛡️ Healthcheck</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">⚡ Exec</span>
+              <span class="badge text-xs px-2 py-0.5 rounded">⏰ Cron</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deal Analysis (PE) -->
+      <div class="card rounded-xl p-5 cursor-pointer relative border-blue-500/30" onclick="this.classList.toggle('selected')">
+        <div class="check-icon absolute top-4 right-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <span class="badge-blue text-xs px-2 py-0.5 rounded-full absolute top-4 right-4">Premium</span>
+        <div class="flex items-start gap-4">
+          <div class="text-3xl">📊</div>
+          <div>
+            <h3 class="font-bold mb-1">Deal Analysis (PE Pack)</h3>
+            <p class="text-zinc-400 text-sm mb-3">CIM parsing, deal scoring, risk analysis, memo generation</p>
+            <div class="flex flex-wrap gap-1">
+              <span class="badge-blue text-xs px-2 py-0.5 rounded">CIM Parser</span>
+              <span class="badge-blue text-xs px-2 py-0.5 rounded">Deal Scorer</span>
+              <span class="badge-blue text-xs px-2 py-0.5 rounded">Risk Analyzer</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Skills Preview -->
+    <div class="card rounded-xl p-6 mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-medium">Skills to be installed based on your selection:</h3>
+        <span class="text-sm text-zinc-500">7 skills</span>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <span class="bg-emerald-500/20 text-emerald-400 text-sm px-3 py-1.5 rounded-lg">⏰ cron</span>
+        <span class="bg-emerald-500/20 text-emerald-400 text-sm px-3 py-1.5 rounded-lg">🧠 memory_search</span>
+        <span class="bg-emerald-500/20 text-emerald-400 text-sm px-3 py-1.5 rounded-lg">💬 message</span>
+        <span class="bg-emerald-500/20 text-emerald-400 text-sm px-3 py-1.5 rounded-lg">📁 read/write</span>
+        <span class="bg-emerald-500/20 text-emerald-400 text-sm px-3 py-1.5 rounded-lg">🌤️ weather</span>
+        <span class="bg-zinc-700 text-zinc-400 text-sm px-3 py-1.5 rounded-lg">+ 2 more</span>
+      </div>
+    </div>
+
+    <!-- Google Workspace Upsell -->
+    <div class="card rounded-xl p-5 mb-8 bg-gradient-to-r from-blue-600/10 to-emerald-600/10 border-blue-500/30">
+      <div class="flex items-center gap-4">
+        <div class="flex-shrink-0">
+          <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none">
+            <path d="M44 24c0 11.046-8.954 20-20 20S4 35.046 4 24 12.954 4 24 4s20 8.954 20 20z" fill="#4285F4"/>
+            <path d="M24 4v20l17.32 10A19.94 19.94 0 0044 24c0-11.046-8.954-20-20-20z" fill="#34A853"/>
+            <path d="M6.68 34L24 24V4C12.954 4 4 12.954 4 24c0 3.68.994 7.13 2.68 10z" fill="#FBBC05"/>
+            <path d="M24 24L6.68 34A19.94 19.94 0 0024 44c11.046 0 20-8.954 20-20 0-3.68-.994-7.13-2.68-10L24 24z" fill="#EA4335"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-medium">Add Google Workspace</span>
+            <span class="badge-green text-xs px-2 py-0.5 rounded-full">10% off</span>
+          </div>
+          <p class="text-sm text-zinc-400">Connect Gmail, Calendar, and Drive for email drafting, scheduling, and file management.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" class="w-5 h-5 rounded border-zinc-600 bg-zinc-800 text-blue-500 focus:ring-blue-500">
+          <span class="text-sm">Add</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="flex justify-between">
+      <button class="btn-outline px-6 py-3 rounded-lg font-medium">← Back</button>
+      <button class="btn-primary px-8 py-3 rounded-lg font-medium">Continue to Channels →</button>
+    </div>
+
+  </main>
+</body>
+</html>

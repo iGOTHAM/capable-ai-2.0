@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capable.ai — Skills Marketplace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0a0a0b; color: #fafafa; font-family: system-ui, -apple-system, sans-serif; }
+    .card { background: #18181b; border: 1px solid #27272a; }
+    .card:hover { border-color: #3f3f46; }
+    .badge { background: #27272a; }
+    .badge-blue { background: #1e3a5f; color: #60a5fa; }
+    .badge-green { background: #14532d; color: #4ade80; }
+    .badge-purple { background: #3b0764; color: #c084fc; }
+    .badge-orange { background: #431407; color: #fb923c; }
+    .btn-primary { background: #2563eb; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-outline { border: 1px solid #3f3f46; }
+    .btn-outline:hover { background: #27272a; }
+    .nav-active { background: #27272a; color: #fafafa; }
+    .installed-badge { background: #14532d; color: #4ade80; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- Header -->
+  <header class="border-b border-zinc-800 px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🤖</span>
+        <div>
+          <h1 class="text-lg font-semibold">Atlas</h1>
+          <span class="text-xs text-emerald-500">● Online</span>
+        </div>
+      </div>
+      <nav class="flex gap-1">
+        <a href="#" class="px-4 py-2 text-sm rounded-lg text-zinc-400 hover:text-white">Activity</a>
+        <a href="#" class="px-4 py-2 text-sm rounded-lg text-zinc-400 hover:text-white">Tasks</a>
+        <a href="#" class="px-4 py-2 text-sm rounded-lg text-zinc-400 hover:text-white">Pipeline</a>
+        <a href="#" class="px-4 py-2 text-sm rounded-lg nav-active">Skills</a>
+        <a href="#" class="px-4 py-2 text-sm rounded-lg text-zinc-400 hover:text-white">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold mb-2">Skills Marketplace</h2>
+      <p class="text-zinc-400">Extend your agent's capabilities with specialized skills</p>
+    </div>
+
+    <!-- Search & Filter -->
+    <div class="flex gap-4 mb-8">
+      <div class="flex-1 relative">
+        <input type="text" placeholder="Search skills..." class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-zinc-500">
+        <svg class="absolute right-3 top-3 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </div>
+      <select class="bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2.5 text-sm text-zinc-300">
+        <option>All Categories</option>
+        <option>Private Equity</option>
+        <option>Sales & CRM</option>
+        <option>Research</option>
+        <option>Productivity</option>
+        <option>Integrations</option>
+      </select>
+    </div>
+
+    <!-- Featured Pack -->
+    <div class="card rounded-xl p-6 mb-8 relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+      <div class="relative">
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="badge-blue text-xs px-2 py-1 rounded-full font-medium">FEATURED PACK</span>
+            <h3 class="text-xl font-bold mt-3 mb-2">🎯 PE Analyst Pack</h3>
+            <p class="text-zinc-400 text-sm mb-4 max-w-xl">Complete toolkit for private equity deal analysis. Parse CIMs, score deals against your criteria, identify risks, and generate IC memos — all automated.</p>
+            <div class="flex gap-2 mb-4">
+              <span class="badge text-xs px-2 py-1 rounded">5 skills</span>
+              <span class="badge text-xs px-2 py-1 rounded">Due Diligence</span>
+              <span class="badge text-xs px-2 py-1 rounded">Financial Analysis</span>
+            </div>
+            <div class="flex gap-3">
+              <button class="btn-primary px-5 py-2.5 rounded-lg text-sm font-medium">Install Pack</button>
+              <button class="btn-outline px-5 py-2.5 rounded-lg text-sm font-medium">View Details</button>
+            </div>
+          </div>
+          <div class="text-6xl opacity-50">📊</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Installed Skills -->
+    <div class="mb-8">
+      <h3 class="text-lg font-semibold mb-4">Installed Skills</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        
+        <!-- Installed Skill 1 -->
+        <div class="card rounded-xl p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">📄</div>
+            <span class="installed-badge text-xs px-2 py-1 rounded-full font-medium">Installed</span>
+          </div>
+          <h4 class="font-semibold mb-1">pe-cim-parser</h4>
+          <p class="text-zinc-400 text-sm mb-3">Extract structured data from CIMs, IOMs, and deal teasers</p>
+          <div class="flex gap-2">
+            <span class="badge-purple text-xs px-2 py-1 rounded">Private Equity</span>
+          </div>
+          <div class="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
+            <span class="text-xs text-zinc-500">v1.0.0</span>
+            <button class="text-xs text-red-400 hover:text-red-300">Uninstall</button>
+          </div>
+        </div>
+
+        <!-- Installed Skill 2 -->
+        <div class="card rounded-xl p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">✅</div>
+            <span class="installed-badge text-xs px-2 py-1 rounded-full font-medium">Installed</span>
+          </div>
+          <h4 class="font-semibold mb-1">pe-deal-scorer</h4>
+          <p class="text-zinc-400 text-sm mb-3">Score deals against configurable investment criteria</p>
+          <div class="flex gap-2">
+            <span class="badge-purple text-xs px-2 py-1 rounded">Private Equity</span>
+          </div>
+          <div class="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
+            <span class="text-xs text-zinc-500">v1.0.0</span>
+            <button class="text-xs text-red-400 hover:text-red-300">Uninstall</button>
+          </div>
+        </div>
+
+        <!-- Installed Skill 3 -->
+        <div class="card rounded-xl p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">🔍</div>
+            <span class="installed-badge text-xs px-2 py-1 rounded-full font-medium">Installed</span>
+          </div>
+          <h4 class="font-semibold mb-1">brave-search</h4>
+          <p class="text-zinc-400 text-sm mb-3">Web search and content extraction via Brave Search API</p>
+          <div class="flex gap-2">
+            <span class="badge-blue text-xs px-2 py-1 rounded">Research</span>
+          </div>
+          <div class="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
+            <span class="text-xs text-zinc-500">v2.1.0</span>
+            <button class="text-xs text-red-400 hover:text-red-300">Uninstall</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Available Skills -->
+    <div class="mb-8">
+      <h3 class="text-lg font-semibold mb-4">Available Skills</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        
+        <!-- Available Skill 1 -->
+        <div class="card rounded-xl p-5 hover:border-zinc-600 cursor-pointer transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">⚠️</div>
+            <span class="badge-orange text-xs px-2 py-1 rounded-full font-medium">Popular</span>
+          </div>
+          <h4 class="font-semibold mb-1">pe-risk-analyzer</h4>
+          <p class="text-zinc-400 text-sm mb-3">Identify risks, red flags, and due diligence concerns</p>
+          <div class="flex gap-2 mb-4">
+            <span class="badge-purple text-xs px-2 py-1 rounded">Private Equity</span>
+          </div>
+          <button class="w-full btn-primary py-2 rounded-lg text-sm font-medium">Install</button>
+        </div>
+
+        <!-- Available Skill 2 -->
+        <div class="card rounded-xl p-5 hover:border-zinc-600 cursor-pointer transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">📝</div>
+          </div>
+          <h4 class="font-semibold mb-1">pe-memo-writer</h4>
+          <p class="text-zinc-400 text-sm mb-3">Generate investment committee memo drafts</p>
+          <div class="flex gap-2 mb-4">
+            <span class="badge-purple text-xs px-2 py-1 rounded">Private Equity</span>
+          </div>
+          <button class="w-full btn-primary py-2 rounded-lg text-sm font-medium">Install</button>
+        </div>
+
+        <!-- Available Skill 3 -->
+        <div class="card rounded-xl p-5 hover:border-zinc-600 cursor-pointer transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">📊</div>
+          </div>
+          <h4 class="font-semibold mb-1">pe-comp-builder</h4>
+          <p class="text-zinc-400 text-sm mb-3">Build comparable company and transaction sets</p>
+          <div class="flex gap-2 mb-4">
+            <span class="badge-purple text-xs px-2 py-1 rounded">Private Equity</span>
+          </div>
+          <button class="w-full btn-primary py-2 rounded-lg text-sm font-medium">Install</button>
+        </div>
+
+        <!-- Available Skill 4 -->
+        <div class="card rounded-xl p-5 hover:border-zinc-600 cursor-pointer transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">💼</div>
+            <span class="badge-orange text-xs px-2 py-1 rounded-full font-medium">Popular</span>
+          </div>
+          <h4 class="font-semibold mb-1">salesflare-sync</h4>
+          <p class="text-zinc-400 text-sm mb-3">Two-way sync with Salesflare CRM</p>
+          <div class="flex gap-2 mb-4">
+            <span class="badge-green text-xs px-2 py-1 rounded">Sales & CRM</span>
+          </div>
+          <button class="w-full btn-primary py-2 rounded-lg text-sm font-medium">Install</button>
+        </div>
+
+        <!-- Available Skill 5 -->
+        <div class="card rounded-xl p-5 hover:border-zinc-600 cursor-pointer transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">📧</div>
+          </div>
+          <h4 class="font-semibold mb-1">gmail-integration</h4>
+          <p class="text-zinc-400 text-sm mb-3">Read, search, and draft emails in Gmail</p>
+          <div class="flex gap-2 mb-4">
+            <span class="badge text-xs px-2 py-1 rounded">Productivity</span>
+          </div>
+          <button class="w-full btn-primary py-2 rounded-lg text-sm font-medium">Install</button>
+        </div>
+
+        <!-- Available Skill 6 -->
+        <div class="card rounded-xl p-5 hover:border-zinc-600 cursor-pointer transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="text-3xl">📅</div>
+          </div>
+          <h4 class="font-semibold mb-1">google-calendar</h4>
+          <p class="text-zinc-400 text-sm mb-3">Manage calendar events and scheduling</p>
+          <div class="flex gap-2 mb-4">
+            <span class="badge text-xs px-2 py-1 rounded">Productivity</span>
+          </div>
+          <button class="w-full btn-primary py-2 rounded-lg text-sm font-medium">Install</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Request Skill -->
+    <div class="card rounded-xl p-6 text-center">
+      <div class="text-4xl mb-3">💡</div>
+      <h3 class="font-semibold mb-2">Need a custom skill?</h3>
+      <p class="text-zinc-400 text-sm mb-4">Request a skill or build your own</p>
+      <div class="flex gap-3 justify-center">
+        <button class="btn-outline px-5 py-2.5 rounded-lg text-sm font-medium">Request Skill</button>
+        <button class="btn-outline px-5 py-2.5 rounded-lg text-sm font-medium">Build Your Own</button>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capable.ai - Skills Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .skill-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
+        .skill-card { transition: all 0.2s ease; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Sidebar -->
+    <div class="flex">
+        <aside class="w-64 bg-gray-950 min-h-screen p-6 border-r border-gray-800">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center font-bold text-lg">C</div>
+                <span class="text-xl font-semibold">Capable.ai</span>
+            </div>
+            <nav class="space-y-2">
+                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
+                    <span>💬</span> Chat
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
+                    <span>📁</span> Files
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg bg-purple-600/20 text-purple-400 border border-purple-500/30">
+                    <span>🧠</span> Skills
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
+                    <span>⚙️</span> Settings
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8">
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold mb-2">Skills Marketplace</h1>
+                <p class="text-gray-400">Extend your agent with specialized capabilities</p>
+            </div>
+
+            <!-- Search & Filter -->
+            <div class="flex gap-4 mb-8">
+                <div class="flex-1 relative">
+                    <input type="text" placeholder="Search skills..." class="w-full bg-gray-800 border border-gray-700 rounded-xl px-5 py-3 pl-12 focus:outline-none focus:border-purple-500">
+                    <span class="absolute left-4 top-3.5 text-gray-500">🔍</span>
+                </div>
+                <select class="bg-gray-800 border border-gray-700 rounded-xl px-5 py-3 focus:outline-none focus:border-purple-500">
+                    <option>All Categories</option>
+                    <option>Private Equity</option>
+                    <option>Legal</option>
+                    <option>Marketing</option>
+                    <option>Finance</option>
+                </select>
+            </div>
+
+            <!-- Category Pills -->
+            <div class="flex gap-3 mb-8">
+                <button class="px-4 py-2 bg-purple-600 rounded-full text-sm font-medium">All</button>
+                <button class="px-4 py-2 bg-gray-800 rounded-full text-sm font-medium text-gray-300 hover:bg-gray-700">Private Equity</button>
+                <button class="px-4 py-2 bg-gray-800 rounded-full text-sm font-medium text-gray-300 hover:bg-gray-700">Legal</button>
+                <button class="px-4 py-2 bg-gray-800 rounded-full text-sm font-medium text-gray-300 hover:bg-gray-700">Marketing</button>
+                <button class="px-4 py-2 bg-gray-800 rounded-full text-sm font-medium text-gray-300 hover:bg-gray-700">Finance</button>
+            </div>
+
+            <!-- Skills Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Skill Card 1 - CIM Parser -->
+                <div class="skill-card bg-gray-800 rounded-2xl p-6 border border-gray-700 cursor-pointer">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center text-2xl">📊</div>
+                        <span class="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-medium rounded-full">Private Equity</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">CIM Parser</h3>
+                    <p class="text-gray-400 text-sm mb-4">Extract key financials, deal terms, and company metrics from Confidential Information Memorandums.</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-sm text-gray-500">
+                            <span>⚡</span>
+                            <span>Installed</span>
+                        </div>
+                        <button class="px-4 py-2 bg-green-600/20 text-green-400 rounded-lg text-sm font-medium">✓ Active</button>
+                    </div>
+                </div>
+
+                <!-- Skill Card 2 - Deal Scorer -->
+                <div class="skill-card bg-gray-800 rounded-2xl p-6 border border-gray-700 cursor-pointer">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-400 rounded-xl flex items-center justify-center text-2xl">⚖️</div>
+                        <span class="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-medium rounded-full">Private Equity</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Deal Scorer</h3>
+                    <p class="text-gray-400 text-sm mb-4">Score acquisition targets against your custom investment criteria with weighted scoring.</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-sm text-gray-500">
+                            <span>⚡</span>
+                            <span>Installed</span>
+                        </div>
+                        <button class="px-4 py-2 bg-green-600/20 text-green-400 rounded-lg text-sm font-medium">✓ Active</button>
+                    </div>
+                </div>
+
+                <!-- Skill Card 3 - Risk Analyzer -->
+                <div class="skill-card bg-gray-800 rounded-2xl p-6 border border-gray-700 cursor-pointer">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-400 rounded-xl flex items-center justify-center text-2xl">🚨</div>
+                        <span class="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-medium rounded-full">Private Equity</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Risk Analyzer</h3>
+                    <p class="text-gray-400 text-sm mb-4">Identify red flags and risk factors in deals: customer concentration, margin trends, owner dependency.</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-sm text-gray-500">
+                            <span>📦</span>
+                            <span>Not installed</span>
+                        </div>
+                        <button class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium">+ Add</button>
+                    </div>
+                </div>
+
+                <!-- Skill Card 4 - Memo Writer -->
+                <div class="skill-card bg-gray-800 rounded-2xl p-6 border border-gray-700 cursor-pointer">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-400 rounded-xl flex items-center justify-center text-2xl">📝</div>
+                        <span class="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-medium rounded-full">Private Equity</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Memo Writer</h3>
+                    <p class="text-gray-400 text-sm mb-4">Generate professional investment memos with deal summary, thesis, risks, and recommendations.</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-sm text-gray-500">
+                            <span>📦</span>
+                            <span>Not installed</span>
+                        </div>
+                        <button class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium">+ Add</button>
+                    </div>
+                </div>
+
+                <!-- Skill Card 5 - Contract Reviewer -->
+                <div class="skill-card bg-gray-800 rounded-2xl p-6 border border-gray-700 cursor-pointer">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-yellow-500 to-amber-400 rounded-xl flex items-center justify-center text-2xl">📜</div>
+                        <span class="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-medium rounded-full">Legal</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Contract Reviewer</h3>
+                    <p class="text-gray-400 text-sm mb-4">Analyze legal documents for key terms, obligations, and potential issues. LOIs, SPAs, and more.</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-sm text-gray-500">
+                            <span>📦</span>
+                            <span>Not installed</span>
+                        </div>
+                        <button class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium">+ Add</button>
+                    </div>
+                </div>
+
+                <!-- Skill Card 6 - Comp Builder -->
+                <div class="skill-card bg-gray-800 rounded-2xl p-6 border border-gray-700 cursor-pointer">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-indigo-500 to-violet-400 rounded-xl flex items-center justify-center text-2xl">📈</div>
+                        <span class="px-3 py-1 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">Finance</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Comp Builder</h3>
+                    <p class="text-gray-400 text-sm mb-4">Build comparable company analyses with valuation multiples and transaction data.</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-sm text-gray-500">
+                            <span>📦</span>
+                            <span>Not installed</span>
+                        </div>
+                        <button class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium">+ Add</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Overlay (Skill Detail) -->
+    <div id="modal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden" onclick="this.classList.add('hidden')">
+        <div class="bg-gray-800 rounded-2xl p-8 max-w-2xl w-full mx-4 border border-gray-700" onclick="event.stopPropagation()">
+            <div class="flex items-start gap-6 mb-6">
+                <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center text-4xl">📊</div>
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-2">
+                        <h2 class="text-2xl font-bold">CIM Parser</h2>
+                        <span class="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-medium rounded-full">Private Equity</span>
+                    </div>
+                    <p class="text-gray-400">Extract key financials, deal terms, and company metrics from Confidential Information Memorandums.</p>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex gap-4 border-b border-gray-700 mb-6">
+                <button class="pb-3 border-b-2 border-purple-500 text-purple-400 font-medium">Overview</button>
+                <button class="pb-3 border-b-2 border-transparent text-gray-400 font-medium hover:text-white">Try It</button>
+                <button class="pb-3 border-b-2 border-transparent text-gray-400 font-medium hover:text-white">Settings</button>
+            </div>
+
+            <!-- Content -->
+            <div class="space-y-4 mb-6">
+                <div>
+                    <h4 class="text-sm font-medium text-gray-400 mb-2">What it does</h4>
+                    <p class="text-gray-300">Automatically extracts structured data from PDF CIMs including revenue, EBITDA, asking price, growth rates, customer concentration, and key deal terms.</p>
+                </div>
+                <div>
+                    <h4 class="text-sm font-medium text-gray-400 mb-2">Sample prompts</h4>
+                    <div class="space-y-2">
+                        <div class="bg-gray-900 rounded-lg px-4 py-3 text-sm text-gray-300">"Parse this CIM and extract the financials"</div>
+                        <div class="bg-gray-900 rounded-lg px-4 py-3 text-sm text-gray-300">"What's the EBITDA and asking price for this deal?"</div>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-medium text-gray-400 mb-2">Output format</h4>
+                    <pre class="bg-gray-900 rounded-lg p-4 text-sm text-green-400 overflow-x-auto">{
+  "company_name": "Acme Corp",
+  "revenue": 12500000,
+  "ebitda": 2200000,
+  "asking_price": 8000000,
+  "ebitda_margin": 0.176
+}</pre>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button class="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">🧪 Try It Now</button>
+                <button class="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium">Configure</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Click any skill card to show modal
+        document.querySelectorAll('.skill-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.getElementById('modal').classList.remove('hidden');
+            });
+        });
+    </script>
+</body>
+</html>

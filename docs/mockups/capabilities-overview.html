@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capable.ai — What Your Agent Can Do</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0a0a0b; color: #fafafa; font-family: system-ui, -apple-system, sans-serif; }
+    .card { background: #18181b; border: 1px solid #27272a; }
+    .card:hover { border-color: #3f3f46; transform: translateY(-2px); transition: all 0.2s; }
+    .badge { background: #27272a; }
+    .badge-blue { background: #1e3a5f; color: #60a5fa; }
+    .badge-green { background: #14532d; color: #4ade80; }
+    .badge-purple { background: #3b0764; color: #c084fc; }
+    .badge-orange { background: #431407; color: #fb923c; }
+    .badge-pink { background: #500724; color: #f472b6; }
+    .badge-cyan { background: #083344; color: #22d3ee; }
+    .btn-primary { background: #2563eb; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-outline { border: 1px solid #3f3f46; }
+    .btn-outline:hover { background: #27272a; }
+    .capability-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 24px; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- Header -->
+  <header class="border-b border-zinc-800 px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">⚡</span>
+        <div>
+          <h1 class="text-lg font-semibold">Capable.ai</h1>
+          <span class="text-xs text-zinc-400">Capabilities & Skills</span>
+        </div>
+      </div>
+      <nav class="flex gap-4">
+        <a href="#" class="text-sm text-zinc-400 hover:text-white">Templates</a>
+        <a href="#" class="text-sm text-zinc-400 hover:text-white">Skills</a>
+        <a href="#" class="text-sm text-white font-medium">Capabilities</a>
+        <a href="#" class="text-sm text-zinc-400 hover:text-white">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-12">
+    <!-- Hero -->
+    <div class="text-center mb-16">
+      <h2 class="text-4xl font-bold mb-4">What Your Agent Can Do</h2>
+      <p class="text-zinc-400 text-lg max-w-2xl mx-auto">OpenClaw comes with powerful built-in capabilities. Enable what you need, configure once, and let your agent handle the rest.</p>
+    </div>
+
+    <!-- Core Capabilities Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+      
+      <!-- 1. Web Search -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-blue-500/20">🔍</div>
+          <div>
+            <h3 class="font-bold text-lg">Web Search</h3>
+            <span class="badge-blue text-xs px-2 py-0.5 rounded-full">Most Popular</span>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Fast, up-to-date research from the public internet. Real-time information at your agent's fingertips.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Market trends & news monitoring
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Fact checking & verification
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Dynamic research workflows
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skill: web_search, brave-search</code>
+        </div>
+      </div>
+
+      <!-- 2. File & Workspace -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-purple-500/20">📁</div>
+          <div>
+            <h3 class="font-bold text-lg">File & Workspace</h3>
+            <span class="badge-purple text-xs px-2 py-0.5 rounded-full">Essential</span>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Manage files, projects, and automate common document tasks. Your agent's workspace is your workspace.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Summarize uploaded documents
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Batch file operations
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Auto-filing & organization
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skills: read, write, edit, exec</code>
+        </div>
+      </div>
+
+      <!-- 3. Scheduling & Reminders -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-orange-500/20">⏰</div>
+          <div>
+            <h3 class="font-bold text-lg">Scheduling & Reminders</h3>
+            <span class="badge-orange text-xs px-2 py-0.5 rounded-full">Proactive</span>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Cron jobs, recurring tasks, and proactive reminders. Your agent works even when you're not asking.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Daily standup summaries
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Task & deadline reminders
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Health checks & heartbeats
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skill: cron</code>
+        </div>
+      </div>
+
+      <!-- 4. Cross-Platform Messaging -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-green-500/20">💬</div>
+          <div>
+            <h3 class="font-bold text-lg">Cross-Platform Messaging</h3>
+            <span class="badge-green text-xs px-2 py-0.5 rounded-full">Connected</span>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Bridge Telegram, Signal, Discord, Slack, SMS, Email. One agent, all your channels.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Unified notifications
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Proactive alerts
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Cross-channel summaries
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skill: message</code>
+        </div>
+      </div>
+
+      <!-- 5. Long-Term Memory -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-pink-500/20">🧠</div>
+          <div>
+            <h3 class="font-bold text-lg">Long-Term Memory</h3>
+            <span class="badge-pink text-xs px-2 py-0.5 rounded-full">Persistent</span>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Durable storage of facts, lessons, and directives. Your agent remembers what matters.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Recall prior decisions
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> User preferences
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Team lessons learned
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skills: memory_search, memory_get</code>
+        </div>
+      </div>
+
+      <!-- 6. Security Audits -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-red-500/20">🛡️</div>
+          <div>
+            <h3 class="font-bold text-lg">Security & Audits</h3>
+            <span class="badge text-xs px-2 py-0.5 rounded-full">DevOps</span>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Periodic security scans, self-checks, and configuration reviews. Stay hardened.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Firewall audits
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Version status checks
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> SSH/config alerts
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skill: healthcheck</code>
+        </div>
+      </div>
+
+      <!-- 7. Transcription -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-cyan-500/20">🎙️</div>
+          <div>
+            <h3 class="font-bold text-lg">Transcription</h3>
+            <span class="badge-cyan text-xs px-2 py-0.5 rounded-full">Audio</span>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Audio-to-text for meetings, interviews, and voice notes. Never miss a word.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Meeting transcription
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Voice note processing
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Interview recordings
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skill: openai-whisper-api</code>
+        </div>
+      </div>
+
+      <!-- 8. Weather -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-sky-500/20">🌤️</div>
+          <div>
+            <h3 class="font-bold text-lg">Weather Monitoring</h3>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Current conditions, forecasts, and weather-based automation triggers.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Schedule around weather
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Daily briefings
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Automated alerts
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skill: weather</code>
+        </div>
+      </div>
+
+      <!-- 9. Vision & Image Analysis -->
+      <div class="card rounded-xl p-6 cursor-pointer">
+        <div class="flex items-start gap-4 mb-4">
+          <div class="capability-icon bg-violet-500/20">👁️</div>
+          <div>
+            <h3 class="font-bold text-lg">Image & Vision</h3>
+          </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-4">Extract information from images. OCR, document scanning, visual analysis.</p>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> OCR text extraction
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Document scanning
+          </div>
+          <div class="flex items-center gap-2 text-zinc-300">
+            <span class="text-emerald-400">✓</span> Visual search
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-zinc-800">
+          <code class="text-xs text-zinc-500">Skill: image</code>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- User Profiles Section -->
+    <div class="mb-16">
+      <div class="text-center mb-10">
+        <h2 class="text-2xl font-bold mb-3">Built For How You Work</h2>
+        <p class="text-zinc-400">Common use cases and configurations for different workflows</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- Personal Productivity -->
+        <div class="card rounded-xl p-6">
+          <div class="text-3xl mb-3">🎯</div>
+          <h3 class="font-bold text-lg mb-2">Personal Productivity</h3>
+          <p class="text-zinc-400 text-sm mb-4">Reminders, notetaking, project and memory management for individuals.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge text-xs px-2 py-1 rounded">cron</span>
+            <span class="badge text-xs px-2 py-1 rounded">memory</span>
+            <span class="badge text-xs px-2 py-1 rounded">message</span>
+            <span class="badge text-xs px-2 py-1 rounded">files</span>
+          </div>
+        </div>
+
+        <!-- Team Assistant -->
+        <div class="card rounded-xl p-6">
+          <div class="text-3xl mb-3">👥</div>
+          <h3 class="font-bold text-lg mb-2">Team Assistant</h3>
+          <p class="text-zinc-400 text-sm mb-4">Group announcements, status checks, and information routing for teams.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge text-xs px-2 py-1 rounded">message</span>
+            <span class="badge text-xs px-2 py-1 rounded">cron</span>
+            <span class="badge text-xs px-2 py-1 rounded">memory</span>
+            <span class="badge text-xs px-2 py-1 rounded">transcription</span>
+          </div>
+        </div>
+
+        <!-- Ops/DevSec -->
+        <div class="card rounded-xl p-6">
+          <div class="text-3xl mb-3">🔒</div>
+          <h3 class="font-bold text-lg mb-2">Ops & DevSec</h3>
+          <p class="text-zinc-400 text-sm mb-4">Server health, security checks, and status dashboards for infrastructure.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge text-xs px-2 py-1 rounded">healthcheck</span>
+            <span class="badge text-xs px-2 py-1 rounded">cron</span>
+            <span class="badge text-xs px-2 py-1 rounded">exec</span>
+            <span class="badge text-xs px-2 py-1 rounded">message</span>
+          </div>
+        </div>
+
+        <!-- R&D and Writing -->
+        <div class="card rounded-xl p-6">
+          <div class="text-3xl mb-3">✍️</div>
+          <h3 class="font-bold text-lg mb-2">R&D & Writing</h3>
+          <p class="text-zinc-400 text-sm mb-4">Auto-research, draft generation, and code summarization for creators.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge text-xs px-2 py-1 rounded">web_search</span>
+            <span class="badge text-xs px-2 py-1 rounded">files</span>
+            <span class="badge text-xs px-2 py-1 rounded">memory</span>
+            <span class="badge text-xs px-2 py-1 rounded">image</span>
+          </div>
+        </div>
+
+        <!-- Cross-Platform Hub -->
+        <div class="card rounded-xl p-6">
+          <div class="text-3xl mb-3">🌐</div>
+          <h3 class="font-bold text-lg mb-2">Cross-Platform Hub</h3>
+          <p class="text-zinc-400 text-sm mb-4">Aggregating notifications and routing info across multiple channels.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge text-xs px-2 py-1 rounded">message</span>
+            <span class="badge text-xs px-2 py-1 rounded">cron</span>
+            <span class="badge text-xs px-2 py-1 rounded">memory</span>
+            <span class="badge text-xs px-2 py-1 rounded">weather</span>
+          </div>
+        </div>
+
+        <!-- Deal Analysis -->
+        <div class="card rounded-xl p-6 border-blue-500/30">
+          <div class="text-3xl mb-3">📊</div>
+          <h3 class="font-bold text-lg mb-2">Deal Analysis (PE Pack)</h3>
+          <p class="text-zinc-400 text-sm mb-4">CIM parsing, deal scoring, risk analysis for PE and M&A professionals.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge-blue text-xs px-2 py-1 rounded">pe-cim-parser</span>
+            <span class="badge-blue text-xs px-2 py-1 rounded">pe-deal-scorer</span>
+            <span class="badge-blue text-xs px-2 py-1 rounded">pe-risk-analyzer</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="card rounded-2xl p-8 text-center">
+      <h3 class="text-xl font-bold mb-3">Ready to Get Started?</h3>
+      <p class="text-zinc-400 mb-6 max-w-md mx-auto">Deploy your agent in minutes with pre-configured capabilities, or customize to fit your exact workflow.</p>
+      <div class="flex gap-4 justify-center">
+        <button class="btn-primary px-6 py-3 rounded-lg font-medium">Deploy Your Agent →</button>
+        <button class="btn-outline px-6 py-3 rounded-lg font-medium">Browse Skills</button>
+      </div>
+      <div class="mt-6 text-sm text-zinc-500">
+        Find more skills at <a href="https://clawhub.com" class="text-blue-400 hover:underline">clawhub.com</a> · 
+        Docs at <a href="https://docs.openclaw.ai" class="text-blue-400 hover:underline">docs.openclaw.ai</a>
+      </div>
+    </div>
+
+  </main>
+</body>
+</html>

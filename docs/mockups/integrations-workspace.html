@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capable.ai — Integrations & Google Workspace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0a0a0b; color: #fafafa; font-family: system-ui, -apple-system, sans-serif; }
+    .card { background: #18181b; border: 1px solid #27272a; }
+    .card:hover { border-color: #3f3f46; }
+    .badge { background: #27272a; }
+    .badge-blue { background: #1e3a5f; color: #60a5fa; }
+    .badge-green { background: #14532d; color: #4ade80; }
+    .badge-yellow { background: #422006; color: #facc15; }
+    .btn-primary { background: #2563eb; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-outline { border: 1px solid #3f3f46; }
+    .btn-outline:hover { background: #27272a; }
+    .btn-google { background: #fff; color: #1f1f1f; }
+    .btn-google:hover { background: #f1f1f1; }
+    .nav-active { background: #27272a; color: #fafafa; }
+    .connected { border-color: #22c55e; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- Header -->
+  <header class="border-b border-zinc-800 px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🤖</span>
+        <div>
+          <h1 class="text-lg font-semibold">Atlas</h1>
+          <span class="text-xs text-emerald-500">● Online</span>
+        </div>
+      </div>
+      <nav class="flex gap-1">
+        <a href="#" class="px-4 py-2 text-sm rounded-lg text-zinc-400 hover:text-white">Activity</a>
+        <a href="#" class="px-4 py-2 text-sm rounded-lg text-zinc-400 hover:text-white">Tasks</a>
+        <a href="#" class="px-4 py-2 text-sm rounded-lg text-zinc-400 hover:text-white">Skills</a>
+        <a href="#" class="px-4 py-2 text-sm rounded-lg nav-active">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="flex">
+    <!-- Settings Sidebar -->
+    <aside class="w-56 border-r border-zinc-800 min-h-[calc(100vh-65px)] p-4">
+      <nav class="space-y-1">
+        <a href="#" class="block px-3 py-2 text-sm rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">Agent Identity</a>
+        <a href="#" class="block px-3 py-2 text-sm rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">AI Provider</a>
+        <a href="#" class="block px-3 py-2 text-sm rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">Channels</a>
+        <a href="#" class="block px-3 py-2 text-sm rounded-lg nav-active">Integrations</a>
+        <a href="#" class="block px-3 py-2 text-sm rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">Pipeline</a>
+        <a href="#" class="block px-3 py-2 text-sm rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">SOUL.md</a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-8 max-w-4xl">
+      <div class="mb-8">
+        <h2 class="text-2xl font-bold mb-2">Integrations</h2>
+        <p class="text-zinc-400">Connect external services to expand your agent's capabilities</p>
+      </div>
+
+      <!-- Google Workspace CTA (Not Connected) -->
+      <div class="card rounded-xl overflow-hidden mb-8">
+        <div class="bg-gradient-to-r from-blue-600/30 via-red-500/20 to-yellow-500/20 p-6">
+          <div class="flex items-start gap-5">
+            <div class="flex-shrink-0 bg-white rounded-xl p-3">
+              <svg class="w-10 h-10" viewBox="0 0 48 48">
+                <path d="M44 24c0 11.046-8.954 20-20 20S4 35.046 4 24 12.954 4 24 4s20 8.954 20 20z" fill="#4285F4"/>
+                <path d="M24 4v20l17.32 10A19.94 19.94 0 0044 24c0-11.046-8.954-20-20-20z" fill="#34A853"/>
+                <path d="M6.68 34L24 24V4C12.954 4 4 12.954 4 24c0 3.68.994 7.13 2.68 10z" fill="#FBBC05"/>
+                <path d="M24 24L6.68 34A19.94 19.94 0 0024 44c11.046 0 20-8.954 20-20 0-3.68-.994-7.13-2.68-10L24 24z" fill="#EA4335"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <h3 class="text-xl font-bold">Google Workspace</h3>
+                <span class="badge-yellow text-xs px-2 py-0.5 rounded-full font-medium">Special Offer</span>
+              </div>
+              <p class="text-zinc-300 mb-4">Connect Gmail, Calendar, and Drive to unlock email drafting, scheduling, and document management. Your agent can read your inbox, schedule meetings, and organize files.</p>
+              
+              <div class="bg-zinc-900/60 rounded-lg p-4 mb-4">
+                <div class="flex items-center gap-3 mb-3">
+                  <span class="text-xl">🎁</span>
+                  <div>
+                    <div class="font-medium">Exclusive Partner Offer</div>
+                    <div class="text-sm text-zinc-400">14-day free trial + 10% off your first year</div>
+                  </div>
+                </div>
+                <div class="text-xs text-zinc-500">New to Google Workspace? Sign up through our partner link to save.</div>
+              </div>
+
+              <div class="flex gap-3">
+                <button class="btn-google px-5 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                  Sign in with Google
+                </button>
+                <button class="btn-outline px-5 py-2.5 rounded-lg text-sm font-medium">
+                  New to Workspace? Get 10% off →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="p-5 border-t border-zinc-800">
+          <div class="text-xs text-zinc-500 mb-3">WHAT YOU CAN DO WITH GOOGLE WORKSPACE</div>
+          <div class="grid grid-cols-3 gap-4">
+            <div class="flex items-start gap-3">
+              <div class="text-xl">📧</div>
+              <div>
+                <div class="text-sm font-medium">Gmail</div>
+                <div class="text-xs text-zinc-500">Read, search, draft, and send emails on your behalf</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <div class="text-xl">📅</div>
+              <div>
+                <div class="text-sm font-medium">Calendar</div>
+                <div class="text-xs text-zinc-500">View schedule, create events, send invites</div>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <div class="text-xl">📁</div>
+              <div>
+                <div class="text-sm font-medium">Drive</div>
+                <div class="text-xs text-zinc-500">Access, create, and organize documents</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Other Integrations -->
+      <h3 class="text-lg font-semibold mb-4">Other Integrations</h3>
+      
+      <div class="space-y-4">
+        <!-- Salesflare (Connected) -->
+        <div class="card connected rounded-xl p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">SF</div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h4 class="font-semibold">Salesflare</h4>
+                  <span class="badge-green text-xs px-2 py-0.5 rounded-full font-medium">Connected</span>
+                </div>
+                <p class="text-sm text-zinc-400">CRM sync for pipeline and contact management</p>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button class="btn-outline px-4 py-2 rounded-lg text-sm">Configure</button>
+              <button class="text-sm text-red-400 hover:text-red-300 px-4 py-2">Disconnect</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slack (Not Connected) -->
+        <div class="card rounded-xl p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-[#4A154B] rounded-xl flex items-center justify-center">
+                <svg class="w-7 h-7" viewBox="0 0 24 24" fill="white"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.52A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.522v-2.52h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.166a2.528 2.528 0 0 1-2.522 2.521h-6.312z"/></svg>
+              </div>
+              <div>
+                <h4 class="font-semibold">Slack</h4>
+                <p class="text-sm text-zinc-400">Send messages and receive commands via Slack</p>
+              </div>
+            </div>
+            <button class="btn-primary px-4 py-2 rounded-lg text-sm">Connect</button>
+          </div>
+        </div>
+
+        <!-- Notion (Not Connected) -->
+        <div class="card rounded-xl p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
+                <svg class="w-7 h-7" viewBox="0 0 24 24"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.886l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952l1.448.327s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.886.747-.933zM2.877 1.028l13.589-.84c1.678-.14 2.101.093 2.8.607l3.876 2.753c.513.374.7.467.7 1.073v15.084c0 1.214-.42 1.914-1.869 2.007l-15.457.934c-1.168.047-1.728-.14-2.334-.84L1.87 18.627c-.7-.934-.981-1.634-.981-2.475V3.296c0-1.12.467-2.034 1.988-2.268z"/></svg>
+              </div>
+              <div>
+                <h4 class="font-semibold">Notion</h4>
+                <p class="text-sm text-zinc-400">Create and manage pages, databases, and docs</p>
+              </div>
+            </div>
+            <button class="btn-primary px-4 py-2 rounded-lg text-sm">Connect</button>
+          </div>
+        </div>
+
+        <!-- Linear (Not Connected) -->
+        <div class="card rounded-xl p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-[#5E6AD2] rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="white"><path d="M3.27 1.177a.75.75 0 0 0-1.093 1.026l1.633 1.735A10.483 10.483 0 0 0 1.5 10.5C1.5 16.299 6.201 21 12 21c2.55 0 4.898-.911 6.722-2.427l1.709 1.818a.75.75 0 0 0 1.093-1.026L3.27 1.177zm16.23 17.399A9.017 9.017 0 0 1 12 19.5c-4.97 0-9-4.03-9-9 0-2.166.766-4.152 2.042-5.702l14.458 15.378z"/><path d="M22.5 10.5c0-1.107-.172-2.173-.492-3.175l-1.192 1.266a8.052 8.052 0 0 1 .184 1.909c0 1.36-.336 2.641-.93 3.766l1.138 1.21A9.956 9.956 0 0 0 22.5 10.5z"/><path d="M12 3c1.107 0 2.173.172 3.175.492l1.266-1.192A10.483 10.483 0 0 0 12 1.5a10.44 10.44 0 0 0-5.476 1.547l1.21 1.138A8.018 8.018 0 0 1 12 3z"/></svg>
+              </div>
+              <div>
+                <h4 class="font-semibold">Linear</h4>
+                <p class="text-sm text-zinc-400">Issue tracking and project management</p>
+              </div>
+            </div>
+            <button class="btn-primary px-4 py-2 rounded-lg text-sm">Connect</button>
+          </div>
+        </div>
+
+        <!-- Zapier (Not Connected) -->
+        <div class="card rounded-xl p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-[#FF4A00] rounded-xl flex items-center justify-center text-white font-bold text-lg">⚡</div>
+              <div>
+                <h4 class="font-semibold">Zapier</h4>
+                <p class="text-sm text-zinc-400">Connect to 5,000+ apps via Zapier automations</p>
+              </div>
+            </div>
+            <button class="btn-primary px-4 py-2 rounded-lg text-sm">Connect</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Access -->
+      <div class="mt-8">
+        <h3 class="text-lg font-semibold mb-4">Developer API</h3>
+        <div class="card rounded-xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h4 class="font-medium">API Access</h4>
+              <p class="text-sm text-zinc-400">Build custom integrations with the Capable.ai API</p>
+            </div>
+            <button class="btn-outline px-4 py-2 rounded-lg text-sm">Generate API Key</button>
+          </div>
+          <div class="bg-zinc-900 rounded-lg p-4">
+            <code class="text-sm text-zinc-400">curl -X POST https://api.capable.ai/v1/chat \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"message": "Summarize my inbox"}'</code>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</body>
+</html>
