@@ -11,6 +11,7 @@ import {
 import { StepApiKey } from "@/components/setup/step-api-key";
 import { StepModel } from "@/components/setup/step-model";
 import { StepChannels } from "@/components/setup/step-channels";
+import { StepPersonalize } from "@/components/setup/step-personalize";
 import { StepLaunch } from "@/components/setup/step-launch";
 import { Loader2 } from "lucide-react";
 
@@ -22,12 +23,18 @@ export interface SetupData {
   apiKey: string;
   model: string;
   telegramToken: string;
+  // Personalization fields
+  userName: string;
+  workType: string;
+  commStyle: string;
+  agentName: string;
 }
 
 const STEPS = [
   { title: "API Key", description: "Connect your AI provider" },
   { title: "Model", description: "Choose your AI model" },
   { title: "Channels", description: "Connect messaging (optional)" },
+  { title: "Personalize", description: "Customize your agent" },
   { title: "Launch", description: "Start your AI agent" },
 ];
 
@@ -40,6 +47,11 @@ export default function SetupPage() {
     apiKey: "",
     model: "",
     telegramToken: "",
+    // Personalization fields
+    userName: "",
+    workType: "",
+    commStyle: "balanced",
+    agentName: "Atlas",
   });
 
   // If setup is already complete, redirect to chat
@@ -141,7 +153,15 @@ export default function SetupPage() {
               onBack={back}
             />
           )}
-          {step === 3 && <StepLaunch data={data} onBack={back} />}
+          {step === 3 && (
+            <StepPersonalize
+              data={data}
+              updateData={updateData}
+              onNext={next}
+              onBack={back}
+            />
+          )}
+          {step === 4 && <StepLaunch data={data} onBack={back} />}
         </CardContent>
       </Card>
     </>
