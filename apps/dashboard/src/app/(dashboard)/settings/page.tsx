@@ -49,6 +49,7 @@ export default function SettingsPage() {
 
   // Provider section
   const [provider, setProvider] = useState("");
+  const [authMethod, setAuthMethod] = useState("api-key");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
   const [saving, setSaving] = useState(false);
@@ -102,7 +103,10 @@ export default function SettingsPage() {
 
     const body: Record<string, string> = {};
     if (provider && provider !== config?.provider) body.provider = provider;
-    if (apiKey) body.apiKey = apiKey;
+    if (apiKey) {
+      body.apiKey = apiKey;
+      body.authMethod = authMethod;
+    }
     if (model && model !== config?.model) body.model = model;
 
     if (Object.keys(body).length === 0) {
@@ -228,6 +232,8 @@ export default function SettingsPage() {
                   onClick={() => {
                     setProvider(prov.id);
                     setModel("");
+                    setApiKey("");
+                    setAuthMethod(prov.authMethods[0]?.id ?? "api-key");
                   }}
                   className={`flex flex-col items-start gap-0.5 rounded-lg border p-3 text-left text-sm transition-colors ${
                     provider === prov.id
@@ -244,9 +250,51 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Auth method selection (for providers with multiple methods, e.g. Anthropic) */}
+          {selectedProviderDef &&
+            selectedProviderDef.authMethods.length > 1 && (
+              <div className="space-y-2">
+                <Label>Authentication Method</Label>
+                <RadioGroup
+                  value={authMethod}
+                  onValueChange={(v) => {
+                    setAuthMethod(v);
+                    setApiKey("");
+                  }}
+                  className="grid gap-2"
+                >
+                  {selectedProviderDef.authMethods.map((method) => (
+                    <label
+                      key={method.id}
+                      htmlFor={`settings-auth-${method.id}`}
+                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                        authMethod === method.id
+                          ? "border-primary bg-primary/5"
+                          : "border-input hover:bg-accent/50"
+                      }`}
+                    >
+                      <RadioGroupItem
+                        value={method.id}
+                        id={`settings-auth-${method.id}`}
+                        className="mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{method.label}</div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {method.description}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </RadioGroup>
+              </div>
+            )}
+
           <div className="space-y-2">
             <Label htmlFor="settings-api-key">
-              API Key{" "}
+              {authMethod === "setup-token"
+                ? "Setup Token"
+                : "API Key"}{" "}
               <span className="text-xs text-muted-foreground">
                 (current: {config?.apiKey || "not set"})
               </span>
@@ -255,12 +303,24 @@ export default function SettingsPage() {
               id="settings-api-key"
               type="password"
               placeholder={
-                selectedProviderDef?.keyPlaceholder ||
-                "Enter new API key to update"
+                authMethod === "setup-token"
+                  ? "Paste your setup token..."
+                  : selectedProviderDef?.keyPlaceholder ||
+                    "Enter new API key to update"
               }
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />
+            {authMethod === "setup-token" && (
+              <p className="text-xs text-muted-foreground">
+                Run{" "}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                  openclaw setup-token
+                </code>{" "}
+                in your terminal to generate a token, or get one from your
+                Claude account settings.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

@@ -69,9 +69,10 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { provider, apiKey, model, channels } = body as {
+  const { provider, apiKey, authMethod, model, channels } = body as {
     provider?: string;
     apiKey?: string;
+    authMethod?: string;
     model?: string;
     channels?: Record<string, unknown>;
   };
@@ -86,7 +87,17 @@ export async function PUT(request: NextRequest) {
     const providerDef = getProvider(provider);
     if (providerDef) {
       const env = (existing.env as Record<string, string>) ?? {};
-      env[providerDef.envKey] = apiKey;
+
+      // Handle setup-token vs API key auth
+      if (authMethod === "setup-token" && providerDef.setupTokenEnvKey) {
+        env[providerDef.setupTokenEnvKey] = apiKey;
+        delete env[providerDef.envKey];
+      } else {
+        env[providerDef.envKey] = apiKey;
+        if (providerDef.setupTokenEnvKey) {
+          delete env[providerDef.setupTokenEnvKey];
+        }
+      }
       existing.env = env;
 
       // For custom providers, also write models.providers
@@ -112,11 +123,19 @@ export async function PUT(request: NextRequest) {
       hasChanges = true;
     }
   } else if (apiKey) {
-    // Update API key for current provider
+    // Update API key for current provider (no provider change)
     const env = (existing.env as Record<string, string>) ?? {};
     const currentProvider = detectProviderFromEnv(env);
     if (currentProvider) {
-      env[currentProvider.envKey] = apiKey;
+      if (authMethod === "setup-token" && currentProvider.setupTokenEnvKey) {
+        env[currentProvider.setupTokenEnvKey] = apiKey;
+        delete env[currentProvider.envKey];
+      } else {
+        env[currentProvider.envKey] = apiKey;
+        if (currentProvider.setupTokenEnvKey) {
+          delete env[currentProvider.setupTokenEnvKey];
+        }
+      }
       existing.env = env;
       hasChanges = true;
     }
