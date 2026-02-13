@@ -1,197 +1,128 @@
-// =========================================
-// Capable.ai — WebSocket Terminal Server
-// =========================================
-// Sidecar server that bridges xterm.js (browser) to a PTY running
-// `openclaw onboard` inside the OpenClaw container.
-//
-// Runs alongside Next.js on a separate port (default 3101).
-// Caddy routes /api/terminal/ws → this server.
-// =========================================
+/**
+ * WebSocket Terminal Server
+ *
+ * Bridges xterm.js (browser) ↔ node-pty (server) over WebSocket.
+ * Runs as a sidecar process alongside the Next.js dashboard.
+ *
+ * - Listens on WS_TERMINAL_PORT (default 3101)
+ * - Authenticates via ?token= query param (HMAC cookie value)
+ * - Re-reads AUTH_PASSWORD from disk on each connection (supports live password changes)
+ * - Spawns a bash shell via node-pty, piping I/O over WebSocket
+ */
 
-import { createServer } from "http";
-import { createHmac, timingSafeEqual } from "crypto";
 import { readFileSync } from "fs";
+import { createHmac } from "crypto";
 import { WebSocketServer } from "ws";
 import pty from "node-pty";
 
 const PORT = parseInt(process.env.WS_TERMINAL_PORT || "3101", 10);
-const IS_DOCKER = process.env.CONTAINER_MODE === "docker";
-const MAX_SESSION_MS = 10 * 60 * 1000; // 10 minutes
+const ENV_FILE = process.env.ENV_FILE || "/opt/capable/.env";
 
-// Path to env file where AUTH_PASSWORD is persisted on disk.
-// The password change API (set-password route) writes here, and since
-// the terminal server runs as a separate process from Next.js, we must
-// re-read from disk on each connection to pick up password changes.
-const ENV_FILE = IS_DOCKER ? "/opt/capable/.env" : "/etc/capable-dashboard.env";
-
-// ─── Auth (mirrors lib/auth.ts) ─────────────────────────────────────────────
-
+/**
+ * Read AUTH_PASSWORD from the .env file on disk.
+ * This ensures we pick up password changes without restarting.
+ */
 function getAuthPassword() {
-  // Re-read from env file on every call so password changes are picked up
-  // without restarting the terminal server process.
   try {
     const content = readFileSync(ENV_FILE, "utf-8");
-    const match = content.match(/^AUTH_PASSWORD=(.+)$/m);
-    if (match) return match[1].trim();
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("AUTH_PASSWORD=")) {
+        return trimmed.slice("AUTH_PASSWORD=".length).replace(/^["']|["']$/g, "");
+      }
+    }
   } catch {
-    // File doesn't exist or can't be read — fall through to process.env
+    // Fall back to env var if file read fails
   }
-  return process.env.AUTH_PASSWORD || "changeme";
+  return process.env.AUTH_PASSWORD || "";
 }
 
-function makeToken(secret) {
-  return createHmac("sha256", secret).update("dashboard-auth").digest("hex");
+/**
+ * Verify the auth token from the WebSocket query string.
+ * The token is an HMAC-SHA256 of "authenticated" using the password as key.
+ */
+function verifyToken(token) {
+  const password = getAuthPassword();
+  if (!password) return false;
+  const expected = createHmac("sha256", password).update("authenticated").digest("hex");
+  return token === expected;
 }
 
-function validateCookie(req) {
-  const cookieHeader = req.headers.cookie || "";
-  const match = cookieHeader.match(/dashboard_auth=([^;]+)/);
-  if (!match) return false;
+const wss = new WebSocketServer({ port: PORT });
 
-  const token = match[1];
-  const expected = makeToken(getAuthPassword());
-
-  const bufA = Buffer.from(token);
-  const bufB = Buffer.from(expected);
-  if (bufA.length !== bufB.length) {
-    timingSafeEqual(bufA, bufA); // constant-time even on length mismatch
-    return false;
-  }
-  return timingSafeEqual(bufA, bufB);
-}
-
-// ─── Server ──────────────────────────────────────────────────────────────────
-
-let activePty = null;
-let activeWs = null;
-let sessionTimer = null;
-
-const server = createServer((_req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Terminal WebSocket server\n");
-});
-
-const wss = new WebSocketServer({ server });
+console.log(`[terminal] WebSocket terminal server listening on 0.0.0.0:${PORT}`);
 
 wss.on("connection", (ws, req) => {
-  // Auth check
-  if (!validateCookie(req)) {
-    ws.close(1008, "Unauthorized");
+  // Extract token from query string
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const token = url.searchParams.get("token");
+
+  if (!verifyToken(token)) {
+    console.log("[terminal] Authentication failed");
+    ws.send("\r\n\x1b[31mAuthentication failed.\x1b[0m\r\n");
+    ws.close(4001, "Authentication failed");
     return;
   }
 
-  // Mutex — only one session at a time
-  if (activePty) {
-    ws.close(1013, "Another terminal session is already active");
-    return;
+  console.log("[terminal] Client connected, spawning shell");
+
+  // Determine container mode for exec-ing into OpenClaw
+  const containerMode = process.env.CONTAINER_MODE;
+  let shell, args;
+
+  if (containerMode === "docker") {
+    // Exec into the OpenClaw Docker container
+    shell = "docker";
+    args = ["exec", "-it", "openclaw", "/bin/bash"];
+  } else {
+    // Direct shell access
+    shell = process.env.SHELL || "/bin/bash";
+    args = [];
   }
 
-  console.log("[terminal] New session started");
+  const term = pty.spawn(shell, args, {
+    name: "xterm-256color",
+    cols: 80,
+    rows: 24,
+    cwd: process.env.HOME || "/root",
+    env: { ...process.env, TERM: "xterm-256color" },
+  });
 
-  // Spawn PTY
-  const cmd = IS_DOCKER ? "docker" : "openclaw";
-  const args = IS_DOCKER
-    ? ["exec", "-it", "capable-openclaw", "openclaw", "onboard"]
-    : ["onboard"];
-
-  let ptyProcess;
-  try {
-    ptyProcess = pty.spawn(cmd, args, {
-      name: "xterm-256color",
-      cols: 80,
-      rows: 24,
-      cwd: "/",
-      env: process.env,
-    });
-  } catch (err) {
-    console.error("[terminal] Failed to spawn PTY:", err.message);
-    ws.send(`\r\nError: Failed to start onboarding wizard.\r\n${err.message}\r\n`);
-    ws.close(1011, "PTY spawn failed");
-    return;
-  }
-
-  activePty = ptyProcess;
-  activeWs = ws;
-
-  // PTY → WebSocket
-  ptyProcess.onData((data) => {
-    if (ws.readyState === ws.OPEN) {
+  // Terminal → WebSocket
+  term.onData((data) => {
+    try {
       ws.send(data);
+    } catch {
+      // Client disconnected
     }
   });
 
-  // WebSocket → PTY
-  ws.on("message", (msg) => {
-    const str = msg.toString();
+  // WebSocket → Terminal
+  ws.on("message", (data) => {
+    const msg = data.toString();
 
-    // Check for resize commands (JSON)
+    // Handle resize messages (JSON: {"type":"resize","cols":N,"rows":N})
     try {
-      const parsed = JSON.parse(str);
+      const parsed = JSON.parse(msg);
       if (parsed.type === "resize" && parsed.cols && parsed.rows) {
-        ptyProcess.resize(
-          Math.max(1, Math.min(500, parsed.cols)),
-          Math.max(1, Math.min(200, parsed.rows))
-        );
+        term.resize(parsed.cols, parsed.rows);
         return;
       }
     } catch {
-      // Not JSON — treat as stdin
+      // Not JSON, treat as terminal input
     }
 
-    ptyProcess.write(str);
+    term.write(msg);
   });
 
-  // Cleanup helper
-  const cleanup = () => {
-    if (sessionTimer) {
-      clearTimeout(sessionTimer);
-      sessionTimer = null;
-    }
-    activePty = null;
-    activeWs = null;
-    try {
-      ptyProcess.kill();
-    } catch {
-      /* already dead */
-    }
-    try {
-      if (ws.readyState === ws.OPEN) ws.close();
-    } catch {
-      /* already closed */
-    }
-    console.log("[terminal] Session ended");
-  };
-
-  ptyProcess.onExit(({ exitCode }) => {
-    console.log(`[terminal] PTY exited with code ${exitCode}`);
-    if (ws.readyState === ws.OPEN) {
-      ws.send(`\r\n[Process exited with code ${exitCode}]\r\n`);
-    }
-    cleanup();
-  });
-
+  // Cleanup
   ws.on("close", () => {
-    console.log("[terminal] WebSocket closed");
-    cleanup();
+    console.log("[terminal] Client disconnected");
+    term.kill();
   });
 
-  ws.on("error", (err) => {
-    console.error("[terminal] WebSocket error:", err.message);
-    cleanup();
+  term.onExit(() => {
+    console.log("[terminal] Shell exited");
+    ws.close();
   });
-
-  // Safety timeout
-  sessionTimer = setTimeout(() => {
-    console.log("[terminal] Session timed out");
-    if (ws.readyState === ws.OPEN) {
-      ws.send("\r\n\x1b[33m[Session timed out after 10 minutes]\x1b[0m\r\n");
-    }
-    cleanup();
-  }, MAX_SESSION_MS);
-});
-
-// ─── Start ───────────────────────────────────────────────────────────────────
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[terminal] WebSocket terminal server listening on 0.0.0.0:${PORT}`);
 });

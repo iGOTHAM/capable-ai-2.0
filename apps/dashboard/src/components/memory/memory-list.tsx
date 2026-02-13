@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Brain, FileText, Calendar, ChevronDown, Sparkles } from "lucide-react";
+import { Brain, FileText, Calendar, ChevronDown, Sparkles, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConversationLog } from "./conversation-log";
+import type { ChatEvent } from "./conversation-log";
 
 export interface MemoryEntry {
   id: string;
@@ -11,6 +13,7 @@ export interface MemoryEntry {
   category: string;
   modified?: string;
   size?: number;
+  editable?: boolean;
 }
 
 // ─── Date grouping helpers ─────────────────────────────────────────────────
@@ -79,11 +82,21 @@ interface MemoryListProps {
   entries: MemoryEntry[];
   selectedPath: string | null;
   onSelect: (path: string) => void;
+  chatEvents?: ChatEvent[];
+  selectedConversation?: string | null;
+  onSelectConversation?: (date: string) => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function MemoryList({ entries, selectedPath, onSelect }: MemoryListProps) {
+export function MemoryList({
+  entries,
+  selectedPath,
+  onSelect,
+  chatEvents = [],
+  selectedConversation,
+  onSelectConversation,
+}: MemoryListProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   // Separate entries into: long-term memory, reference files, journal entries
@@ -218,6 +231,26 @@ export function MemoryList({ entries, selectedPath, onSelect }: MemoryListProps)
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Conversations ─────────────────────────────────────────────── */}
+      {chatEvents.length > 0 && onSelectConversation && (
+        <div className="mt-3">
+          <div className="flex items-center gap-2 px-4 py-1.5">
+            <MessageSquare className="h-3 w-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              Conversations
+            </span>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+              {new Set(chatEvents.map((e) => e.ts.slice(0, 10))).size} days
+            </span>
+          </div>
+          <ConversationLog
+            chatEvents={chatEvents}
+            selectedConversation={selectedConversation ?? null}
+            onSelect={onSelectConversation}
+          />
         </div>
       )}
 

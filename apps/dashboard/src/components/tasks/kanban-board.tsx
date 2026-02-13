@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Upload, Check, Plus } from "lucide-react";
+import { RefreshCw, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KanbanColumn } from "./kanban-column";
 import { TaskModal } from "./task-modal";
@@ -31,9 +31,9 @@ export function KanbanBoard() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addToStatus, setAddToStatus] = useState<Task["status"]>("pending");
 
-  // Sync state
-  const [syncing, setSyncing] = useState(false);
-  const [syncDone, setSyncDone] = useState(false);
+  // Delete confirmation
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmBulkClear, setConfirmBulkClear] = useState(false);
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
@@ -52,7 +52,7 @@ export function KanbanBoard() {
 
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 30000);
+    const interval = setInterval(fetchTasks, 10000);
     return () => clearInterval(interval);
   }, [fetchTasks]);
 
@@ -149,6 +149,34 @@ export function KanbanBoard() {
     }
   };
 
+  // Delete with confirmation (from card trash icon)
+  const handleDeleteConfirm = (taskId: string) => {
+    setConfirmDelete(taskId);
+  };
+
+  const executeDelete = async () => {
+    if (confirmDelete) {
+      await handleDelete(confirmDelete);
+      setConfirmDelete(null);
+    }
+  };
+
+  // Bulk clear archived tasks
+  const handleBulkClearArchive = async () => {
+    const archived = getColumnTasks("archived");
+    try {
+      await Promise.all(
+        archived.map((t) =>
+          fetch(`/api/tasks/${t.id}`, { method: "DELETE" }),
+        ),
+      );
+      await fetchTasks();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear archive");
+    }
+    setConfirmBulkClear(false);
+  };
+
   const handleEdit = (task: Task) => {
     setEditingTask(task);
     setModalOpen(true);
@@ -158,22 +186,6 @@ export function KanbanBoard() {
     setEditingTask(null);
     setAddToStatus(status);
     setModalOpen(true);
-  };
-
-  // Sync tasks to agent workspace
-  const handleSync = async () => {
-    setSyncing(true);
-    setSyncDone(false);
-    try {
-      const res = await fetch("/api/tasks/sync", { method: "POST" });
-      if (!res.ok) throw new Error("Sync failed");
-      setSyncDone(true);
-      setTimeout(() => setSyncDone(false), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sync tasks");
-    } finally {
-      setSyncing(false);
-    }
   };
 
   if (loading) {
@@ -196,33 +208,14 @@ export function KanbanBoard() {
       <TaskStatsBar tasks={data.tasks} completed={data.completed} />
 
       {/* Action row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => handleAdd("pending")}
-          >
-            <Plus className="h-3 w-3" />
-            New task
-          </Button>
-        </div>
+      <div className="flex items-center gap-2">
         <Button
-          variant="outline"
           size="sm"
           className="gap-1.5 text-xs"
-          onClick={handleSync}
-          disabled={syncing}
-          title="Push your task board to TASKS.md so the agent can see it"
+          onClick={() => handleAdd("pending")}
         >
-          {syncing ? (
-            <RefreshCw className="h-3 w-3 animate-spin" />
-          ) : syncDone ? (
-            <Check className="h-3 w-3 text-green-500" />
-          ) : (
-            <Upload className="h-3 w-3" />
-          )}
-          {syncDone ? "Synced!" : "Sync to Agent"}
+          <Plus className="h-3 w-3" />
+          New task
         </Button>
       </div>
 
@@ -237,19 +230,88 @@ export function KanbanBoard() {
             onAddTask={() => handleAdd(col.id)}
             onEditTask={handleEdit}
             onMoveTask={handleMove}
+            onDeleteTask={handleDeleteConfirm}
           />
         ))}
       </div>
 
+      {/* Archive controls */}
       {getColumnTasks("archived").length > 0 && (
-        <button
-          onClick={() => setArchiveCollapsed(!archiveCollapsed)}
-          className="self-end text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {archiveCollapsed
-            ? `Show all ${getColumnTasks("archived").length} archived`
-            : "Hide archive"}
-        </button>
+        <div className="flex items-center justify-end gap-3">
+          {!archiveCollapsed && (
+            <button
+              onClick={() => setConfirmBulkClear(true)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+              Clear all archived
+            </button>
+          )}
+          <button
+            onClick={() => setArchiveCollapsed(!archiveCollapsed)}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {archiveCollapsed
+              ? `Show all ${getColumnTasks("archived").length} archived`
+              : "Hide archive"}
+          </button>
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-lg border bg-card p-6 shadow-lg max-w-sm mx-4">
+            <h3 className="text-sm font-semibold">Delete task?</h3>
+            <p className="mt-2 text-xs text-muted-foreground">
+              This action cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={executeDelete}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk clear confirmation dialog */}
+      {confirmBulkClear && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-lg border bg-card p-6 shadow-lg max-w-sm mx-4">
+            <h3 className="text-sm font-semibold">Clear all archived tasks?</h3>
+            <p className="mt-2 text-xs text-muted-foreground">
+              This will permanently delete {getColumnTasks("archived").length} archived task{getColumnTasks("archived").length !== 1 ? "s" : ""}.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmBulkClear(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkClearArchive}
+              >
+                Clear all
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       <TaskModal

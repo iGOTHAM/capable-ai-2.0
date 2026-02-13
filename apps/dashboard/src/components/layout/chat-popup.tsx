@@ -5,6 +5,7 @@ import {
   useEffect,
   useCallback,
   useRef,
+  useMemo,
 } from "react";
 import {
   MessageCircle,
@@ -14,17 +15,86 @@ import {
   RefreshCw,
   Send,
   ExternalLink,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   ts: number;
   streaming?: boolean;
+  isHistory?: boolean;
 }
 
 type WsState = "disconnected" | "connecting" | "connected" | "error";
+
+interface PendingFile {
+  file: File;
+  previewUrl?: string; // object URL for image thumbnails
+}
+
+// ─── Prompt Pool ────────────────────────────────────────────────────────────
+
+const PROMPT_POOL = [
+  { emoji: "👋", text: "What are you working on?" },
+  { emoji: "☀️", text: "Give me a morning brief" },
+  { emoji: "🎲", text: "Surprise me with something useful" },
+  { emoji: "📬", text: "What happened while I was away?" },
+  { emoji: "🎯", text: "What should I focus on today?" },
+  { emoji: "✍️", text: "Draft something creative" },
+  { emoji: "📋", text: "Review my pending tasks" },
+  { emoji: "📊", text: "Any updates on the pipeline?" },
+  { emoji: "🔍", text: "Research something interesting" },
+  { emoji: "📅", text: "Check my calendar for today" },
+  { emoji: "📝", text: "Write a quick summary" },
+  { emoji: "💡", text: "Help me brainstorm" },
+  { emoji: "📂", text: "What's new in my files?" },
+  { emoji: "🔔", text: "Tell me something I should know" },
+  { emoji: "🗓️", text: "Plan my day" },
+  { emoji: "⏪", text: "Catch me up on recent activity" },
+];
+
+/** Deterministic daily shuffle — same 4 prompts all day, different tomorrow */
+function getDailyPrompts(): typeof PROMPT_POOL {
+  const daySeed = Math.floor(Date.now() / 86400000);
+  // Simple seeded shuffle using day number
+  const shuffled = [...PROMPT_POOL];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = ((daySeed * (i + 1) * 2654435761) >>> 0) % (i + 1);
+    const tmp = shuffled[i];
+    shuffled[i] = shuffled[j]!;
+    shuffled[j] = tmp!;
+  }
+  return shuffled.slice(0, 4);
+}
+
+// ─── File Upload Helpers ────────────────────────────────────────────────────
+
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+const ALLOWED_ACCEPT =
+  ".pdf,.docx,.xlsx,.txt,.md,.csv,.json,.doc,.xls,.jpg,.jpeg,.png,.webp,.gif";
+
+function getFileExtension(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot).toLowerCase() : "";
+}
+
+function isImageFile(name: string): boolean {
+  return IMAGE_EXTENSIONS.has(getFileExtension(name));
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 let reqIdCounter = 0;
 function nextReqId() {
@@ -39,12 +109,29 @@ export function ChatPopup() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [suggestsDismissed, setSuggestsDismissed] = useState(false);
+  const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const streamBufRef = useRef("");
   const currentRunIdRef = useRef<string | null>(null);
+  const historyLoadedRef = useRef(false);
+
+  // Daily-rotating suggested prompts
+  const dailyPrompts = useMemo(() => getDailyPrompts(), []);
+
+  // ── Listen for "open-chat" custom event from top bar ───────────────────
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("open-chat", handler);
+    return () => window.removeEventListener("open-chat", handler);
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -52,6 +139,14 @@ export function ChatPopup() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Reset suggestions dismissed when popup reopens
+  useEffect(() => {
+    if (open) {
+      setSuggestsDismissed(false);
+      setUploadError(null);
+    }
+  }, [open]);
 
   // Fetch gateway token
   const fetchToken = useCallback(async () => {
@@ -62,6 +157,45 @@ export function ChatPopup() {
       return data.token || null;
     } catch {
       return null;
+    }
+  }, []);
+
+  // ── Load chat history from events.ndjson ─────────────────────────────
+  const loadHistory = useCallback(async () => {
+    if (historyLoadedRef.current) return;
+    historyLoadedRef.current = true;
+    setHistoryLoading(true);
+
+    try {
+      const res = await fetch("/api/chat");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+        const history: ChatMessage[] = data.messages.map(
+          (m: { type: string; summary: string; ts: string }) => ({
+            role: m.type === "chat.user_message" ? "user" as const : "assistant" as const,
+            content: m.summary,
+            ts: new Date(m.ts).getTime(),
+            isHistory: true,
+          }),
+        );
+        setMessages((prev) => {
+          // Prepend history, avoid duplicates
+          const existingTimes = new Set(prev.map((m) => m.ts));
+          const unique = history.filter((h) => !existingTimes.has(h.ts));
+          return [...unique, ...prev];
+        });
+      }
+    } catch {
+      // Silent fail — chat still works without history
+    } finally {
+      setHistoryLoading(false);
+      // Scroll to bottom after history loads
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      });
     }
   }, []);
 
@@ -121,6 +255,8 @@ export function ChatPopup() {
             if (frame.ok !== undefined) {
               if (frame.ok) {
                 setWsState("connected");
+                // Load history once connected
+                loadHistory();
               } else {
                 setWsState("error");
                 setError(
@@ -159,7 +295,6 @@ export function ChatPopup() {
               };
 
               if (payload.state === "delta") {
-                // Streaming — message contains full text so far
                 const text = extractText(
                   payload.message as Record<string, unknown> | undefined
                 );
@@ -170,7 +305,6 @@ export function ChatPopup() {
                   currentRunIdRef.current = payload.runId;
                 }
               } else if (payload.state === "final") {
-                // Done streaming
                 const text = extractText(
                   payload.message as Record<string, unknown> | undefined
                 );
@@ -194,7 +328,7 @@ export function ChatPopup() {
               return;
             }
 
-            // Ignore other event types (presence, cron, etc.)
+            // Ignore other event types
           }
         } catch {
           // Ignore parse errors
@@ -212,7 +346,7 @@ export function ChatPopup() {
         }
       };
     },
-    []
+    [loadHistory]
   );
 
   // Update the last streaming message in place
@@ -222,7 +356,6 @@ export function ChatPopup() {
       if (last?.streaming) {
         return [...prev.slice(0, -1), { ...last, content: text }];
       }
-      // Add new streaming message
       return [
         ...prev,
         { role: "assistant", content: text, ts: Date.now(), streaming: true },
@@ -278,14 +411,91 @@ export function ChatPopup() {
     setToken(null);
     setError(null);
     setWsState("disconnected");
+    historyLoadedRef.current = false;
   };
 
-  // Send a message
-  const handleSend = () => {
-    const text = input.trim();
-    if (!text || !wsRef.current || wsState !== "connected" || sending) return;
+  // ── Send a message (with optional file upload) ─────────────────────────
+  const sendViaWs = useCallback(
+    (text: string) => {
+      if (!wsRef.current || wsState !== "connected") return;
+      const reqId = nextReqId();
+      wsRef.current.send(
+        JSON.stringify({
+          type: "req",
+          id: reqId,
+          method: "chat.send",
+          params: {
+            sessionKey: "main",
+            message: text,
+            deliver: false,
+            idempotencyKey: reqId,
+          },
+        }),
+      );
+    },
+    [wsState],
+  );
 
-    // Add user message
+  const handleSend = async () => {
+    const text = input.trim();
+    const hasFile = !!pendingFile;
+    if ((!text && !hasFile) || !wsRef.current || wsState !== "connected" || sending) return;
+
+    setUploadError(null);
+
+    // If there's a pending file, upload it first
+    if (hasFile && pendingFile) {
+      setUploading(true);
+      setSending(true);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", pendingFile.file);
+
+        const res = await fetch("/api/files", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
+          setUploadError(errData.error || "Upload failed");
+          setUploading(false);
+          setSending(false);
+          return;
+        }
+
+        const result = await res.json();
+        const fileName = result.file?.name || pendingFile.file.name;
+
+        // Clean up preview URL
+        if (pendingFile.previewUrl) {
+          URL.revokeObjectURL(pendingFile.previewUrl);
+        }
+        setPendingFile(null);
+
+        // Build message with file reference + optional text
+        const msg = text
+          ? `📎 Uploaded: ${fileName}\n\n${text}`
+          : `📎 Uploaded: ${fileName}`;
+
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", content: msg, ts: Date.now() },
+        ]);
+        setInput("");
+        streamBufRef.current = "";
+        sendViaWs(msg);
+      } catch {
+        setUploadError("Upload failed. Please try again.");
+        setSending(false);
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
+
+    // Text-only message
     setMessages((prev) => [
       ...prev,
       { role: "user", content: text, ts: Date.now() },
@@ -293,25 +503,56 @@ export function ChatPopup() {
     setInput("");
     setSending(true);
     streamBufRef.current = "";
+    sendViaWs(text);
 
-    // Send chat message via OpenClaw gateway protocol
-    const reqId = nextReqId();
-    const frame = {
-      type: "req",
-      id: reqId,
-      method: "chat.send",
-      params: {
-        sessionKey: "main",
-        message: text,
-        deliver: false,
-        idempotencyKey: reqId,
-      },
-    };
-    wsRef.current.send(JSON.stringify(frame));
-
-    // Focus input
     inputRef.current?.focus();
   };
+
+  // ── File selection handler ─────────────────────────────────────────────
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+
+    setUploadError(null);
+
+    // Create preview for images
+    let previewUrl: string | undefined;
+    if (isImageFile(file.name)) {
+      previewUrl = URL.createObjectURL(file);
+    }
+
+    setPendingFile({ file, previewUrl });
+  };
+
+  const cancelPendingFile = () => {
+    if (pendingFile?.previewUrl) {
+      URL.revokeObjectURL(pendingFile.previewUrl);
+    }
+    setPendingFile(null);
+    setUploadError(null);
+  };
+
+  // ── Suggested prompt click handler ─────────────────────────────────────
+  const handleSuggestClick = (text: string) => {
+    if (!wsRef.current || wsState !== "connected" || sending) return;
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: text, ts: Date.now() },
+    ]);
+    setInput("");
+    setSending(true);
+    streamBufRef.current = "";
+    sendViaWs(text);
+  };
+
+  // Show prompts only when no messages at all (including history)
+  const showSuggestions =
+    wsState === "connected" &&
+    messages.length === 0 &&
+    !historyLoading &&
+    !suggestsDismissed;
 
   return (
     <>
@@ -407,64 +648,55 @@ export function ChatPopup() {
               </div>
             )}
 
-            {/* Connected: show suggestions when empty */}
-            {wsState === "connected" && messages.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center gap-5 px-4">
+            {/* Loading history */}
+            {wsState === "connected" && historyLoading && messages.length === 0 && (
+              <div className="flex h-full items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    Loading conversation...
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Suggested prompts — shown only when no history exists */}
+            {showSuggestions && (
+              <div className="flex h-full flex-col items-center justify-center gap-5 px-2">
                 <p className="text-xs text-muted-foreground/60">
-                  Suggested for this project:
+                  Try asking:
                 </p>
-                <div className="flex w-full flex-col gap-2.5">
-                  {[
-                    { emoji: "\u{1F4CA}", text: "Summarize the financials" },
-                    { emoji: "\u26A0\uFE0F", text: "What are the key risks?" },
-                    { emoji: "\u{1F4CB}", text: "List my pending tasks" },
-                    { emoji: "\u{1F50D}", text: "Search for recent activity" },
-                  ].map((s) => (
+                <div className="flex w-full flex-col gap-2">
+                  {dailyPrompts.map((s) => (
                     <button
                       key={s.text}
-                      onClick={() => {
-                        setInput(s.text);
-                        // Auto-send via a microtask so the input state updates first
-                        setTimeout(() => {
-                          const text = s.text.trim();
-                          if (!text || !wsRef.current || wsState !== "connected") return;
-                          setMessages((prev) => [
-                            ...prev,
-                            { role: "user", content: text, ts: Date.now() },
-                          ]);
-                          setInput("");
-                          setSending(true);
-                          streamBufRef.current = "";
-                          const reqId = nextReqId();
-                          wsRef.current!.send(
-                            JSON.stringify({
-                              type: "req",
-                              id: reqId,
-                              method: "chat.send",
-                              params: {
-                                sessionKey: "main",
-                                message: text,
-                                deliver: false,
-                                idempotencyKey: reqId,
-                              },
-                            }),
-                          );
-                        }, 0);
-                      }}
-                      className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3 text-left text-[13px] transition-colors hover:border-primary/20 hover:bg-muted"
+                      onClick={() => handleSuggestClick(s.text)}
+                      className="group flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3 text-left text-[13px] transition-colors hover:border-primary/20 hover:bg-muted"
                     >
                       <span>{s.emoji}</span>
-                      <span className="text-foreground/80">{s.text}</span>
+                      <span className="flex-1 text-foreground/80">
+                        {s.text}
+                      </span>
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSuggestsDismissed(true);
+                        }}
+                        className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground/0 transition-colors group-hover:text-muted-foreground/40 hover:!text-muted-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* Messages */}
             {wsState === "connected" &&
               messages.map((msg, i) => (
                 <div
-                  key={i}
+                  key={`${msg.ts}-${i}`}
                   className={cn(
                     "flex",
                     msg.role === "user" ? "justify-end" : "justify-start"
@@ -502,8 +734,73 @@ export function ChatPopup() {
 
           {/* Input area */}
           {wsState === "connected" && (
-            <div className="border-t px-3 py-2">
-              <div className="flex items-center gap-2">
+            <div className="border-t">
+              {/* Pending file preview */}
+              {pendingFile && (
+                <div className="flex items-center gap-2 border-b px-3 py-2 bg-muted/30">
+                  {pendingFile.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pendingFile.previewUrl}
+                      alt="Preview"
+                      className="h-10 w-10 rounded object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {pendingFile.file.name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatFileSize(pendingFile.file.size)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={cancelPendingFile}
+                    className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+
+              {/* Upload error */}
+              {uploadError && (
+                <div className="px-3 py-1.5 bg-destructive/5">
+                  <p className="text-[11px] text-destructive">{uploadError}</p>
+                </div>
+              )}
+
+              {/* Input row */}
+              <div className="flex items-center gap-2 px-3 py-2">
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ALLOWED_ACCEPT}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending || uploading}
+                  className={cn(
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
+                    "text-muted-foreground hover:text-foreground hover:bg-muted",
+                    (sending || uploading) && "opacity-30 pointer-events-none",
+                  )}
+                  title="Attach file"
+                >
+                  {isImageFile(pendingFile?.file.name || "") ? (
+                    <ImageIcon className="h-4 w-4" />
+                  ) : (
+                    <Paperclip className="h-4 w-4" />
+                  )}
+                </button>
+
                 <input
                   ref={inputRef}
                   type="text"
@@ -515,22 +812,32 @@ export function ChatPopup() {
                       handleSend();
                     }
                   }}
-                  placeholder={sending ? "Agent is thinking..." : "Type a message..."}
-                  disabled={sending}
+                  placeholder={
+                    uploading
+                      ? "Uploading file..."
+                      : sending
+                        ? "Agent is thinking..."
+                        : "Type a message..."
+                  }
+                  disabled={sending || uploading}
                   className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
                   autoFocus
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!input.trim() || sending}
+                  disabled={(!input.trim() && !pendingFile) || sending || uploading}
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-                    input.trim() && !sending
+                    (input.trim() || pendingFile) && !sending && !uploading
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"
                       : "text-muted-foreground/30"
                   )}
                 >
-                  <Send className="h-3.5 w-3.5" />
+                  {uploading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
                 </button>
               </div>
             </div>

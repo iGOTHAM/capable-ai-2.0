@@ -38,7 +38,6 @@ const SYSTEM_FILES = new Set([
   "SOUL.md",
   "AGENTS.md",
   "USER.md",
-  "MEMORY.md",
 ]);
 
 /** Detect if a filename looks like a date (YYYY-MM-DD) */
@@ -53,7 +52,12 @@ function classifyPath(relativePath: string): {
   const fileName = parts[parts.length - 1] ?? "";
   const baseName = fileName.replace(/\.[^.]+$/, ""); // strip extension
 
-  // Root-level system files
+  // MEMORY.md is editable from the Memory page
+  if (parts.length === 1 && fileName === "MEMORY.md") {
+    return { category: "memory", editable: true };
+  }
+
+  // Root-level system files (read-only)
   if (parts.length === 1 && SYSTEM_FILES.has(fileName)) {
     return { category: "system", editable: false };
   }

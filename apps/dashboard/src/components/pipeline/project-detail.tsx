@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   Circle,
   StickyNote,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Project, Stage } from "@/lib/pipeline";
@@ -29,6 +31,7 @@ export function ProjectDetailView({ detail, stages }: ProjectDetailViewProps) {
   const [activeTab, setActiveTab] = useState<SubTab>("Overview");
   const [nextSteps, setNextSteps] = useState(detail.nextSteps);
   const [stage, setStage] = useState(detail.stage);
+  const [deleting, setDeleting] = useState(false);
 
   const persistProject = useCallback(
     async (patch: Record<string, unknown>) => {
@@ -58,6 +61,20 @@ export function ProjectDetailView({ detail, stages }: ProjectDetailViewProps) {
   const handleStageChange = (newStage: string) => {
     setStage(newStage);
     persistProject({ stage: newStage });
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete "${detail.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/pipeline/projects/${detail.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      router.push("/pipeline");
+    } catch {
+      setDeleting(false);
+    }
   };
 
   const handleGenerateMemo = async () => {
@@ -120,6 +137,18 @@ export function ProjectDetailView({ detail, stages }: ProjectDetailViewProps) {
           </button>
           <button className="h-9 rounded-lg border border-border bg-muted px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             Pass
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+            title="Delete project"
+          >
+            {deleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>

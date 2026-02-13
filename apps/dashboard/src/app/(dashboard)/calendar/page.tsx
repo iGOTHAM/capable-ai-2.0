@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, Clock } from "lucide-react";
 import { ScheduledTasksView } from "@/components/calendar/scheduled-tasks-view";
+import { PageHint } from "@/components/ui/page-hint";
 
 export interface ScheduledTask {
   id: string;
@@ -57,6 +58,19 @@ export default function CalendarPage() {
     }
   };
 
+  const handleUpdate = async (id: string, data: Partial<ScheduledTask>) => {
+    try {
+      await fetch("/api/schedules", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...data }),
+      });
+      await fetchSchedules();
+    } catch {
+      // ignore
+    }
+  };
+
   const handleToggle = async (id: string, enabled: boolean) => {
     try {
       await fetch("/api/schedules", {
@@ -88,12 +102,21 @@ export default function CalendarPage() {
   }
 
   return (
-    <ScheduledTasksView
-      tasks={tasks}
-      onCreate={handleCreate}
-      onToggle={handleToggle}
-      onDelete={handleDelete}
-      onRefresh={fetchSchedules}
-    />
+    <div className="flex flex-col gap-5">
+      <PageHint
+        id="hint-calendar"
+        title="Scheduled Routines"
+        description={'Set up recurring tasks for your agent \u2014 daily briefs, weekly reports, monitoring jobs. Click "+ New schedule" to get started.'}
+        icon={Clock}
+      />
+      <ScheduledTasksView
+        tasks={tasks}
+        onCreate={handleCreate}
+        onUpdate={handleUpdate}
+        onToggle={handleToggle}
+        onDelete={handleDelete}
+        onRefresh={fetchSchedules}
+      />
+    </div>
   );
 }

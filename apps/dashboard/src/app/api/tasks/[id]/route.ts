@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
-import { updateTask, deleteTask, UpdateTaskSchema } from "@/lib/tasks";
+import { readTasks, updateTask, deleteTask, UpdateTaskSchema } from "@/lib/tasks";
+import { logDashboardEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,29 @@ export async function PATCH(
       );
     }
 
+    // Read task before update for event logging
+    const data = await readTasks();
+    const allTasks = [...data.tasks, ...data.completed];
+    const oldTask = allTasks.find((t) => t.id === id);
+
     const task = await updateTask(id, parsed.data);
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // Log the event
+    if (parsed.data.status && oldTask && parsed.data.status !== oldTask.status) {
+      await logDashboardEvent("tool.called", `User moved task "${task.title}" to ${parsed.data.status}`, {
+        action: "task.moved",
+        taskId: id,
+        from: oldTask.status,
+        to: parsed.data.status,
+      });
+    } else {
+      await logDashboardEvent("tool.called", `User updated task: ${task.title}`, {
+        action: "task.updated",
+        taskId: id,
+      });
     }
 
     return NextResponse.json(task);
@@ -52,10 +73,21 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+
+    // Read task before delete for event logging
+    const data = await readTasks();
+    const allTasks = [...data.tasks, ...data.completed];
+    const task = allTasks.find((t) => t.id === id);
+
     const deleted = await deleteTask(id);
     if (!deleted) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
+
+    await logDashboardEvent("tool.called", `User deleted task: ${task?.title || id}`, {
+      action: "task.deleted",
+      taskId: id,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -7,7 +7,6 @@ on:
       - 'apps/dashboard/**'
       - 'packages/shared/**'
       - 'pnpm-lock.yaml'
-      - '.github/workflows/build-dashboard.yml'
     branches: [main]
 
 permissions:
@@ -23,26 +22,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Nuke caches to ensure fresh build
-        run: rm -rf .turbo apps/dashboard/.next node_modules/.cache
-
       - name: Build dashboard standalone
-        run: STANDALONE=1 pnpm turbo build --filter=@capable-ai/dashboard --force
-        env:
-          TURBO_CACHE: ""
-
-      - name: Write build stamp
-        run: |
-          echo "sha=${GITHUB_SHA}" > apps/dashboard/.next/standalone/apps/dashboard/public/build.txt 2>/dev/null || true
-          echo "sha=${GITHUB_SHA}" > apps/dashboard/public/build.txt 2>/dev/null || true
-          echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> apps/dashboard/.next/standalone/apps/dashboard/public/build.txt 2>/dev/null || true
-          echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> apps/dashboard/public/build.txt 2>/dev/null || true
+        run: STANDALONE=1 pnpm build:dashboard
 
       - name: Prepare tarball
         run: |
@@ -52,9 +39,11 @@ jobs:
           if [ -d "apps/dashboard/public" ]; then
             cp -r apps/dashboard/public apps/dashboard/.next/standalone/apps/dashboard/public
           fi
-          # Copy sidecar scripts (ws-terminal-server, bootstrap-pack)
-          mkdir -p apps/dashboard/.next/standalone/scripts
-          cp apps/dashboard/scripts/*.mjs apps/dashboard/.next/standalone/scripts/
+          # Copy scripts directory (ws-terminal-server, bootstrap-pack — needed by systemd service)
+          if [ -d "apps/dashboard/scripts" ]; then
+            mkdir -p apps/dashboard/.next/standalone/scripts
+            cp -r apps/dashboard/scripts/* apps/dashboard/.next/standalone/scripts/
+          fi
           # Create tarball from standalone output
           cd apps/dashboard/.next/standalone
           tar -czf /tmp/dashboard-standalone.tar.gz .

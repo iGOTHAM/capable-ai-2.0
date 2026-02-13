@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
 import { readTasks, addTask, CreateTaskSchema } from "@/lib/tasks";
+import { logDashboardEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,11 @@ export async function POST(request: NextRequest) {
     }
 
     const task = await addTask(parsed.data);
+    await logDashboardEvent("tool.called", `User created task: ${task.title}`, {
+      action: "task.created",
+      taskId: task.id,
+      priority: task.priority,
+    });
     return NextResponse.json(task, { status: 201 });
   } catch (err) {
     console.error("Failed to create task:", err);

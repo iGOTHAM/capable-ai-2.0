@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ShieldCheck } from "lucide-react";
 import { getPendingApprovals } from "@/lib/events";
 import { ApprovalActions } from "@/components/approval-actions";
+import { PageHint } from "@/components/ui/page-hint";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,12 @@ export default async function ApprovalsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHint
+        id="hint-approvals"
+        title="Action Approvals"
+        description="When your agent needs permission for something, it'll show up here. Approve or reject with one click."
+        icon={ShieldCheck}
+      />
       <div className="flex items-center gap-3">
         <div>
           <h1 className="text-xl font-bold">Approvals</h1>

@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { DocSidebar } from "@/components/docs/doc-sidebar";
 import { DocViewer } from "@/components/docs/doc-viewer";
 import { DocCreateModal } from "@/components/docs/doc-create-modal";
-import { Loader2, Menu, X } from "lucide-react";
+import { PageHint } from "@/components/ui/page-hint";
+import { Loader2, Menu, X, FileText } from "lucide-react";
 import type { DocEntry } from "@/lib/docs";
 
 export default function DocsPage() {
@@ -99,6 +100,14 @@ export default function DocsPage() {
 
   return (
     <div className="-m-4 sm:-m-6 flex flex-col">
+      <div className="px-4 pt-4 sm:px-6">
+        <PageHint
+          id="hint-docs"
+          title="Workspace Documents"
+          description="Browse and edit all files in your agent's workspace. Create new documents, edit inline, and organize into folders."
+          icon={FileText}
+        />
+      </div>
       {/* Mobile sidebar toggle */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-2 md:hidden">
         <button

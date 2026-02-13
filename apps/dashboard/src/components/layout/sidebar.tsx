@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutGrid,
-  FileText,
+  Blocks,
   ShieldCheck,
   Calendar,
   Briefcase,
@@ -21,7 +21,7 @@ import { useSidebar } from "./sidebar-context";
 
 const navItems = [
   { href: "/tasks", label: "Tasks", icon: LayoutGrid },
-  { href: "/content", label: "Content", icon: FileText },
+  { href: "/content", label: "Skills", icon: Blocks },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/pipeline", label: "Office", icon: Briefcase },
