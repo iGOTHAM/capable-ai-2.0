@@ -29,7 +29,9 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Build dashboard standalone
-        run: STANDALONE=1 pnpm build:dashboard
+        run: STANDALONE=1 pnpm turbo build --filter=@capable-ai/dashboard --force
+        env:
+          TURBO_CACHE: ""
 
       - name: Prepare tarball
         run: |
