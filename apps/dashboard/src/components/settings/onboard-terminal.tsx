@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ interface OnboardTerminalProps {
 }
 
 export function OnboardTerminal({ open, onOpenChange }: OnboardTerminalProps) {
-  const terminalRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<
     "connecting" | "connected" | "error" | "closed"
   >("connecting");
@@ -28,8 +27,11 @@ export function OnboardTerminal({ open, onOpenChange }: OnboardTerminalProps) {
   const xtermRef = useRef<import("@xterm/xterm").Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
+  const cancelRef = useRef<(() => void) | null>(null);
 
   const cleanup = useCallback(() => {
+    cancelRef.current?.();
+    cancelRef.current = null;
     observerRef.current?.disconnect();
     observerRef.current = null;
     wsRef.current?.close();
@@ -38,129 +40,97 @@ export function OnboardTerminal({ open, onOpenChange }: OnboardTerminalProps) {
     xtermRef.current = null;
   }, []);
 
-  useEffect(() => {
-    if (!open || !terminalRef.current) return;
+  // Callback ref — fires when the terminal div is actually mounted in the DOM.
+  // Radix Dialog renders content via a portal asynchronously, so a useEffect
+  // with [open] fires before the portal content is in the DOM (ref is null).
+  // A callback ref solves this by triggering exactly when the element appears.
+  const terminalCallbackRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
 
-    // Reset state on open
-    setStatus("connecting");
-    setError("");
+      // Already initialised in this open cycle
+      if (xtermRef.current) return;
 
-    let cancelled = false;
+      setStatus("connecting");
+      setError("");
 
-    (async () => {
-      // Dynamic imports (xterm needs DOM — can't run server-side)
-      const [xtermMod, fitMod, linksMod] = await Promise.all([
-        import("@xterm/xterm"),
-        import("@xterm/addon-fit"),
-        import("@xterm/addon-web-links"),
-      ]);
+      let cancelled = false;
+      cancelRef.current = () => {
+        cancelled = true;
+      };
 
-      if (cancelled || !terminalRef.current) return;
+      (async () => {
+        // Dynamic imports (xterm needs DOM — can't run server-side)
+        const [xtermMod, fitMod, linksMod] = await Promise.all([
+          import("@xterm/xterm"),
+          import("@xterm/addon-fit"),
+          import("@xterm/addon-web-links"),
+        ]);
 
-      const { Terminal } = xtermMod;
-      const { FitAddon } = fitMod;
-      const { WebLinksAddon } = linksMod;
-
-      // ─── Create terminal ───────────────────────────────────
-      const term = new Terminal({
-        theme: {
-          background: "#1a1b26",
-          foreground: "#c0caf5",
-          cursor: "#c0caf5",
-          cursorAccent: "#1a1b26",
-          selectionBackground: "#33467c",
-          selectionForeground: "#c0caf5",
-          black: "#15161e",
-          red: "#f7768e",
-          green: "#9ece6a",
-          yellow: "#e0af68",
-          blue: "#7aa2f7",
-          magenta: "#bb9af7",
-          cyan: "#7dcfff",
-          white: "#a9b1d6",
-          brightBlack: "#414868",
-          brightRed: "#f7768e",
-          brightGreen: "#9ece6a",
-          brightYellow: "#e0af68",
-          brightBlue: "#7aa2f7",
-          brightMagenta: "#bb9af7",
-          brightCyan: "#7dcfff",
-          brightWhite: "#c0caf5",
-        },
-        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-        fontSize: 14,
-        cursorBlink: true,
-        convertEol: true,
-        allowProposedApi: true,
-      });
-
-      const fitAddon = new FitAddon();
-      const webLinksAddon = new WebLinksAddon();
-
-      term.loadAddon(fitAddon);
-      term.loadAddon(webLinksAddon);
-      term.open(terminalRef.current);
-
-      // Small delay so the container has rendered dimensions
-      requestAnimationFrame(() => {
-        fitAddon.fit();
-      });
-
-      xtermRef.current = term;
-
-      // ─── WebSocket connection ──────────────────────────────
-      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${proto}//${window.location.host}/api/terminal/ws`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
         if (cancelled) return;
-        setStatus("connected");
-        // Send initial resize
-        ws.send(
-          JSON.stringify({
-            type: "resize",
-            cols: term.cols,
-            rows: term.rows,
-          })
-        );
-      };
 
-      ws.onmessage = (evt) => {
-        term.write(typeof evt.data === "string" ? evt.data : new Uint8Array(evt.data));
-      };
+        const { Terminal } = xtermMod;
+        const { FitAddon } = fitMod;
+        const { WebLinksAddon } = linksMod;
 
-      ws.onerror = () => {
-        if (cancelled) return;
-        setStatus("error");
-        setError("Failed to connect to terminal server.");
-      };
+        // ─── Create terminal ───────────────────────────────────
+        const term = new Terminal({
+          theme: {
+            background: "#1a1b26",
+            foreground: "#c0caf5",
+            cursor: "#c0caf5",
+            cursorAccent: "#1a1b26",
+            selectionBackground: "#33467c",
+            selectionForeground: "#c0caf5",
+            black: "#15161e",
+            red: "#f7768e",
+            green: "#9ece6a",
+            yellow: "#e0af68",
+            blue: "#7aa2f7",
+            magenta: "#bb9af7",
+            cyan: "#7dcfff",
+            white: "#a9b1d6",
+            brightBlack: "#414868",
+            brightRed: "#f7768e",
+            brightGreen: "#9ece6a",
+            brightYellow: "#e0af68",
+            brightBlue: "#7aa2f7",
+            brightMagenta: "#bb9af7",
+            brightCyan: "#7dcfff",
+            brightWhite: "#c0caf5",
+          },
+          fontFamily:
+            "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+          fontSize: 14,
+          cursorBlink: true,
+          convertEol: true,
+          allowProposedApi: true,
+        });
 
-      ws.onclose = (evt) => {
-        if (cancelled) return;
-        if (evt.code === 1008) {
-          setError("Authentication failed. Try refreshing the page.");
-          setStatus("error");
-        } else if (evt.code === 1013) {
-          setError("Another terminal session is already active. Close it first.");
-          setStatus("error");
-        } else if (status !== "error") {
-          setStatus("closed");
-        }
-      };
+        const fitAddon = new FitAddon();
+        const webLinksAddon = new WebLinksAddon();
 
-      // Terminal input → WebSocket
-      term.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
-        }
-      });
+        term.loadAddon(fitAddon);
+        term.loadAddon(webLinksAddon);
+        term.open(node);
 
-      // ─── Resize handling ───────────────────────────────────
-      const resizeObserver = new ResizeObserver(() => {
-        fitAddon.fit();
-        if (ws.readyState === WebSocket.OPEN) {
+        // Small delay so the container has rendered dimensions
+        requestAnimationFrame(() => {
+          fitAddon.fit();
+        });
+
+        xtermRef.current = term;
+
+        // ─── WebSocket connection ──────────────────────────────
+        const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${proto}//${window.location.host}/api/terminal/ws`;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (cancelled) return;
+          setStatus("connected");
+          // Send initial resize
           ws.send(
             JSON.stringify({
               type: "resize",
@@ -168,23 +138,68 @@ export function OnboardTerminal({ open, onOpenChange }: OnboardTerminalProps) {
               rows: term.rows,
             })
           );
+        };
+
+        ws.onmessage = (evt) => {
+          term.write(
+            typeof evt.data === "string" ? evt.data : new Uint8Array(evt.data)
+          );
+        };
+
+        ws.onerror = () => {
+          if (cancelled) return;
+          setStatus("error");
+          setError("Failed to connect to terminal server.");
+        };
+
+        ws.onclose = (evt) => {
+          if (cancelled) return;
+          if (evt.code === 1008) {
+            setError("Authentication failed. Try refreshing the page.");
+            setStatus("error");
+          } else if (evt.code === 1013) {
+            setError(
+              "Another terminal session is already active. Close it first."
+            );
+            setStatus("error");
+          } else {
+            setStatus("closed");
+          }
+        };
+
+        // Terminal input → WebSocket
+        term.onData((data) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data);
+          }
+        });
+
+        // ─── Resize handling ───────────────────────────────────
+        const resizeObserver = new ResizeObserver(() => {
+          fitAddon.fit();
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "resize",
+                cols: term.cols,
+                rows: term.rows,
+              })
+            );
+          }
+        });
+        resizeObserver.observe(node);
+        observerRef.current = resizeObserver;
+      })().catch((err) => {
+        if (!cancelled) {
+          console.error("[OnboardTerminal] init failed:", err);
+          setStatus("error");
+          setError(err instanceof Error ? err.message : String(err));
         }
       });
-      resizeObserver.observe(terminalRef.current);
-      observerRef.current = resizeObserver;
-    })().catch((err) => {
-      if (!cancelled) {
-        console.error("[OnboardTerminal] init failed:", err);
-        setStatus("error");
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      cleanup();
-    };
-  }, [open, cleanup]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open]
+  );
 
   // When dialog closes, ensure cleanup
   const handleOpenChange = (newOpen: boolean) => {
@@ -220,7 +235,7 @@ export function OnboardTerminal({ open, onOpenChange }: OnboardTerminalProps) {
 
         <div className="relative flex-1 px-6 pb-6 pt-2">
           <div
-            ref={terminalRef}
+            ref={terminalCallbackRef}
             className="h-full w-full overflow-hidden rounded-lg border border-border"
             style={{ backgroundColor: "#1a1b26" }}
           />
