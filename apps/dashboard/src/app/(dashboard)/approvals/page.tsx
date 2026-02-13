@@ -22,33 +22,49 @@ const riskColors: Record<string, "default" | "secondary" | "destructive" | "outl
 export default async function ApprovalsPage() {
   const approvals = await getPendingApprovals();
 
+  const riskBorderColors: Record<string, string> = {
+    low: "border-l-green-500",
+    medium: "border-l-amber-500",
+    high: "border-l-red-500",
+    critical: "border-l-red-600",
+  };
+
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold">Approvals</h1>
-        <p className="text-sm text-muted-foreground">
-          Review and respond to pending approval requests.
-        </p>
+      <div className="flex items-center gap-3">
+        <div>
+          <h1 className="text-xl font-bold">Approvals</h1>
+          <p className="text-sm text-muted-foreground">
+            Review and respond to pending approval requests.
+          </p>
+        </div>
+        {approvals.length > 0 && (
+          <Badge variant="destructive" className="text-xs">
+            {approvals.length} pending
+          </Badge>
+        )}
       </div>
 
       {approvals.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-16">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <ShieldCheck className="h-6 w-6 text-muted-foreground" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
+              <ShieldCheck className="h-6 w-6 text-green-500" />
             </div>
             <div className="text-center">
-              <CardTitle className="text-base">No pending approvals</CardTitle>
+              <CardTitle className="text-base">All clear</CardTitle>
               <CardDescription className="mt-1">
-                When your assistant needs approval for an action, it will appear
-                here with a risk label and details.
+                No pending approvals. Your agent is operating normally.
               </CardDescription>
             </div>
           </CardContent>
         </Card>
       ) : (
         approvals.map((approval) => (
-          <Card key={approval.approvalId}>
+          <Card
+            key={approval.approvalId}
+            className={`border-l-4 ${riskBorderColors[approval.risk || ""] || "border-l-border"}`}
+          >
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">{approval.summary}</CardTitle>

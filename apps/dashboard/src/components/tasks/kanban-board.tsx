@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Upload, Check } from "lucide-react";
+import { RefreshCw, Upload, Check, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KanbanColumn } from "./kanban-column";
 import { TaskModal } from "./task-modal";
+import { TaskStatsBar } from "./task-stats-bar";
 import type { Task } from "@/lib/tasks";
 
 interface TasksData {
@@ -13,10 +14,10 @@ interface TasksData {
 }
 
 const COLUMNS = [
-  { id: "pending" as const, label: "TO DO" },
-  { id: "in-progress" as const, label: "IN PROGRESS" },
-  { id: "done" as const, label: "DONE" },
-  { id: "archived" as const, label: "ARCHIVE" },
+  { id: "pending" as const, label: "Backlog" },
+  { id: "in-progress" as const, label: "In Progress" },
+  { id: "done" as const, label: "Review" },
+  { id: "archived" as const, label: "Archive" },
 ];
 
 export function KanbanBoard() {
@@ -191,8 +192,21 @@ export function KanbanBoard() {
         </div>
       )}
 
-      {/* Sync button row */}
-      <div className="flex justify-end">
+      {/* Stats bar */}
+      <TaskStatsBar tasks={data.tasks} completed={data.completed} />
+
+      {/* Action row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => handleAdd("pending")}
+          >
+            <Plus className="h-3 w-3" />
+            New task
+          </Button>
+        </div>
         <Button
           variant="outline"
           size="sm"
@@ -212,7 +226,7 @@ export function KanbanBoard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 pb-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
         {COLUMNS.map((col) => (
           <KanbanColumn
             key={col.id}

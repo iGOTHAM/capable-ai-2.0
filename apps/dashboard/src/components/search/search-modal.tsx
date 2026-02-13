@@ -9,6 +9,8 @@ import {
   CheckSquare,
   ArrowRight,
   Command,
+  Brain,
+  Clock,
 } from "lucide-react";
 interface SearchModalProps {
   open: boolean;
@@ -33,13 +35,19 @@ interface ProjectResult {
   metric: { label: string; value: string };
 }
 
+interface EventResult {
+  ts: string;
+  type: string;
+  summary: string;
+}
+
 interface SearchResult {
   id: string;
   title: string;
   meta?: string;
-  category: "PROJECTS" | "DOCUMENTS" | "TASKS";
+  category: "PROJECTS" | "DOCUMENTS" | "TASKS" | "MEMORY" | "ACTIVITY";
   href: string;
-  icon: "project" | "doc" | "task";
+  icon: "project" | "doc" | "task" | "memory" | "event";
 }
 
 export function SearchModal({ open, onOpenChange }: SearchModalProps) {
@@ -49,6 +57,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   const [docs, setDocs] = useState<DocResult[]>([]);
   const [tasks, setTasks] = useState<TaskResult[]>([]);
   const [projects, setProjects] = useState<ProjectResult[]>([]);
+  const [events, setEvents] = useState<EventResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -90,6 +99,12 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       .then((r) => (r.ok ? r.json() : { projects: [] }))
       .then((data) => setProjects(data.projects || []))
       .catch(() => setProjects([]));
+
+    // Fetch events for activity search
+    fetch("/api/events")
+      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((data) => setEvents((data.events || []).slice(-50)))
+      .catch(() => setEvents([]));
   }, [open]);
 
   // Focus input on open
@@ -146,8 +161,44 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       }
     }
 
+    // Memory files (filter docs for memory-related)
+    for (const d of docs) {
+      const isMemory =
+        d.path.startsWith("memory/") ||
+        d.path === "MEMORY.md" ||
+        d.path.includes("memory") ||
+        d.path.includes("lessons") ||
+        d.path.includes("directives");
+      if (isMemory && (!q || d.name.toLowerCase().includes(q) || d.path.toLowerCase().includes(q))) {
+        items.push({
+          id: `memory-${d.path}`,
+          title: d.name,
+          meta: d.path,
+          category: "MEMORY",
+          href: `/memory`,
+          icon: "memory",
+        });
+      }
+    }
+
+    // Activity events (only when searching)
+    if (q) {
+      for (const e of events) {
+        if (e.summary.toLowerCase().includes(q)) {
+          items.push({
+            id: `event-${e.ts}`,
+            title: e.summary,
+            meta: `${e.type} · ${new Date(e.ts).toLocaleString()}`,
+            category: "ACTIVITY",
+            href: "/timeline",
+            icon: "event",
+          });
+        }
+      }
+    }
+
     return items;
-  }, [query, docs, tasks, projects]);
+  }, [query, docs, tasks, projects, events]);
 
   // Group by category
   const grouped = useMemo(() => {
@@ -156,6 +207,8 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
       "PROJECTS",
       "DOCUMENTS",
       "TASKS",
+      "MEMORY",
+      "ACTIVITY",
     ];
 
     for (const cat of categoryOrder) {
@@ -231,6 +284,10 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
         return <FileText className="h-4 w-4" />;
       case "task":
         return <CheckSquare className="h-4 w-4" />;
+      case "memory":
+        return <Brain className="h-4 w-4" />;
+      case "event":
+        return <Clock className="h-4 w-4" />;
     }
   };
 

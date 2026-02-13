@@ -178,7 +178,43 @@ export function DocSidebar({
 }: DocSidebarProps) {
   const [search, setSearch] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
+  const [activeExtensions, setActiveExtensions] = useState<Set<string>>(new Set());
   const knownFoldersRef = useRef<Set<string>>(new Set());
+
+  // Extract all unique categories and file extensions
+  const allFiles = useMemo(() => flattenFiles(docs), [docs]);
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    for (const f of allFiles) {
+      if (f.category) cats.add(f.category);
+    }
+    return Array.from(cats);
+  }, [allFiles]);
+  const allExtensions = useMemo(() => {
+    const exts = new Set<string>();
+    for (const f of allFiles) {
+      const ext = f.name.includes(".") ? "." + f.name.split(".").pop() : "";
+      if (ext) exts.add(ext);
+    }
+    return Array.from(exts).sort();
+  }, [allFiles]);
+
+  const toggleCategory = (cat: string) => {
+    setActiveCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
+
+  const toggleExtension = (ext: string) => {
+    setActiveExtensions((prev) => {
+      const next = new Set(prev);
+      if (next.has(ext)) next.delete(ext); else next.add(ext);
+      return next;
+    });
+  };
 
   // Collect all folder paths recursively
   function collectFolderPaths(entries: DocEntry[]): string[] {
@@ -222,21 +258,30 @@ export function DocSidebar({
     });
   };
 
-  // Flat file list for search mode
+  // Flat file list for search/filter mode
   const searchResults = useMemo(() => {
-    if (!search.trim()) return [];
+    const hasFilters = activeCategories.size > 0 || activeExtensions.size > 0;
+    if (!search.trim() && !hasFilters) return [];
     const term = search.toLowerCase();
     return flattenFiles(docs)
-      .filter((doc) => doc.name.toLowerCase().includes(term))
+      .filter((doc) => {
+        if (term && !doc.name.toLowerCase().includes(term)) return false;
+        if (activeCategories.size > 0 && !activeCategories.has(doc.category)) return false;
+        if (activeExtensions.size > 0) {
+          const ext = doc.name.includes(".") ? "." + doc.name.split(".").pop() : "";
+          if (!activeExtensions.has(ext)) return false;
+        }
+        return true;
+      })
       .sort((a, b) => {
         if (a.modified && b.modified) {
           return new Date(b.modified).getTime() - new Date(a.modified).getTime();
         }
         return a.name.localeCompare(b.name);
       });
-  }, [docs, search]);
+  }, [docs, search, activeCategories, activeExtensions]);
 
-  const isSearching = search.trim().length > 0;
+  const isSearching = search.trim().length > 0 || activeCategories.size > 0 || activeExtensions.size > 0;
 
   return (
     <div className="flex h-full flex-col border-r">
@@ -261,11 +306,59 @@ export function DocSidebar({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search docs..."
+            placeholder="Search documents..."
             className="h-8 pl-7 text-xs"
           />
         </div>
       </div>
+
+      {/* Category filter chips */}
+      {allCategories.length > 1 && (
+        <div className="flex flex-wrap gap-1 px-3 pb-2">
+          {allCategories.map((cat) => {
+            const badge = CATEGORY_BADGES[cat];
+            const isActive = activeCategories.has(cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => toggleCategory(cat)}
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors border",
+                  isActive
+                    ? (badge?.className || "bg-foreground/10 text-foreground border-foreground/20")
+                    : "bg-muted/50 text-muted-foreground border-transparent hover:text-foreground",
+                )}
+              >
+                {badge?.label || cat}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* File type filter chips */}
+      {allExtensions.length > 1 && (
+        <div className="flex items-center gap-1 px-3 pb-2">
+          <span className="text-[10px] text-muted-foreground/50 mr-1">▼</span>
+          {allExtensions.map((ext) => {
+            const isActive = activeExtensions.has(ext);
+            return (
+              <button
+                key={ext}
+                onClick={() => toggleExtension(ext)}
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors",
+                  isActive
+                    ? "bg-primary/15 text-primary"
+                    : "bg-muted/50 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {ext}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Tree view or search results */}
       <ScrollArea className="flex-1">
