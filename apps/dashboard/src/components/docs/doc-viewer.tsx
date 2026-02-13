@@ -10,6 +10,17 @@ import remarkGfm from "remark-gfm";
 import { AiSummaryCard } from "./ai-summary-card";
 import { ExtractedMetricsCard } from "./extracted-metrics-card";
 
+function formatTimeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 interface DocViewerProps {
   path: string | null;
   editable: boolean;
@@ -152,27 +163,25 @@ export function DocViewer({ path, editable }: DocViewerProps) {
   if (!doc) return null;
 
   const fileName = path.split("/").pop() || path;
+  const wordCount = doc.content.split(/\s+/).filter(Boolean).length;
+  const fileSizeKb = (doc.size / 1024).toFixed(1);
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-sm font-semibold truncate">{fileName}</h3>
-          {hasUnsavedChanges && (
-            <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" title="Unsaved changes" />
-          )}
-          {doc.modified && (
-            <span className="text-[10px] text-muted-foreground shrink-0">
-              {new Date(doc.modified).toLocaleDateString()}
-            </span>
-          )}
-          {!editable && (
-            <Badge variant="outline" className="text-[9px] shrink-0">
-              Read-only
-            </Badge>
-          )}
-        </div>
+      <div className="flex flex-col border-b px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-base font-semibold truncate">{fileName}</h3>
+            {hasUnsavedChanges && (
+              <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" title="Unsaved changes" />
+            )}
+            {!editable && (
+              <Badge variant="outline" className="text-[9px] shrink-0">
+                Read-only
+              </Badge>
+            )}
+          </div>
         {editable && !editing && (
           <Button
             variant="outline"
@@ -204,6 +213,20 @@ export function DocViewer({ path, editable }: DocViewerProps) {
             </Button>
           </div>
         )}
+        </div>
+
+        {/* File stats row */}
+        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+          <span>{fileSizeKb} KB</span>
+          <span>&middot;</span>
+          <span>{wordCount} Words</span>
+          {doc.modified && (
+            <>
+              <span>&middot;</span>
+              <span>Modified {formatTimeAgo(doc.modified)}</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Content */}
