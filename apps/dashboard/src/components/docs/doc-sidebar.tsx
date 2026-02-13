@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, ChevronRight } from "lucide-react";
+import { Plus, Search, ChevronRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DocEntry } from "@/lib/docs";
 
@@ -21,6 +21,30 @@ const CATEGORY_BADGES: Record<string, { label: string; className: string }> = {
   memory: {
     label: "Memory",
     className: "bg-green-500/15 text-green-400 border-green-500/20",
+  },
+  journal: {
+    label: "Journal",
+    className: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+  },
+  scripts: {
+    label: "Scripts",
+    className: "bg-red-500/15 text-red-400 border-red-500/20",
+  },
+  newsletters: {
+    label: "Newsletters",
+    className: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20",
+  },
+  social: {
+    label: "Social",
+    className: "bg-pink-500/15 text-pink-400 border-pink-500/20",
+  },
+  content: {
+    label: "Content",
+    className: "bg-teal-500/15 text-teal-400 border-teal-500/20",
+  },
+  notes: {
+    label: "Notes",
+    className: "bg-indigo-500/15 text-indigo-400 border-indigo-500/20",
   },
   deal: {
     label: "Deal",
@@ -258,14 +282,14 @@ export function DocSidebar({
     });
   };
 
-  // Flat file list for search/filter mode
+  // Flat file list for search/filter mode — always sorted by most recent
   const searchResults = useMemo(() => {
     const hasFilters = activeCategories.size > 0 || activeExtensions.size > 0;
     if (!search.trim() && !hasFilters) return [];
     const term = search.toLowerCase();
     return flattenFiles(docs)
       .filter((doc) => {
-        if (term && !doc.name.toLowerCase().includes(term)) return false;
+        if (term && !doc.name.toLowerCase().includes(term) && !doc.path.toLowerCase().includes(term)) return false;
         if (activeCategories.size > 0 && !activeCategories.has(doc.category)) return false;
         if (activeExtensions.size > 0) {
           const ext = doc.name.includes(".") ? "." + doc.name.split(".").pop() : "";
@@ -274,6 +298,7 @@ export function DocSidebar({
         return true;
       })
       .sort((a, b) => {
+        // Always sort by most recently modified
         if (a.modified && b.modified) {
           return new Date(b.modified).getTime() - new Date(a.modified).getTime();
         }
@@ -375,12 +400,23 @@ export function DocSidebar({
                 const badge = CATEGORY_BADGES[doc.category];
                 const emoji = getDocEmoji(doc);
 
+                const timeAgo = doc.modified ? (() => {
+                  const diff = Date.now() - new Date(doc.modified!).getTime();
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 1) return "just now";
+                  if (mins < 60) return `${mins}m ago`;
+                  const hours = Math.floor(mins / 60);
+                  if (hours < 24) return `${hours}h ago`;
+                  const days = Math.floor(hours / 24);
+                  return `${days}d ago`;
+                })() : null;
+
                 return (
                   <button
                     key={doc.path}
                     onClick={() => onSelect(doc.path)}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors",
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-colors",
                       isSelected
                         ? "bg-primary/10 text-primary"
                         : "text-foreground/80 hover:bg-muted",
@@ -391,18 +427,23 @@ export function DocSidebar({
                       <p className={cn("text-xs truncate", isSelected && "font-medium")}>
                         {doc.name}
                       </p>
-                      <p className="text-[10px] text-muted-foreground/50 truncate">
-                        {doc.path}
-                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {badge && (
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[9px] px-1.5 py-0", badge.className)}
+                          >
+                            {badge.label}
+                          </Badge>
+                        )}
+                        {timeAgo && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/50">
+                            <Clock className="h-2.5 w-2.5" />
+                            {timeAgo}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {badge && (
-                      <Badge
-                        variant="outline"
-                        className={cn("shrink-0 text-[9px] px-1.5 py-0", badge.className)}
-                      >
-                        {badge.label}
-                      </Badge>
-                    )}
                   </button>
                 );
               })}
