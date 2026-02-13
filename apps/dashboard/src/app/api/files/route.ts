@@ -12,6 +12,7 @@ const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB total
 const ALLOWED_EXTENSIONS = new Set([
   ".pdf", ".txt", ".md", ".csv", ".json", ".xlsx",
   ".doc", ".docx", ".xls",
+  ".jpg", ".jpeg", ".png", ".webp", ".gif",
 ]);
 
 /** GET /api/files — list all uploaded files and deal files */

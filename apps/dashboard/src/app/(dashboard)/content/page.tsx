@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { SkillsBoard } from "@/components/skills/skills-board";
+import { PageHint } from "@/components/ui/page-hint";
 import type { SkillInfo } from "@/components/skills/skills-board";
 
 export default function SkillsPage() {
@@ -60,10 +61,18 @@ export default function SkillsPage() {
   }
 
   return (
-    <SkillsBoard
-      skills={skills}
-      onInstall={handleInstall}
-      onUninstall={handleUninstall}
-    />
+    <div className="flex flex-col gap-5">
+      <PageHint
+        id="hint-skills"
+        title="Installable Skills"
+        description="Browse and install capabilities for your agent. Each skill adds new knowledge, schedules, or behaviors."
+        icon={Sparkles}
+      />
+      <SkillsBoard
+        skills={skills}
+        onInstall={handleInstall}
+        onUninstall={handleUninstall}
+      />
+    </div>
   );
 }

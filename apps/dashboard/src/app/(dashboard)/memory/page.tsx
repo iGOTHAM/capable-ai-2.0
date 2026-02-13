@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Brain, Loader2, Search, Clipboard, Check } from "lucide-react";
+import { PageHint } from "@/components/ui/page-hint";
 import { MemoryList } from "@/components/memory/memory-list";
 import type { MemoryEntry } from "@/components/memory/memory-list";
 import { MemoryViewer } from "@/components/memory/memory-viewer";
@@ -52,6 +53,7 @@ export default function MemoryPage() {
                 category: node.category || "memory",
                 modified: node.modified,
                 size: node.size,
+                editable: (node as DocNode & { editable?: boolean }).editable ?? false,
               });
             }
             if (node.children) flatten(node.children);
@@ -147,6 +149,14 @@ export default function MemoryPage() {
 
   return (
     <div className="-m-4 sm:-m-6 flex flex-col h-[calc(100vh-3rem)]">
+      <div className="px-4 pt-3 sm:px-6">
+        <PageHint
+          id="hint-memory"
+          title="Agent Memory"
+          description="Your agent's memory files live here. Edit MEMORY.md to shape what it remembers. Daily journals are auto-generated from conversations."
+          icon={Brain}
+        />
+      </div>
       {/* Journal prompt banner */}
       {!hasTodayJournal && (
         <div className="flex items-center justify-between border-b border-border bg-amber-500/5 px-4 py-2.5">
@@ -204,6 +214,7 @@ export default function MemoryPage() {
         <div className="flex-1 overflow-y-auto">
           <MemoryViewer
             path={selectedPath}
+            editable={selectedPath ? (entries.find((e) => e.path === selectedPath)?.editable ?? false) : false}
             conversationDate={selectedConversation}
             conversationMessages={selectedMessages}
           />

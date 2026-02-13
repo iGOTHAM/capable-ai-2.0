@@ -13,6 +13,7 @@ export interface MemoryEntry {
   category: string;
   modified?: string;
   size?: number;
+  editable?: boolean;
 }
 
 // ─── Date grouping helpers ─────────────────────────────────────────────────

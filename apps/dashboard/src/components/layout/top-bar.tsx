@@ -170,7 +170,7 @@ export function TopBar() {
           {/* Ping Agent */}
           <button
             className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title={`Ping ${info.name}`}
+            title={`Chat with ${info.name}`}
             onClick={() => {
               // Dispatch a custom event that ChatPopup can listen for
               window.dispatchEvent(new CustomEvent("open-chat"));
@@ -185,7 +185,7 @@ export function TopBar() {
                 )}
               />
             </div>
-            <span className="hidden sm:inline">Ping {info.name}</span>
+            <span className="hidden sm:inline">{info.name}</span>
           </button>
 
           {/* Refresh */}
