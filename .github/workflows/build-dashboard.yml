@@ -7,6 +7,7 @@ on:
       - 'apps/dashboard/**'
       - 'packages/shared/**'
       - 'pnpm-lock.yaml'
+      - '.github/workflows/build-dashboard.yml'
     branches: [main]
 
 permissions:
@@ -28,10 +29,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Nuke caches to ensure fresh build
+        run: rm -rf .turbo apps/dashboard/.next node_modules/.cache
+
       - name: Build dashboard standalone
         run: STANDALONE=1 pnpm turbo build --filter=@capable-ai/dashboard --force
         env:
           TURBO_CACHE: ""
+
+      - name: Write build stamp
+        run: |
+          echo "sha=${GITHUB_SHA}" > apps/dashboard/.next/standalone/apps/dashboard/public/build.txt 2>/dev/null || true
+          echo "sha=${GITHUB_SHA}" > apps/dashboard/public/build.txt 2>/dev/null || true
+          echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> apps/dashboard/.next/standalone/apps/dashboard/public/build.txt 2>/dev/null || true
+          echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> apps/dashboard/public/build.txt 2>/dev/null || true
 
       - name: Prepare tarball
         run: |
