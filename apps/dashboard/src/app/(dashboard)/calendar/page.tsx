@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ScheduledTasksView } from "@/components/calendar/scheduled-tasks-view";
 
 export interface ScheduledTask {
@@ -57,6 +57,19 @@ export default function CalendarPage() {
     }
   };
 
+  const handleUpdate = async (id: string, data: Partial<ScheduledTask>) => {
+    try {
+      await fetch("/api/schedules", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...data }),
+      });
+      await fetchSchedules();
+    } catch {
+      // ignore
+    }
+  };
+
   const handleToggle = async (id: string, enabled: boolean) => {
     try {
       await fetch("/api/schedules", {
@@ -91,6 +104,7 @@ export default function CalendarPage() {
     <ScheduledTasksView
       tasks={tasks}
       onCreate={handleCreate}
+      onUpdate={handleUpdate}
       onToggle={handleToggle}
       onDelete={handleDelete}
       onRefresh={fetchSchedules}

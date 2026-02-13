@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Brain, Loader2 } from "lucide-react";
+import { Brain, Loader2, MessageSquare, User, Bot } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { ChatEvent } from "./conversation-log";
 
 interface MemoryViewerProps {
   path: string | null;
+  conversationDate?: string | null;
+  conversationMessages?: ChatEvent[];
 }
 
-export function MemoryViewer({ path }: MemoryViewerProps) {
+export function MemoryViewer({ path, conversationDate, conversationMessages }: MemoryViewerProps) {
   const [content, setContent] = useState<string>("");
   const [meta, setMeta] = useState<{ size: number; modified: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,6 +33,85 @@ export function MemoryViewer({ path }: MemoryViewerProps) {
       .finally(() => setLoading(false));
   }, [path]);
 
+  // ── Conversation transcript view ───────────────────────────────────────
+  if (conversationDate && conversationMessages && conversationMessages.length > 0) {
+    const dateObj = new Date(conversationDate + "T00:00:00");
+    const dateLabel = dateObj.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return (
+      <div className="flex flex-col">
+        {/* Header */}
+        <div className="border-b border-border px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+              <MessageSquare className="h-5 w-5 text-blue-500" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Conversation Log</h2>
+              <p className="text-xs text-muted-foreground">{dateLabel}</p>
+            </div>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {conversationMessages.length} message
+              {conversationMessages.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
+
+        {/* Transcript */}
+        <div className="flex-1 px-6 py-5">
+          <div className="flex flex-col gap-4">
+            {conversationMessages.map((msg, i) => {
+              const isUser = msg.type === "chat.user_message";
+              const time = new Date(msg.ts).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+              });
+              return (
+                <div
+                  key={`${msg.ts}-${i}`}
+                  className={`flex gap-3 ${isUser ? "" : ""}`}
+                >
+                  <div
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                      isUser
+                        ? "bg-primary/10 text-primary"
+                        : "bg-green-500/10 text-green-500"
+                    }`}
+                  >
+                    {isUser ? (
+                      <User className="h-3.5 w-3.5" />
+                    ) : (
+                      <Bot className="h-3.5 w-3.5" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">
+                        {isUser ? "You" : "Agent"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {time}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-sm text-foreground/80 whitespace-pre-wrap">
+                      {msg.summary}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Standard markdown view ─────────────────────────────────────────────
   if (!path) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">

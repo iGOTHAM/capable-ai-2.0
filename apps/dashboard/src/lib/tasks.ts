@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { writeDoc } from "./docs";
 
 // ─── Paths ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ export const TaskSchema = z.object({
   created: z.string(),
   updated: z.string().optional(),
   createdBy: z.enum(["user", "agent"]).optional(),
+  updatedBy: z.enum(["user", "agent"]).optional(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
@@ -103,6 +105,54 @@ export async function writeTasks(data: TasksFile): Promise<void> {
     completed: serialize(data.completed),
   };
   await atomicWrite(TASKS_FILE, JSON.stringify(output, null, 2));
+
+  // Auto-sync to TASKS.md so the agent sees changes immediately
+  await syncTasksToMarkdown(data).catch(() => {
+    // Non-critical — don't fail the task write if markdown sync fails
+  });
+}
+
+/**
+ * Sync tasks to TASKS.md in the workspace root.
+ * The agent reads TASKS.md on every session start.
+ */
+export async function syncTasksToMarkdown(data?: TasksFile): Promise<void> {
+  const d = data || (await readTasks());
+  const allTasks = [...d.tasks, ...d.completed];
+
+  const pending = allTasks.filter((t) => t.status === "pending");
+  const inProgress = allTasks.filter((t) => t.status === "in-progress");
+  const done = allTasks.filter((t) => t.status === "done");
+
+  const lines: string[] = [
+    "# Task Board",
+    "",
+    "> This file is auto-synced from the dashboard task board.",
+    `> Updated: ${new Date().toISOString()}`,
+    "",
+  ];
+
+  const renderSection = (title: string, tasks: Task[]) => {
+    lines.push(`## ${title}`);
+    lines.push("");
+    if (tasks.length === 0) {
+      lines.push("_No tasks_");
+    } else {
+      for (const t of tasks) {
+        const emoji =
+          t.priority === "high" ? "🔴" : t.priority === "medium" ? "🟡" : "⚪";
+        lines.push(`- ${emoji} **${t.title}**`);
+        if (t.notes) lines.push(`  ${t.notes}`);
+      }
+    }
+    lines.push("");
+  };
+
+  renderSection("To Do", pending);
+  renderSection("In Progress", inProgress);
+  renderSection("Done", done);
+
+  await writeDoc("TASKS.md", lines.join("\n"));
 }
 
 export async function addTask(
@@ -144,6 +194,7 @@ export async function updateTask(
   if (patch.notes !== undefined) task.notes = patch.notes;
   if (patch.priority !== undefined) task.priority = patch.priority;
   task.updated = new Date().toISOString();
+  task.updatedBy = "user";
 
   // Handle status changes — move between arrays if needed
   if (patch.status !== undefined && patch.status !== task.status) {

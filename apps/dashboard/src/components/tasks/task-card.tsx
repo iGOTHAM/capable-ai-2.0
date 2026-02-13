@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Archive,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import type { Task } from "@/lib/tasks";
 
@@ -21,9 +22,10 @@ interface TaskCardProps {
   task: Task;
   onEdit: (task: Task) => void;
   onMove: (taskId: string, newStatus: Task["status"]) => void;
+  onDelete?: (taskId: string) => void;
 }
 
-export function TaskCard({ task, onEdit, onMove }: TaskCardProps) {
+export function TaskCard({ task, onEdit, onMove, onDelete }: TaskCardProps) {
   const currentIndex = STATUS_ORDER.indexOf(task.status);
   const canMoveLeft = currentIndex > 0;
   const canMoveRight = currentIndex < STATUS_ORDER.length - 2;
@@ -60,41 +62,63 @@ export function TaskCard({ task, onEdit, onMove }: TaskCardProps) {
         </p>
       )}
 
-      {/* Move buttons — show on hover */}
-      <div className="mt-2 flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        {canMoveLeft && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => onMove(task.id, STATUS_ORDER[currentIndex - 1]!)}
-            title="Move left"
-          >
-            <ChevronLeft className="h-3 w-3" />
-          </Button>
-        )}
-        {canMoveRight && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => onMove(task.id, STATUS_ORDER[currentIndex + 1]!)}
-            title="Move right"
-          >
-            <ChevronRight className="h-3 w-3" />
-          </Button>
-        )}
-        {canArchive && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => onMove(task.id, "archived")}
-            title="Archive"
-          >
-            <Archive className="h-3 w-3" />
-          </Button>
-        )}
+      {/* Bottom row: creator badge + action buttons */}
+      <div className="mt-2 flex items-center justify-between">
+        {/* Creator badge */}
+        <span
+          className="text-[10px] text-muted-foreground/50"
+          title={task.createdBy === "agent" ? "Created by agent" : "Created by user"}
+        >
+          {task.createdBy === "agent" ? "🤖" : "👤"}
+        </span>
+
+        {/* Move + delete buttons — show on hover */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {canMoveLeft && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onMove(task.id, STATUS_ORDER[currentIndex - 1]!)}
+              title="Move left"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+          )}
+          {canMoveRight && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onMove(task.id, STATUS_ORDER[currentIndex + 1]!)}
+              title="Move right"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          )}
+          {canArchive && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onMove(task.id, "archived")}
+              title="Archive"
+            >
+              <Archive className="h-3 w-3" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+              onClick={() => onDelete(task.id)}
+              title="Delete"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

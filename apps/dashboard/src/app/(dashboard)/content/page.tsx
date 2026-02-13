@@ -2,85 +2,54 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { ContentBoard } from "@/components/content/content-board";
+import { SkillsBoard } from "@/components/skills/skills-board";
+import type { SkillInfo } from "@/components/skills/skills-board";
 
-export interface ContentItem {
-  path: string;
-  name: string;
-  category: string;
-  modified?: string;
-  size?: number;
-}
-
-/** Content-production folder names */
-const CONTENT_FOLDERS = new Set([
-  "scripts",
-  "youtube-scripts",
-  "newsletters",
-  "tweets",
-  "threads",
-  "social",
-  "content",
-]);
-
-/** Content-production categories from the classification system */
-const CONTENT_CATEGORIES = new Set([
-  "scripts",
-  "newsletters",
-  "social",
-  "content",
-]);
-
-export default function ContentPage() {
-  const [items, setItems] = useState<ContentItem[]>([]);
+export default function SkillsPage() {
+  const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchContent = useCallback(async () => {
+  const fetchSkills = useCallback(async () => {
     try {
-      const res = await fetch("/api/docs");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-
-      const flat: ContentItem[] = [];
-      interface DocNode {
-        path: string;
-        name: string;
-        category?: string;
-        modified?: string;
-        size?: number;
-        children?: DocNode[];
+      const res = await fetch("/api/skills");
+      if (res.ok) {
+        const data = await res.json();
+        setSkills(data.skills || []);
       }
-      const flatten = (nodes: DocNode[]) => {
-        for (const node of nodes) {
-          // Include files from content-production folders or with content categories
-          const topFolder = node.path.split("/")[0] || "";
-          const isContentFile =
-            CONTENT_FOLDERS.has(topFolder) ||
-            CONTENT_CATEGORIES.has(node.category || "");
-          if (isContentFile && node.path && !node.children) {
-            flat.push({
-              path: node.path,
-              name: node.name || node.path.split("/").pop() || node.path,
-              category: node.category || "content",
-              modified: node.modified,
-              size: node.size,
-            });
-          }
-          if (node.children) flatten(node.children);
-        }
-      };
-      flatten(data.docs || []);
-      setItems(flat);
     } catch {
-      // silent fail
+      // ignore
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchContent();
-  }, [fetchContent]);
+    fetchSkills();
+  }, [fetchSkills]);
+
+  const handleInstall = async (skillId: string) => {
+    try {
+      const res = await fetch("/api/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillId }),
+      });
+      if (res.ok) {
+        await fetchSkills();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleUninstall = async (skillId: string) => {
+    try {
+      await fetch(`/api/skills?id=${skillId}`, { method: "DELETE" });
+      await fetchSkills();
+    } catch {
+      // ignore
+    }
+  };
 
   if (loading) {
     return (
@@ -90,5 +59,11 @@ export default function ContentPage() {
     );
   }
 
-  return <ContentBoard items={items} />;
+  return (
+    <SkillsBoard
+      skills={skills}
+      onInstall={handleInstall}
+      onUninstall={handleUninstall}
+    />
+  );
 }

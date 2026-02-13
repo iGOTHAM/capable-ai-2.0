@@ -78,3 +78,23 @@ export async function getChatMessages(): Promise<Event[]> {
     (e) => e.type === "chat.user_message" || e.type === "chat.bot_message",
   );
 }
+
+// ─── Dashboard Event Logging ─────────────────────────────────────────────────
+
+/**
+ * Log a user action from the dashboard.
+ * Uses runId "dashboard" to distinguish from agent events.
+ */
+export async function logDashboardEvent(
+  type: string,
+  summary: string,
+  details?: Record<string, unknown>,
+): Promise<void> {
+  await appendEvent({
+    ts: new Date().toISOString(),
+    runId: "dashboard",
+    type,
+    summary,
+    details: { source: "dashboard", ...details },
+  });
+}
