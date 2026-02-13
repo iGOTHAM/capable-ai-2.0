@@ -10,15 +10,34 @@
 
 import { createServer } from "http";
 import { createHmac, timingSafeEqual } from "crypto";
+import { readFileSync } from "fs";
 import { WebSocketServer } from "ws";
 import pty from "node-pty";
 
 const PORT = parseInt(process.env.WS_TERMINAL_PORT || "3101", 10);
-const AUTH_PASSWORD = process.env.AUTH_PASSWORD || "changeme";
 const IS_DOCKER = process.env.CONTAINER_MODE === "docker";
 const MAX_SESSION_MS = 10 * 60 * 1000; // 10 minutes
 
+// Path to env file where AUTH_PASSWORD is persisted on disk.
+// The password change API (set-password route) writes here, and since
+// the terminal server runs as a separate process from Next.js, we must
+// re-read from disk on each connection to pick up password changes.
+const ENV_FILE = IS_DOCKER ? "/opt/capable/.env" : "/etc/capable-dashboard.env";
+
 // ─── Auth (mirrors lib/auth.ts) ─────────────────────────────────────────────
+
+function getAuthPassword() {
+  // Re-read from env file on every call so password changes are picked up
+  // without restarting the terminal server process.
+  try {
+    const content = readFileSync(ENV_FILE, "utf-8");
+    const match = content.match(/^AUTH_PASSWORD=(.+)$/m);
+    if (match) return match[1].trim();
+  } catch {
+    // File doesn't exist or can't be read — fall through to process.env
+  }
+  return process.env.AUTH_PASSWORD || "changeme";
+}
 
 function makeToken(secret) {
   return createHmac("sha256", secret).update("dashboard-auth").digest("hex");
@@ -30,7 +49,7 @@ function validateCookie(req) {
   if (!match) return false;
 
   const token = match[1];
-  const expected = makeToken(AUTH_PASSWORD);
+  const expected = makeToken(getAuthPassword());
 
   const bufA = Buffer.from(token);
   const bufB = Buffer.from(expected);

@@ -28,12 +28,20 @@
         header Upgrade websocket
     }
     handle @websockets {
-        reverse_proxy openclaw:18789
+        reverse_proxy openclaw:18789 {
+            # Strip iframe-blocking headers (OpenClaw sets X-Frame-Options: DENY
+            # and CSP frame-ancestors 'none') so /open-chat iframe works
+            header_down -X-Frame-Options
+            header_down -Content-Security-Policy
+        }
     }
 
-    # OpenClaw Web UI (Docker)
+    # OpenClaw Web UI (Docker) — strip iframe-blocking headers for /open-chat embed
     handle /chat* {
-        reverse_proxy openclaw:18789
+        reverse_proxy openclaw:18789 {
+            header_down -X-Frame-Options
+            header_down -Content-Security-Policy
+        }
     }
 
     # Dashboard — everything else (bare-metal on host)
