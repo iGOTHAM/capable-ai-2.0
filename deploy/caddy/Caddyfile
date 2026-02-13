@@ -12,17 +12,17 @@
     # Use self-signed origin cert (Cloudflare proxy handles public TLS)
     tls /etc/caddy/certs/origin.crt /etc/caddy/certs/origin.key
 
-    # Terminal WebSocket → dashboard sidecar (must be before generic @websockets)
+    # Terminal WebSocket → dashboard WS server (bare-metal on host)
     @terminal_ws {
         path /api/terminal/ws
         header Connection *Upgrade*
         header Upgrade websocket
     }
     handle @terminal_ws {
-        reverse_proxy dashboard:3101
+        reverse_proxy host.docker.internal:3101
     }
 
-    # WebSocket upgrade requests → OpenClaw gateway
+    # WebSocket upgrade requests → OpenClaw gateway (Docker)
     @websockets {
         header Connection *Upgrade*
         header Upgrade websocket
@@ -31,13 +31,13 @@
         reverse_proxy openclaw:18789
     }
 
-    # OpenClaw Web UI
+    # OpenClaw Web UI (Docker)
     handle /chat* {
         reverse_proxy openclaw:18789
     }
 
-    # Dashboard — everything else
+    # Dashboard — everything else (bare-metal on host)
     handle {
-        reverse_proxy dashboard:3100
+        reverse_proxy host.docker.internal:3100
     }
 }

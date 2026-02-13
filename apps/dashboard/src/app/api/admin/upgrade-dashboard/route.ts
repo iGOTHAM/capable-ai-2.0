@@ -99,12 +99,13 @@ export async function POST(req: NextRequest) {
     // Step 4: Extract new dashboard
     console.log("Extracting new dashboard...");
     await execAsync(`rm -rf ${installDir}/*`);
-    await execAsync(`tar -xzf ${tmpFile} -C ${installDir} --strip-components=1`);
+    await execAsync(`tar -xzf ${tmpFile} -C ${installDir}`);
 
-    // Step 5: Copy over environment file (preserve config)
-    console.log("Preserving environment configuration...");
-    const envFile = "/etc/capable-dashboard.env";
-    // Environment file should be preserved by systemd service, no action needed
+    // Step 5: Install native dependencies (bare-metal needs node-pty + ws)
+    if (process.env.DASHBOARD_RUNTIME !== "docker") {
+      console.log("Installing native dependencies...");
+      await execAsync(`cd ${installDir} && npm install --no-save node-pty ws`);
+    }
 
     // Step 6: Clean up
     console.log("Cleaning up...");
@@ -116,15 +117,15 @@ export async function POST(req: NextRequest) {
 
     // Use spawn with detached to ensure the restart command continues even after this process dies
     // Small delay to allow response to be sent (though it likely won't make it)
-    if (process.env.CONTAINER_MODE === "docker") {
-      // Docker mode: rebuild and restart dashboard container
+    if (process.env.DASHBOARD_RUNTIME === "docker") {
+      // Docker mode: restart dashboard container
       const child = spawn("sh", ["-c", "sleep 1 && docker restart capable-dashboard"], {
         detached: true,
         stdio: "ignore",
       });
       child.unref();
     } else {
-      // Bare-metal mode: restart systemd service
+      // Bare-metal / systemd mode: restart systemd service
       const child = spawn("sh", ["-c", "sleep 1 && systemctl restart capable-dashboard"], {
         detached: true,
         stdio: "ignore",

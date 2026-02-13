@@ -1,0 +1,52 @@
+# =========================================
+# Capable.ai — Dashboard systemd Service
+# =========================================
+# Install: cp capable-dashboard.service /etc/systemd/system/
+#          systemctl daemon-reload
+#          systemctl enable --now capable-dashboard
+#
+# Logs:    journalctl -u capable-dashboard -f
+# =========================================
+
+[Unit]
+Description=Capable.ai Dashboard
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/capable/dashboard
+
+# Load secrets (AUTH_PASSWORD, ADMIN_SECRET, GATEWAY_TOKEN, etc.)
+EnvironmentFile=/opt/capable/.env
+
+# Core runtime
+Environment=NODE_ENV=production
+Environment=PORT=3100
+Environment=HOSTNAME=0.0.0.0
+Environment=WS_TERMINAL_PORT=3101
+
+# OpenClaw is in Docker; dashboard is bare-metal
+Environment=CONTAINER_MODE=docker
+Environment=DASHBOARD_RUNTIME=systemd
+
+# Data paths (host filesystem, shared with OpenClaw container via bind mounts)
+Environment=DATA_DIR=/opt/capable/data/activity
+Environment=OPENCLAW_DIR=/opt/capable/openclaw-home
+Environment=OPENCLAW_CONFIG=/opt/capable/openclaw-home/openclaw.json
+
+# OpenClaw gateway (exposed from Docker to host localhost)
+Environment=OPENCLAW_GATEWAY_HOST=127.0.0.1
+Environment=OPENCLAW_GATEWAY_PORT=18789
+
+# Start WS terminal server (background), bootstrap pack, then Next.js
+ExecStart=/bin/bash -c 'node scripts/ws-terminal-server.mjs & node scripts/bootstrap-pack.mjs && exec node apps/dashboard/server.js'
+
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=capable-dashboard
+
+[Install]
+WantedBy=multi-user.target
