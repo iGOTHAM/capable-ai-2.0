@@ -3,15 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Brain, Loader2, Search } from "lucide-react";
 import { MemoryList } from "@/components/memory/memory-list";
+import type { MemoryEntry } from "@/components/memory/memory-list";
 import { MemoryViewer } from "@/components/memory/memory-viewer";
-
-interface MemoryEntry {
-  id: string;
-  title: string;
-  path: string;
-  category: string;
-  modified?: string;
-}
 
 export default function MemoryPage() {
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
@@ -32,24 +25,26 @@ export default function MemoryPage() {
         name: string;
         category?: string;
         modified?: string;
+        size?: number;
         children?: DocNode[];
       }
       const flatten = (nodes: DocNode[]) => {
         for (const node of nodes) {
           const isMemory =
             node.category === "memory" ||
+            node.category === "journal" ||
             node.path.startsWith("memory/") ||
             node.path === "MEMORY.md" ||
-            node.path.includes("memory") ||
             node.path.includes("lessons") ||
             node.path.includes("directives");
-          if (isMemory && node.path) {
+          if (isMemory && node.path && !node.children) {
             flat.push({
               id: node.path,
               title: node.name || node.path.split("/").pop() || node.path,
               path: node.path,
               category: node.category || "memory",
               modified: node.modified,
+              size: node.size,
             });
           }
           if (node.children) flatten(node.children);
@@ -108,7 +103,7 @@ export default function MemoryPage() {
   return (
     <div className="-m-4 sm:-m-6 flex h-[calc(100vh-3rem)]">
       {/* Left: Memory list */}
-      <div className="w-72 shrink-0 border-r border-border flex flex-col">
+      <div className="w-80 shrink-0 border-r border-border flex flex-col">
         <div className="p-3 border-b border-border">
           <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -116,7 +111,7 @@ export default function MemoryPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search memories..."
+              placeholder="Search memory..."
               className="flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
             />
           </div>

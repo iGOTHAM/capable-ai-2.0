@@ -8,7 +8,18 @@ const WORKSPACE = path.join(OPENCLAW_DIR, "workspace");
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type DocCategory = "system" | "knowledge" | "memory" | "deal" | "upload";
+export type DocCategory =
+  | "system"
+  | "knowledge"
+  | "memory"
+  | "journal"
+  | "scripts"
+  | "newsletters"
+  | "social"
+  | "content"
+  | "notes"
+  | "deal"
+  | "upload";
 
 export interface DocEntry {
   name: string;
@@ -30,6 +41,9 @@ const SYSTEM_FILES = new Set([
   "MEMORY.md",
 ]);
 
+/** Detect if a filename looks like a date (YYYY-MM-DD) */
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}/;
+
 function classifyPath(relativePath: string): {
   category: DocCategory;
   editable: boolean;
@@ -37,28 +51,69 @@ function classifyPath(relativePath: string): {
   const parts = relativePath.split("/");
   const topLevel = parts[0] ?? "";
   const fileName = parts[parts.length - 1] ?? "";
+  const baseName = fileName.replace(/\.[^.]+$/, ""); // strip extension
 
   // Root-level system files
   if (parts.length === 1 && SYSTEM_FILES.has(fileName)) {
     return { category: "system", editable: false };
   }
 
-  // Folder-based classification
+  // Memory folder — check for dated journal entries vs reference files
+  if (topLevel === "memory") {
+    if (DATE_PATTERN.test(baseName)) {
+      return { category: "journal", editable: true };
+    }
+    return { category: "memory", editable: true };
+  }
+
+  // Content production folders
+  if (topLevel === "scripts" || topLevel === "youtube-scripts") {
+    return { category: "scripts", editable: true };
+  }
+  if (topLevel === "newsletters") {
+    return { category: "newsletters", editable: true };
+  }
+  if (topLevel === "tweets" || topLevel === "threads" || topLevel === "social") {
+    return { category: "social", editable: true };
+  }
+  if (topLevel === "content") {
+    return { category: "content", editable: true };
+  }
+  if (topLevel === "notes") {
+    return { category: "notes", editable: true };
+  }
+
+  // Other standard folders
   if (topLevel === "knowledge") {
     return { category: "knowledge", editable: true };
-  }
-  if (topLevel === "memory") {
-    return { category: "memory", editable: true };
   }
   if (topLevel === "deals") {
     return { category: "deal", editable: true };
   }
   if (topLevel === "uploads") {
-    return { category: "upload", editable: false }; // binary files
+    return { category: "upload", editable: false };
   }
 
-  // Default: editable
+  // Root-level dated files → journal
+  if (parts.length === 1 && DATE_PATTERN.test(baseName)) {
+    return { category: "journal", editable: true };
+  }
+
+  // Default: knowledge (editable)
   return { category: "knowledge", editable: true };
+}
+
+/** Extract all unique categories from a doc tree */
+export function getUniqueCategories(docs: DocEntry[]): string[] {
+  const cats = new Set<string>();
+  const walk = (entries: DocEntry[]) => {
+    for (const entry of entries) {
+      if (entry.type === "file") cats.add(entry.category);
+      if (entry.children) walk(entry.children);
+    }
+  };
+  walk(docs);
+  return Array.from(cats).sort();
 }
 
 // ─── Path Security ──────────────────────────────────────────────────────────
