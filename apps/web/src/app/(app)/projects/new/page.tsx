@@ -839,9 +839,9 @@ function NewProjectWizard() {
             {openSections.businessContext && (
               <CardContent className="flex flex-col gap-4 pt-0">
                 {(
-                  businessContextFields[templateId] ??
-                  businessContextFields.general ??
-                  []
+                  (businessContextFields[templateId]?.length
+                    ? businessContextFields[templateId]
+                    : businessContextFields.general) ?? []
                 ).map((field) => (
                   <div key={field.key} className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium">
