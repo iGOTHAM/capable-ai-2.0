@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface AgentPublicInfo {
   name: string;
@@ -61,7 +62,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
+
       {/* Agent avatar */}
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-card text-5xl shadow-lg ring-1 ring-border">
         {agent.emoji}

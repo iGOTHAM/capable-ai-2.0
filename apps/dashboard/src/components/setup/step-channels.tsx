@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, MessageCircle, Hash, MessagesSquare } from "lucide-react";
+import { ArrowLeft, ExternalLink, MessageCircle, Hash, MessagesSquare } from "lucide-react";
 import type { SetupData } from "@/app/(setup)/setup/page";
 
 interface StepChannelsProps {
@@ -53,7 +53,7 @@ export function StepChannels({
             <p className="font-medium">How to get a Telegram bot token:</p>
             <ol className="mt-1 list-inside list-decimal space-y-0.5">
               <li>
-                Open Telegram and search for{" "}
+                Open{" "}
                 <a
                   href="https://t.me/BotFather"
                   target="_blank"
@@ -62,6 +62,7 @@ export function StepChannels({
                 >
                   @BotFather
                 </a>
+                {" "}in Telegram
               </li>
               <li>
                 Send <code className="rounded bg-muted px-1">/newbot</code> and
@@ -69,6 +70,15 @@ export function StepChannels({
               </li>
               <li>Copy the bot token and paste it above</li>
             </ol>
+            <a
+              href="https://t.me/BotFather"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400"
+            >
+              Open BotFather
+              <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
         </div>
       </div>
