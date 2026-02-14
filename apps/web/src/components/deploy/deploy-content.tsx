@@ -533,8 +533,8 @@ export function DeployContent(props: DeployContentProps) {
         </Card>
       )}
 
-      {/* Manual Deploy Fallback */}
-      <div className="border-t pt-4">
+      {/* Manual Deploy Fallback — hidden for now */}
+      <div className="hidden border-t pt-4">
         <button
           onClick={() => setShowManual(!showManual)}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
