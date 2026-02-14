@@ -21,6 +21,12 @@ export default async function SettingsPage() {
 
   const subscription = await getSubscription(user.id);
   const projectCount = await db.project.count({ where: { userId: user.id } });
+  const hasBypass = (
+    await db.user.findUnique({
+      where: { id: user.id },
+      select: { subscriptionBypass: true },
+    })
+  )?.subscriptionBypass === true;
 
   // Superadmin: fetch all users
   const isAdmin = isSuperAdmin(user.email);
@@ -52,7 +58,8 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      {/* ── Subscription Card ── */}
+      {/* ── Subscription Card (hidden for bypass users) ── */}
+      {!hasBypass && (
       <Card>
         <CardHeader>
           <CardTitle>Subscription</CardTitle>
@@ -200,6 +207,7 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* ── Account Card ── */}
       <Card>
