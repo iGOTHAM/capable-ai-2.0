@@ -28,6 +28,24 @@ export async function POST() {
 
   try {
     const stripe = getStripe();
+
+    // Verify the customer exists in the current Stripe mode
+    try {
+      await stripe.customers.retrieve(subscription.stripeCustomerId);
+    } catch {
+      // Customer doesn't exist (e.g. test-mode ID with live key) — create a
+      // new customer and update the DB so future calls succeed.
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { userId: user.id },
+      });
+      await db.subscription.update({
+        where: { userId: user.id },
+        data: { stripeCustomerId: customer.id },
+      });
+      subscription.stripeCustomerId = customer.id;
+    }
+
     const session = await stripe.billingPortal.sessions.create({
       customer: subscription.stripeCustomerId,
       return_url: `${appUrl}/settings`,
