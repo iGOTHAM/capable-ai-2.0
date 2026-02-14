@@ -5,8 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   Menu,
   Search,
-  Pause,
-  Play,
   RefreshCw,
   MessageCircle,
 } from "lucide-react";
@@ -45,9 +43,6 @@ export function TopBar() {
     status: "stopped",
     emoji: "\u{1F916}",
   });
-  const [daemonRunning, setDaemonRunning] = useState(false);
-  const [daemonLoading, setDaemonLoading] = useState(false);
-
   // Agent info polling
   const fetchInfo = useCallback(async () => {
     try {
@@ -59,7 +54,6 @@ export function TopBar() {
           status: data.status || "stopped",
           emoji: data.emoji || "\u{1F916}",
         });
-        setDaemonRunning(data.status === "running");
       }
     } catch {
       // keep defaults
@@ -83,24 +77,6 @@ export function TopBar() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  // Daemon toggle
-  const toggleDaemon = async () => {
-    setDaemonLoading(true);
-    try {
-      const action = daemonRunning ? "stop" : "start";
-      await fetch("/api/openclaw/daemon", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      await fetchInfo();
-    } catch {
-      // ignore
-    } finally {
-      setDaemonLoading(false);
-    }
-  };
 
   const pageTitle =
     pageTitles[pathname] ||
@@ -140,31 +116,6 @@ export function TopBar() {
             <kbd className="hidden rounded border border-border bg-background px-1 py-0.5 text-[9px] sm:inline-block">
               ⌘K
             </kbd>
-          </button>
-
-          {/* Pause/Resume */}
-          <button
-            onClick={toggleDaemon}
-            disabled={daemonLoading}
-            className={cn(
-              "flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs transition-colors",
-              "hover:bg-accent hover:text-foreground",
-              daemonRunning
-                ? "text-muted-foreground"
-                : "text-muted-foreground",
-            )}
-            title={daemonRunning ? "Pause agent" : "Resume agent"}
-          >
-            {daemonLoading ? (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            ) : daemonRunning ? (
-              <Pause className="h-3.5 w-3.5" />
-            ) : (
-              <Play className="h-3.5 w-3.5" />
-            )}
-            <span className="hidden sm:inline">
-              {daemonRunning ? "Pause" : "Resume"}
-            </span>
           </button>
 
           {/* Ping Agent */}
