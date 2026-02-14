@@ -110,24 +110,33 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col scroll-smooth">
       {/* Hero */}
-      <section className="mx-auto flex max-w-4xl flex-col items-center gap-6 px-6 py-24 text-center">
-        <Badge variant="secondary" className="text-sm">
-          Powered by OpenClaw
-        </Badge>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-          The Full Power of OpenClaw.
+      <section className="mx-auto flex max-w-4xl flex-col items-center gap-8 px-6 py-28 lg:py-36 text-center">
+        {/* Online status badge */}
+        <div className="flex items-center gap-2 rounded-full border bg-background px-4 py-1.5 text-sm text-muted-foreground shadow-sm">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </span>
+          Online — always working
+        </div>
+
+        {/* Headline */}
+        <h1 className="text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+          An AI Employee That
           <br />
-          <span className="text-muted-foreground">
-            Deployed and Configured for You.
+          <span className="bg-gradient-to-r from-foreground/90 to-foreground/50 bg-clip-text text-transparent">
+            Actually Gets Work Done.
           </span>
         </h1>
-        <p className="max-w-2xl text-lg text-muted-foreground">
-          OpenClaw is the most capable open-source AI agent in the world —
-          persistent memory, computer use, browser automation, 100+
-          integrations. Capable.ai packages it with your custom personality,
-          knowledge, and safety rules, then deploys it to your own server with a
-          custom subdomain in minutes.
+
+        {/* Subtitle */}
+        <p className="max-w-2xl text-lg text-muted-foreground leading-relaxed">
+          Runs 24/7 on your own server. Reads emails, browses the web,
+          manages files, writes code, and remembers everything.
+          No meetings. No PTO. No micromanagement required.
         </p>
+
+        {/* CTA buttons */}
         <div className="flex gap-3">
           <Button size="lg" asChild>
             <Link href="/register">Get Started</Link>
@@ -136,8 +145,36 @@ export default function LandingPage() {
             <Link href="#superpowers">See What It Can Do</Link>
           </Button>
         </div>
+
+        {/* Activity preview card */}
+        <div className="mt-4 w-full max-w-md rounded-xl border bg-muted/30 p-4 backdrop-blur-sm">
+          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <Activity className="h-3.5 w-3.5" />
+            Recent Activity
+          </div>
+          <div className="space-y-3">
+            {[
+              { icon: "✉️", task: "Cleared 42 emails", time: "3 min ago", delay: "0s" },
+              { icon: "📊", task: "Updated quarterly deck", time: "18 min ago", delay: "0.15s" },
+              { icon: "🔍", task: "Researched 3 competitors", time: "1 hour ago", delay: "0.3s" },
+            ].map((item) => (
+              <div
+                key={item.task}
+                className="flex items-center justify-between text-sm animate-fade-in-up"
+                style={{ animationDelay: item.delay }}
+              >
+                <span className="flex items-center gap-2">
+                  <span>{item.icon}</span>
+                  <span className="text-foreground/80">{item.task}</span>
+                </span>
+                <span className="text-xs text-muted-foreground">{item.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <p className="text-sm text-muted-foreground">
-          Starting at $9/mo. Your server, your data. Cancel anytime.
+          Starting at $9/mo · Your server, your data · Cancel anytime
         </p>
       </section>
 
@@ -180,12 +217,15 @@ export default function LandingPage() {
       <section className="py-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mb-12 text-center">
+            <Badge variant="secondary" className="text-sm mb-4">
+              Powered by OpenClaw
+            </Badge>
             <h2 className="text-3xl font-bold tracking-tight">
               Why Capable.ai
             </h2>
             <p className="mt-3 text-muted-foreground">
-              OpenClaw is free and open-source. Setting it up properly isn&apos;t.
-              We handle the hard part.
+              OpenClaw is the most capable open-source AI agent in the world.
+              Setting it up properly isn&apos;t easy — we handle the hard part.
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
