@@ -127,17 +127,32 @@ export default async function SettingsPage() {
               </div>
             </div>
           ) : subscription.status === "CANCELED" ? (
-            // Canceled subscription
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <Badge variant="destructive">Canceled</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Your subscription has been canceled. Re-subscribe to regain
-                access to your agent and subdomain hosting.
-              </p>
-              <SubscribeButton label="Re-subscribe" />
-            </div>
+            // Canceled subscription (or expired trial)
+            (() => {
+              const isExpiredTrial = subscription.stripeSubscriptionId.startsWith("local_trial_");
+              return (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive">
+                      {isExpiredTrial ? "Trial Expired" : "Canceled"}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {isExpiredTrial
+                      ? "Your 7-day free trial has ended. Subscribe to keep your agent running."
+                      : "Your subscription has been canceled. Re-subscribe to regain access to your agent and subdomain hosting."}
+                  </p>
+                  {isExpiredTrial ? (
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <SubscribeButton plan="monthly" label="Subscribe — $9/mo" />
+                      <SubscribeButton plan="yearly" label="Subscribe — $80/yr (save 26%)" />
+                    </div>
+                  ) : (
+                    <SubscribeButton label="Re-subscribe" />
+                  )}
+                </div>
+              );
+            })()
           ) : (
             // Active, Trialing, or Past Due subscription
             (() => {

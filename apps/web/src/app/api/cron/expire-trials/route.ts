@@ -3,7 +3,11 @@ import { db } from "@/lib/db";
 
 /**
  * Vercel Cron — runs daily at midnight UTC.
- * Finds all TRIALING subscriptions whose trialEnd has passed and marks them CANCELED.
+ * Finds all LOCAL trial subscriptions (local_trial_* IDs) whose trialEnd has
+ * passed and marks them CANCELED. Does NOT touch real Stripe trials.
+ *
+ * Intentionally does NOT destroy droplets — the user's agent stays running
+ * with a "trial expired" banner so they can subscribe to keep it.
  */
 export async function GET(request: NextRequest) {
   // Verify Vercel cron secret
@@ -18,6 +22,7 @@ export async function GET(request: NextRequest) {
     where: {
       status: "TRIALING",
       trialEnd: { lt: now },
+      stripeSubscriptionId: { startsWith: "local_trial_" },
     },
     select: { id: true, userId: true },
   });
