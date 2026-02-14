@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -15,6 +15,11 @@ import { StepPersonalize } from "@/components/setup/step-personalize";
 import { StepLaunch } from "@/components/setup/step-launch";
 import { StepWorkspace } from "@/components/setup/step-workspace";
 import { Loader2 } from "lucide-react";
+import {
+  loadSetupState,
+  saveSetupState,
+  clearSetupStorage,
+} from "@/lib/setup-storage";
 
 export type Provider = "anthropic" | "openai";
 
@@ -42,17 +47,26 @@ const STEPS = [
 export default function SetupPage() {
   const [step, setStep] = useState(0);
   const [checking, setChecking] = useState(true);
+
   const [data, setData] = useState<SetupData>({
     provider: "anthropic",
     apiKey: "",
     model: "",
     telegramToken: "",
-    // Personalization fields
     userName: "",
     workType: "",
     commStyle: "balanced",
     agentName: "Atlas",
   });
+
+  // Restore saved progress from localStorage
+  useEffect(() => {
+    const saved = loadSetupState();
+    if (saved) {
+      setData((prev) => ({ ...prev, ...saved.data }));
+      setStep(saved.step);
+    }
+  }, []);
 
   // If setup is already complete, redirect to chat
   useEffect(() => {
@@ -63,6 +77,7 @@ export default function SetupPage() {
           status.setupState === "running" ||
           status.setupState === "configured"
         ) {
+          clearSetupStorage();
           window.location.href = "/tasks";
         } else {
           setChecking(false);
@@ -71,12 +86,22 @@ export default function SetupPage() {
       .catch(() => setChecking(false));
   }, []);
 
-  const updateData = (patch: Partial<SetupData>) => {
-    setData((prev) => ({ ...prev, ...patch }));
-  };
+  // Persist step + data to localStorage on every change
+  useEffect(() => {
+    if (!checking) {
+      saveSetupState(step, data);
+    }
+  }, [step, data, checking]);
 
-  const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
-  const back = () => setStep((s) => Math.max(s - 1, 0));
+  const updateData = useCallback((patch: Partial<SetupData>) => {
+    setData((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const next = useCallback(
+    () => setStep((s) => Math.min(s + 1, STEPS.length - 1)),
+    [],
+  );
+  const back = useCallback(() => setStep((s) => Math.max(s - 1, 0)), []);
 
   if (checking) {
     return (
