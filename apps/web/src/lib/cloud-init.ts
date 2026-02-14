@@ -158,6 +158,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add('echo ">>> [3/' + totalSteps + '] Downloading pre-built dashboard..."');
   add("mkdir -p /opt/capable/caddy/certs");
   add("mkdir -p /opt/capable/openclaw");
+  add("touch /opt/capable/.subscription-status.json");
   add('curl -fsSL "' + dashboardTarballUrl + '" -o /tmp/dashboard.tar.gz');
   add("mkdir -p /opt/capable/dashboard-build");
   add("tar -xzf /tmp/dashboard.tar.gz -C /opt/capable/dashboard-build");
@@ -231,6 +232,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("      - openclaw-config:/root/.openclaw");
   add("      - /var/run/docker.sock:/var/run/docker.sock");
   add("      - /opt/capable/.env:/opt/capable/.env");
+  add("      - /opt/capable/.subscription-status.json:/app/.subscription-status.json:ro");
   add("    environment:");
   add("      - NODE_ENV=production");
   add("      - PORT=3100");
@@ -463,8 +465,30 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add('  -H "Content-Type: application/json" \\');
   add("  -d '{\"projectToken\":\"" + projectToken + "\",\"dropletIp\":\"'\"$DROPLET_IP\"'\",\"packVersion\":" + packVersion + ",\"status\":\"active\",\"dashboardPassword\":\"'\"$DASH_PASSWORD\"'\",\"adminSecret\":\"'\"$ADMIN_SECRET\"'\",\"gatewayToken\":\"'\"$GATEWAY_TOKEN\"'\"}' || true");
   add("");
+  // Heartbeat script — captures response and writes subscription status to disk
+  add("cat > /opt/capable/heartbeat.sh << 'HBSCRIPT'");
+  add("#!/bin/bash");
+  add("DROPLET_IP=$(/usr/bin/curl -4 -s ifconfig.me)");
+  add("RESPONSE=$(/usr/bin/curl -sf -X POST " + appUrl + "/api/deployments/heartbeat \\");
+  add("  -H \"Content-Type: application/json\" \\");
+  add("  -d \"{\\\"projectToken\\\":\\\"" + projectToken + "\\\",\\\"dropletIp\\\":\\\"$DROPLET_IP\\\",\\\"packVersion\\\":" + packVersion + ",\\\"status\\\":\\\"active\\\"}\")");
+  add("if [ -n \"$RESPONSE\" ]; then");
+  add("  echo \"$RESPONSE\" | /usr/bin/python3 -c '");
+  add("import sys, json");
+  add("try:");
+  add("    d = json.load(sys.stdin)");
+  add("    s = d.get(\"subscription\")");
+  add("    if s:");
+  add("        open(\"/opt/capable/.subscription-status.json\",\"w\").write(json.dumps(s))");
+  add("except:");
+  add("    pass");
+  add("' 2>/dev/null");
+  add("fi");
+  add("HBSCRIPT");
+  add("chmod +x /opt/capable/heartbeat.sh");
+  add("");
   add("cat > /etc/cron.d/capable-heartbeat << 'CRON'");
-  add("*/5 * * * * root DROPLET_IP=$(/usr/bin/curl -4 -s ifconfig.me); /usr/bin/curl -sf -X POST " + appUrl + "/api/deployments/heartbeat -H \"Content-Type: application/json\" -d \"{\\\"projectToken\\\":\\\"" + projectToken + "\\\",\\\"dropletIp\\\":\\\"$DROPLET_IP\\\",\\\"packVersion\\\":" + packVersion + ",\\\"status\\\":\\\"active\\\"}\" > /dev/null 2>&1");
+  add("*/5 * * * * root /opt/capable/heartbeat.sh > /dev/null 2>&1");
   add("CRON");
   add("chmod 644 /etc/cron.d/capable-heartbeat");
   add("");

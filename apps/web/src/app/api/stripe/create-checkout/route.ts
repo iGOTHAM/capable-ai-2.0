@@ -14,11 +14,7 @@ export async function POST(request: NextRequest) {
     where: { userId: user.id },
   });
 
-  if (
-    existingSubscription &&
-    (existingSubscription.status === "ACTIVE" ||
-      existingSubscription.status === "TRIALING")
-  ) {
+  if (existingSubscription && existingSubscription.status === "ACTIVE") {
     return NextResponse.json(
       { error: "You already have an active subscription" },
       { status: 400 },
