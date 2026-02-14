@@ -139,71 +139,92 @@ export default async function SettingsPage() {
               <SubscribeButton label="Re-subscribe" />
             </div>
           ) : (
-            // Active or Trialing subscription
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-3">
-                <Badge
-                  variant={
-                    subscription.status === "TRIALING"
-                      ? "secondary"
-                      : subscription.status === "PAST_DUE"
-                        ? "destructive"
-                        : "default"
-                  }
-                >
-                  {subscription.status === "TRIALING"
-                    ? "Free Trial"
-                    : subscription.status === "PAST_DUE"
-                      ? "Past Due"
-                      : "Active"}
-                </Badge>
-                {subscription.cancelAtPeriodEnd && (
-                  <Badge variant="outline">Cancels at period end</Badge>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm font-medium">Plan</p>
-                  <p className="text-sm text-muted-foreground">
-                    Capable.ai Pro
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Usage</p>
-                  <p className="text-sm text-muted-foreground">
-                    {projectCount} / 1 agent
-                  </p>
-                </div>
-                {subscription.status === "TRIALING" && subscription.trialEnd && (
-                  <div>
-                    <p className="text-sm font-medium">Trial ends</p>
-                    <p className="text-sm text-muted-foreground">
-                      {subscription.trialEnd.toLocaleDateString()}
-                    </p>
+            // Active, Trialing, or Past Due subscription
+            (() => {
+              const isLocalTrial = subscription.stripeSubscriptionId.startsWith("local_trial_");
+              return (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <Badge
+                      variant={
+                        subscription.status === "TRIALING"
+                          ? "secondary"
+                          : subscription.status === "PAST_DUE"
+                            ? "destructive"
+                            : "default"
+                      }
+                    >
+                      {subscription.status === "TRIALING"
+                        ? "Free Trial"
+                        : subscription.status === "PAST_DUE"
+                          ? "Past Due"
+                          : "Active"}
+                    </Badge>
+                    {subscription.cancelAtPeriodEnd && (
+                      <Badge variant="outline">Cancels at period end</Badge>
+                    )}
                   </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium">
-                    {subscription.cancelAtPeriodEnd
-                      ? "Access until"
-                      : "Next billing date"}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {subscription.currentPeriodEnd.toLocaleDateString()}
-                  </p>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-medium">Plan</p>
+                      <p className="text-sm text-muted-foreground">
+                        {isLocalTrial ? "7-Day Free Trial" : "Capable.ai Pro"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Usage</p>
+                      <p className="text-sm text-muted-foreground">
+                        {projectCount} / 1 agent
+                      </p>
+                    </div>
+                    {subscription.status === "TRIALING" && subscription.trialEnd && (
+                      <div>
+                        <p className="text-sm font-medium">Trial ends</p>
+                        <p className="text-sm text-muted-foreground">
+                          {subscription.trialEnd.toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                    {!isLocalTrial && (
+                      <div>
+                        <p className="text-sm font-medium">
+                          {subscription.cancelAtPeriodEnd
+                            ? "Access until"
+                            : "Next billing date"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {subscription.currentPeriodEnd.toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {isLocalTrial && (
+                    <p className="text-sm text-muted-foreground">
+                      Your 7-day free trial lets you fully set up and test your agent.
+                      Subscribe before it ends to keep your agent running.
+                    </p>
+                  )}
+
+                  {subscription.status === "PAST_DUE" && (
+                    <p className="text-sm text-destructive">
+                      Your payment failed. Please update your payment method to
+                      avoid losing access.
+                    </p>
+                  )}
+
+                  {isLocalTrial ? (
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <SubscribeButton plan="monthly" label="Subscribe — $9/mo" />
+                      <SubscribeButton plan="yearly" label="Subscribe — $80/yr (save 26%)" />
+                    </div>
+                  ) : (
+                    <ManageSubscriptionButton />
+                  )}
                 </div>
-              </div>
-
-              {subscription.status === "PAST_DUE" && (
-                <p className="text-sm text-destructive">
-                  Your payment failed. Please update your payment method to
-                  avoid losing access.
-                </p>
-              )}
-
-              <ManageSubscriptionButton />
-            </div>
+              );
+            })()
           )}
         </CardContent>
       </Card>

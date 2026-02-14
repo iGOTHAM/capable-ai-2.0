@@ -160,5 +160,40 @@ export async function POST(request: NextRequest) {
     console.error("DNS management error during heartbeat:", err);
   }
 
-  return NextResponse.json({ ok: true });
+  // ─── Subscription status (trial awareness for VPS dashboard) ───
+  let subscriptionResponse: Record<string, unknown> | null = null;
+  try {
+    const project = await db.project.findUnique({
+      where: { id: deployment.projectId },
+      select: { userId: true },
+    });
+
+    if (project) {
+      const subscription = await db.subscription.findUnique({
+        where: { userId: project.userId },
+        select: { status: true, trialEnd: true, currentPeriodEnd: true },
+      });
+
+      if (subscription) {
+        subscriptionResponse = {
+          status: subscription.status,
+          trialEnd: subscription.trialEnd?.toISOString() ?? null,
+          periodEnd: subscription.currentPeriodEnd.toISOString(),
+          daysLeft: subscription.trialEnd
+            ? Math.max(
+                0,
+                Math.ceil(
+                  (subscription.trialEnd.getTime() - Date.now()) / 86400000,
+                ),
+              )
+            : null,
+        };
+      }
+    }
+  } catch (err) {
+    // Best-effort — don't fail the heartbeat for subscription lookup errors
+    console.error("Subscription lookup error during heartbeat:", err);
+  }
+
+  return NextResponse.json({ ok: true, subscription: subscriptionResponse });
 }

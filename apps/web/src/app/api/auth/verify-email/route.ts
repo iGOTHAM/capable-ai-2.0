@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createSession } from "@/lib/auth";
+import { createSubscriptionRecord } from "@/lib/fulfill-subscription";
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -44,6 +45,23 @@ export async function GET(request: NextRequest) {
 
   // Delete the used token
   await db.verificationToken.delete({ where: { token } });
+
+  // Create 7-day free trial (local — no Stripe involved)
+  const existingSub = await db.subscription.findUnique({
+    where: { userId: user.id },
+  });
+  if (!existingSub) {
+    const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await createSubscriptionRecord({
+      userId: user.id,
+      stripeCustomerId: `local_trial_cust_${user.id}`,
+      stripeSubscriptionId: `local_trial_sub_${user.id}`,
+      status: "TRIALING",
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: trialEnd,
+      trialEnd,
+    });
+  }
 
   // Create session and redirect to projects
   await createSession(user.id);
