@@ -465,7 +465,7 @@ function NewProjectWizard() {
       case 1:
         return botName.length >= 3 && subdomainStatus.available === true;
       case 2:
-        return !!aiProvider && !!aiApiKey && !!aiModel;
+        return !!aiProvider && !!aiApiKey && !!aiModel && keyValidation.status === "valid";
       case 3:
         return true;
       default:
@@ -1246,6 +1246,14 @@ function NewProjectWizard() {
       {error && (
         <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
+          {error.toLowerCase().includes("subscription") && (
+            <span>
+              {" "}
+              <a href="/settings" className="underline font-medium hover:text-destructive/80">
+                Subscribe now &rarr;
+              </a>
+            </span>
+          )}
         </div>
       )}
 

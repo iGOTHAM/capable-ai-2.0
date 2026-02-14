@@ -4,7 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-export function SubscribeButton({ label }: { label?: string }) {
+export function SubscribeButton({
+  label,
+  plan = "monthly",
+}: {
+  label?: string;
+  plan?: "monthly" | "yearly";
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -15,6 +21,7 @@ export function SubscribeButton({ label }: { label?: string }) {
       const res = await fetch("/api/stripe/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
       });
 
       const data = await res.json();
@@ -40,7 +47,7 @@ export function SubscribeButton({ label }: { label?: string }) {
             Redirecting...
           </>
         ) : (
-          label || "Subscribe — $49/month"
+          label || "Subscribe"
         )}
       </Button>
       {error && <p className="text-xs text-destructive">{error}</p>}

@@ -17,7 +17,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Logged in → redirect away from auth pages
+  // Logged in → redirect away from login/register (but NOT verify-email)
   if (isAuthPage && token) {
     return NextResponse.redirect(new URL("/projects", request.url));
   }

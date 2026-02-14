@@ -25,9 +25,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const priceId = process.env.STRIPE_SUBSCRIPTION_PRICE_ID;
+  // Determine which price to use based on plan
+  let priceId: string | undefined;
+  try {
+    const body = await request.json();
+    if (body.plan === "yearly") {
+      priceId = process.env.STRIPE_YEARLY_PRICE_ID;
+    }
+  } catch {
+    // No body or invalid JSON — default to monthly
+  }
+
   if (!priceId) {
-    console.error("STRIPE_SUBSCRIPTION_PRICE_ID is not set");
+    priceId = process.env.STRIPE_SUBSCRIPTION_PRICE_ID;
+  }
+
+  if (!priceId) {
+    console.error("Stripe price ID is not set");
     return NextResponse.json(
       { error: "Billing not configured" },
       { status: 500 },

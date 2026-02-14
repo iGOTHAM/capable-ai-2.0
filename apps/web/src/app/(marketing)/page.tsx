@@ -18,6 +18,8 @@ import {
   Server,
   Sparkles,
   ChevronRight,
+  Package,
+  Key,
 } from "lucide-react";
 
 const superpowers = [
@@ -100,13 +102,13 @@ const whyCapable = [
     icon: Lock,
     title: "Vertical Customization",
     description:
-      "Pre-built knowledge templates for Private Equity, Legal, Healthcare, and more. Custom personality, operating rules, and safety boundaries tailored to your industry.",
+      "Pre-built knowledge templates for Private Equity, Real Estate, and more. Custom personality, operating rules, and safety boundaries tailored to your industry.",
   },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col scroll-smooth">
       {/* Hero */}
       <section className="mx-auto flex max-w-4xl flex-col items-center gap-6 px-6 py-24 text-center">
         <Badge variant="secondary" className="text-sm">
@@ -135,7 +137,7 @@ export default function LandingPage() {
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          $49/mo. Your server, your data. Cancel anytime.
+          Starting at $9/mo. Your server, your data. Cancel anytime.
         </p>
       </section>
 
@@ -230,7 +232,7 @@ export default function LandingPage() {
                 step: "2",
                 title: "Deploy",
                 description:
-                  "Paste one script into a $6/mo DigitalOcean droplet. Auto-HTTPS, your subdomain, done.",
+                  "Paste one script into a $12/mo DigitalOcean droplet. Auto-HTTPS, your subdomain, done.",
               },
               {
                 step: "3",
@@ -253,8 +255,78 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* Transparent Pricing */}
       <section className="py-20">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold tracking-tight">
+              Transparent Pricing
+            </h2>
+            <p className="mt-3 text-muted-foreground">
+              No hidden fees. Here&apos;s exactly what you pay.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-3">
+            <Card className="p-6">
+              <CardHeader className="p-0 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Package className="h-5 w-5 text-primary" />
+                  </div>
+                  <CardTitle className="text-base">Capable.ai</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <p className="text-2xl font-bold">$9<span className="text-base font-normal text-muted-foreground">/mo</span></p>
+                <p className="text-sm text-muted-foreground mt-1">or $80/year (save 26%)</p>
+                <p className="text-sm text-muted-foreground mt-3">
+                  Pack generation, custom subdomain, auto-HTTPS, dashboard, and pack updates.
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="p-6">
+              <CardHeader className="p-0 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Server className="h-5 w-5 text-primary" />
+                  </div>
+                  <CardTitle className="text-base">Hosting</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <p className="text-2xl font-bold">~$12<span className="text-base font-normal text-muted-foreground">/mo</span></p>
+                <p className="text-sm text-muted-foreground mt-1">DigitalOcean droplet</p>
+                <p className="text-sm text-muted-foreground mt-3">
+                  Your own server. You control it, you own the data. We deploy to it with one script.
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="p-6">
+              <CardHeader className="p-0 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Key className="h-5 w-5 text-primary" />
+                  </div>
+                  <CardTitle className="text-base">AI Provider</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <p className="text-2xl font-bold">Usage<span className="text-base font-normal text-muted-foreground">-based</span></p>
+                <p className="text-sm text-muted-foreground mt-1">Bring your own API key</p>
+                <p className="text-sm text-muted-foreground mt-3">
+                  Anthropic or OpenAI. Pay the provider directly — we never touch your key.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            We keep our subscription low because we earn affiliate revenue from DigitalOcean when you create a droplet through our deploy flow.
+          </p>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="border-t bg-muted/50 py-20">
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-6 text-center">
           <h2 className="text-3xl font-bold tracking-tight">
             Your Agent Is Waiting
@@ -270,6 +342,23 @@ export default function LandingPage() {
           </Button>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t py-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 sm:flex-row sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            &copy; {new Date().getFullYear()} Capable.ai. All rights reserved.
+          </p>
+          <div className="flex gap-6">
+            <Link href="/privacy" className="text-xs text-muted-foreground hover:text-foreground">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground">
+              Terms of Service
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

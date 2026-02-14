@@ -64,34 +64,58 @@ export default async function SettingsPage() {
           {!subscription ? (
             // No subscription — show pricing
             <div className="flex flex-col gap-4">
-              <div className="rounded-lg border p-6">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold">$49</span>
-                  <span className="text-muted-foreground">/month</span>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg border p-6">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold">$9</span>
+                    <span className="text-muted-foreground">/month</span>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Pay monthly, cancel anytime.
+                  </p>
+                  <ul className="mt-4 flex flex-col gap-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <span className="text-green-500">&#10003;</span>
+                      1 Capable Pack agent
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-green-500">&#10003;</span>
+                      Custom subdomain
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-green-500">&#10003;</span>
+                      Auto-HTTPS &amp; dashboard
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-green-500">&#10003;</span>
+                      Pack updates
+                    </li>
+                  </ul>
+                  <div className="mt-6">
+                    <SubscribeButton plan="monthly" label="Subscribe — $9/mo" />
+                  </div>
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Everything you need to run your AI agent.
-                </p>
-                <ul className="mt-4 flex flex-col gap-2 text-sm">
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500">&#10003;</span>
-                    1 Capable Pack agent
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500">&#10003;</span>
-                    Custom subdomain (yourbot.capable.ai)
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500">&#10003;</span>
-                    Auto-HTTPS with Let&apos;s Encrypt
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-green-500">&#10003;</span>
-                    Pack updates and regeneration
-                  </li>
-                </ul>
-                <div className="mt-6">
-                  <SubscribeButton />
+                <div className="rounded-lg border border-primary p-6 ring-1 ring-primary">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold">$80</span>
+                    <span className="text-muted-foreground">/year</span>
+                  </div>
+                  <p className="mt-2 text-sm text-green-600 dark:text-green-400 font-medium">
+                    Save 26% — $6.67/mo
+                  </p>
+                  <ul className="mt-4 flex flex-col gap-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <span className="text-green-500">&#10003;</span>
+                      Everything in monthly
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-green-500">&#10003;</span>
+                      Save $28/year
+                    </li>
+                  </ul>
+                  <div className="mt-6">
+                    <SubscribeButton plan="yearly" label="Subscribe — $80/yr" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -135,7 +159,7 @@ export default async function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium">Plan</p>
                   <p className="text-sm text-muted-foreground">
-                    Capable.ai &mdash; $49/month
+                    Capable.ai Pro
                   </p>
                 </div>
                 <div>
