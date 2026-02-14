@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -6,12 +9,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck } from "lucide-react";
-import { getPendingApprovals } from "@/lib/events";
+import { ShieldCheck, Loader2 } from "lucide-react";
 import { ApprovalActions } from "@/components/approval-actions";
 import { PageHint } from "@/components/ui/page-hint";
 
 export const dynamic = "force-dynamic";
+
+interface Approval {
+  ts: string;
+  runId: string;
+  type: string;
+  summary: string;
+  details?: Record<string, unknown>;
+  risk?: string;
+  approvalId?: string;
+}
 
 const riskColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   low: "secondary",
@@ -20,15 +32,42 @@ const riskColors: Record<string, "default" | "secondary" | "destructive" | "outl
   critical: "destructive",
 };
 
-export default async function ApprovalsPage() {
-  const approvals = await getPendingApprovals();
+const riskBorderColors: Record<string, string> = {
+  low: "border-l-green-500",
+  medium: "border-l-amber-500",
+  high: "border-l-red-500",
+  critical: "border-l-red-600",
+};
 
-  const riskBorderColors: Record<string, string> = {
-    low: "border-l-green-500",
-    medium: "border-l-amber-500",
-    high: "border-l-red-500",
-    critical: "border-l-red-600",
-  };
+export default function ApprovalsPage() {
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchApprovals = useCallback(async () => {
+    try {
+      const res = await fetch("/api/approvals");
+      if (res.ok) {
+        const data = await res.json();
+        setApprovals(data.approvals || []);
+      }
+    } catch {
+      // Silent fail — page still renders
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchApprovals();
+  }, [fetchApprovals]);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
