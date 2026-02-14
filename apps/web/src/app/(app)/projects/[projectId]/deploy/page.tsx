@@ -72,8 +72,6 @@ export default async function DeployPage({
       latestPackVersion={latestVersion}
       dashboardPassword={decryptedCreds.dashboardPassword}
       gatewayToken={decryptedCreds.gatewayToken}
-      provider={project.provider ?? null}
-      aiModel={project.aiModel ?? null}
     />
   );
 }

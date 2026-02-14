@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -50,8 +50,6 @@ interface DeployContentProps {
   latestPackVersion: number;
   dashboardPassword: string | null;
   gatewayToken: string | null;
-  provider: string | null;
-  aiModel: string | null;
 }
 
 const statusConfig: Record<
@@ -113,20 +111,6 @@ export function DeployContent(props: DeployContentProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // AI key configuration state
-  const [keyConfigStatus, setKeyConfigStatus] = useState<
-    "idle" | "sending" | "success" | "error"
-  >("idle");
-  const [keyConfigError, setKeyConfigError] = useState<string | null>(null);
-  const [showKeyForm, setShowKeyForm] = useState(false);
-  const [formProvider, setFormProvider] = useState(
-    props.provider || "anthropic",
-  );
-  const [formApiKey, setFormApiKey] = useState("");
-  const [formModel, setFormModel] = useState(
-    props.aiModel || "claude-sonnet-4-5-20251101",
-  );
-
   const isDeployed =
     status === "ACTIVE" ||
     status === "PROVISIONING" ||
@@ -163,23 +147,13 @@ export function DeployContent(props: DeployContentProps) {
     const res = await fetch(`/api/deployments/${props.projectId}/status`);
     if (res.ok) {
       const data = await res.json();
-      const prevStatus = status;
       setStatus(data.status);
       setLastHb(data.lastHeartbeatAt);
       setIp(data.dropletIp);
       if (data.dashboardPassword) setPassword(data.dashboardPassword);
       if (data.gatewayToken) setGwToken(data.gatewayToken);
-
-      // Show notification when deployment becomes ACTIVE
-      if (prevStatus !== "ACTIVE" && data.status === "ACTIVE") {
-        setShowReadyBanner(true);
-      }
     }
   };
-
-  // Track previous status for notifications
-  const prevStatusRef = useRef(status);
-  const [showReadyBanner, setShowReadyBanner] = useState(false);
 
   // Auto-poll while provisioning or pending
   useEffect(() => {
@@ -188,122 +162,6 @@ export function DeployContent(props: DeployContentProps) {
     const interval = setInterval(refreshStatus, 5000); // Poll every 5 seconds
     return () => clearInterval(interval);
   }, [status, props.projectId]);
-
-  // Update ref when status changes
-  useEffect(() => {
-    prevStatusRef.current = status;
-  }, [status]);
-
-  // Auto-send API key to droplet when deployment becomes ACTIVE
-  // Flow: check if key already configured → try sessionStorage → show form
-  useEffect(() => {
-    if (status !== "ACTIVE" || keyConfigStatus !== "idle") return;
-
-    const configureKey = async () => {
-      // Step 1: Check if the droplet already has a key configured
-      try {
-        const statusRes = await fetch(
-          `/api/deployments/${props.projectId}/key-status`,
-        );
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          if (statusData.configured) {
-            // Key already on the droplet — no form needed
-            setKeyConfigStatus("success");
-            try {
-              sessionStorage.removeItem("capable_ai_key");
-            } catch { }
-            return;
-          }
-        }
-      } catch {
-        // key-status check failed — continue with sessionStorage/form flow
-      }
-
-      // Step 2: Try sessionStorage (set by wizard)
-      let keyData: {
-        provider: string;
-        apiKey: string;
-        model: string;
-      } | null = null;
-      try {
-        const stored = sessionStorage.getItem("capable_ai_key");
-        if (stored) {
-          keyData = JSON.parse(stored);
-        }
-      } catch {
-        // sessionStorage not available
-      }
-
-      if (!keyData) {
-        // No key anywhere — show inline form for manual entry
-        setShowKeyForm(true);
-        return;
-      }
-
-      // Step 3: Send key from sessionStorage to droplet
-      setKeyConfigStatus("sending");
-      try {
-        const res = await fetch(
-          `/api/deployments/${props.projectId}/set-key`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(keyData),
-          },
-        );
-
-        if (res.ok) {
-          setKeyConfigStatus("success");
-          try {
-            sessionStorage.removeItem("capable_ai_key");
-          } catch { }
-        } else {
-          const data = await res.json().catch(() => ({}));
-          setKeyConfigStatus("error");
-          setKeyConfigError(
-            data.error || "Failed to configure AI provider",
-          );
-        }
-      } catch {
-        setKeyConfigStatus("error");
-        setKeyConfigError("Failed to contact server");
-      }
-    };
-
-    configureKey();
-  }, [status, keyConfigStatus, props.projectId]);
-
-  // Handle manual key submission
-  const handleManualKeySubmit = async () => {
-    if (!formApiKey || !formProvider || !formModel) return;
-
-    setKeyConfigStatus("sending");
-    setKeyConfigError(null);
-    try {
-      const res = await fetch(`/api/deployments/${props.projectId}/set-key`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: formProvider,
-          apiKey: formApiKey,
-          model: formModel,
-        }),
-      });
-
-      if (res.ok) {
-        setKeyConfigStatus("success");
-        setShowKeyForm(false);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setKeyConfigStatus("error");
-        setKeyConfigError(data.error || "Failed to configure AI provider");
-      }
-    } catch {
-      setKeyConfigStatus("error");
-      setKeyConfigError("Failed to contact server");
-    }
-  };
 
   const handleDeploy = () => {
     setError(null);
@@ -374,138 +232,43 @@ export function DeployContent(props: DeployContentProps) {
         </div>
       )}
 
-      {/* Deployment ready banner */}
-      {showReadyBanner && status === "ACTIVE" && (
-        <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950">
-          <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
-            <Check className="h-4 w-4" />
-            <span>
-              <strong>Your dashboard is ready!</strong> You can now access it at the URL below.
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-green-800 hover:bg-green-100 dark:text-green-200 dark:hover:bg-green-900"
-            onClick={() => setShowReadyBanner(false)}
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
-
-      {/* AI Key configuration status */}
-      {status === "ACTIVE" && keyConfigStatus === "sending" && (
-        <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Configuring AI provider on your server...
-        </div>
-      )}
-
-      {status === "ACTIVE" && keyConfigStatus === "success" && (
-        <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
-          <Check className="h-4 w-4" />
-          <strong>AI provider configured!</strong> Your agent is ready to use.
-        </div>
-      )}
-
-      {status === "ACTIVE" && keyConfigStatus === "error" && (
-        <div className="flex flex-col gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-          <p>{keyConfigError || "Failed to configure AI provider"}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-fit"
-            onClick={() => {
-              setKeyConfigStatus("idle");
-              setShowKeyForm(true);
-            }}
-          >
-            Try Again
-          </Button>
-        </div>
-      )}
-
-      {/* Inline key form (when sessionStorage empty or retry) */}
-      {status === "ACTIVE" && showKeyForm && keyConfigStatus !== "sending" && keyConfigStatus !== "success" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Connect your AI provider</CardTitle>
-            <CardDescription>
-              Enter your API key to activate your agent. The key is sent directly to your server.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {/* Show provider/model selectors only if not set from project */}
-            {!props.provider && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div
-                  className={`cursor-pointer rounded-md border p-3 transition-colors ${formProvider === "anthropic" ? "border-primary ring-1 ring-primary" : ""}`}
-                  onClick={() => {
-                    setFormProvider("anthropic");
-                    setFormModel("claude-sonnet-4-5-20251101");
-                  }}
+      {/* Deployment ready banner + next step */}
+      {status === "ACTIVE" && dashboardUrl && (
+        <Card className="border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/50">
+          <CardContent className="flex flex-col gap-3 pt-6">
+            <div className="flex items-center gap-2 text-sm font-medium text-green-800 dark:text-green-200">
+              <Check className="h-4 w-4" />
+              Your agent is live!
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Open your dashboard to configure your AI provider (API key +
+              model) and start working. Your credentials stay entirely on your
+              server.
+            </p>
+            <div className="flex gap-3">
+              <Button asChild>
+                <a
+                  href={dashboardUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  <p className="text-sm font-medium">Anthropic</p>
-                  <p className="text-xs text-muted-foreground">Claude models</p>
-                </div>
-                <div
-                  className={`cursor-pointer rounded-md border p-3 transition-colors ${formProvider === "openai" ? "border-primary ring-1 ring-primary" : ""}`}
-                  onClick={() => {
-                    setFormProvider("openai");
-                    setFormModel("gpt-5.2");
-                  }}
-                >
-                  <p className="text-sm font-medium">OpenAI</p>
-                  <p className="text-xs text-muted-foreground">GPT models</p>
-                </div>
-              </div>
-            )}
-            {props.provider && (
-              <p className="text-sm text-muted-foreground">
-                Provider: <span className="font-medium text-foreground capitalize">{props.provider}</span>
-                {props.aiModel && (
-                  <> · Model: <span className="font-medium text-foreground">{props.aiModel}</span></>
-                )}
-              </p>
-            )}
-            <input
-              type="password"
-              value={formApiKey}
-              onChange={(e) => setFormApiKey(e.target.value)}
-              placeholder={formProvider === "anthropic" ? "sk-ant-..." : "sk-..."}
-              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-            {!props.aiModel && (
-              <select
-                value={formModel}
-                onChange={(e) => setFormModel(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              >
-                {formProvider === "anthropic" ? (
-                  <>
-                    <option value="claude-sonnet-4-5-20251101">Claude Sonnet 4.5</option>
-                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                    <option value="claude-opus-4-20250514">Claude Opus 4</option>
-                    <option value="claude-haiku-4-20250414">Claude Haiku 4</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="gpt-5.2">GPT-5.2</option>
-                    <option value="gpt-5-mini">GPT-5 Mini</option>
-                    <option value="gpt-4.1">GPT-4.1</option>
-                    <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
-                    <option value="o4-mini">o4-mini</option>
-                  </>
-                )}
-              </select>
-            )}
-            <Button
-              onClick={handleManualKeySubmit}
-              disabled={!formApiKey}
-            >
-              Connect AI
-            </Button>
+                  Open Dashboard
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+              {chatUrl && (
+                <Button variant="outline" asChild>
+                  <a
+                    href={chatUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open Chat
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

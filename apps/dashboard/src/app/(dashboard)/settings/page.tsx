@@ -30,6 +30,7 @@ import { PipelineStagesCard } from "@/components/settings/pipeline-stages-card";
 import { WorkspaceInfoCard } from "@/components/settings/workspace-info-card";
 import { GoogleWorkspaceCard } from "@/components/settings/google-workspace-card";
 import { AdvancedConfigCard } from "@/components/settings/advanced-config-card";
+import { PROVIDERS, getModelsForProvider } from "@capable-ai/shared";
 
 interface ConfigData {
   provider: string;
@@ -43,18 +44,6 @@ interface DaemonStatus {
   pid?: number;
 }
 
-const MODEL_OPTIONS: Record<string, { id: string; name: string }[]> = {
-  anthropic: [
-    { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
-    { id: "claude-opus-4-20250514", name: "Claude Opus 4" },
-    { id: "claude-haiku-4-20250414", name: "Claude Haiku 4" },
-  ],
-  openai: [
-    { id: "gpt-4o", name: "GPT-4o" },
-    { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-  ],
-};
-
 export default function SettingsPage() {
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [daemon, setDaemon] = useState<DaemonStatus>({ running: false });
@@ -64,6 +53,7 @@ export default function SettingsPage() {
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
+  const [customModelInput, setCustomModelInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -87,7 +77,18 @@ export default function SettingsPage() {
         const c = await configRes.json();
         setConfig(c);
         setProvider(c.provider || "");
-        setModel(c.model || "");
+        const knownModels = getModelsForProvider(c.provider || "");
+        const isKnown = knownModels.some((m) => m.id === c.model);
+        if (isKnown) {
+          setModel(c.model || "");
+          setCustomModelInput("");
+        } else if (c.model) {
+          setModel("custom");
+          setCustomModelInput(c.model);
+        } else {
+          setModel("");
+          setCustomModelInput("");
+        }
       }
 
       if (daemonRes.ok) {
@@ -113,7 +114,9 @@ export default function SettingsPage() {
     const body: Record<string, string> = {};
     if (provider && provider !== config?.provider) body.provider = provider;
     if (apiKey) body.apiKey = apiKey;
-    if (model && model !== config?.model) body.model = model;
+    const resolvedModel = model === "custom" ? customModelInput.trim() : model;
+    if (resolvedModel && resolvedModel !== config?.model)
+      body.model = resolvedModel;
 
     if (Object.keys(body).length === 0) {
       setSaveError("No changes to save");
@@ -224,7 +227,8 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-lg">AI Provider</CardTitle>
           <CardDescription>
-            Change your API key, provider, or model
+            Your agent supports any model from your provider. Pick one below or
+            enter a custom model ID.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -235,34 +239,24 @@ export default function SettingsPage() {
               onValueChange={(v) => {
                 setProvider(v);
                 setModel("");
+                setCustomModelInput("");
               }}
               className="grid grid-cols-2 gap-3"
             >
-              <label
-                htmlFor="settings-anthropic"
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${
-                  provider === "anthropic"
-                    ? "border-primary bg-primary/5"
-                    : "border-input hover:bg-accent/50"
-                }`}
-              >
-                <RadioGroupItem
-                  value="anthropic"
-                  id="settings-anthropic"
-                />
-                <span className="font-medium">Anthropic</span>
-              </label>
-              <label
-                htmlFor="settings-openai"
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${
-                  provider === "openai"
-                    ? "border-primary bg-primary/5"
-                    : "border-input hover:bg-accent/50"
-                }`}
-              >
-                <RadioGroupItem value="openai" id="settings-openai" />
-                <span className="font-medium">OpenAI</span>
-              </label>
+              {PROVIDERS.map((p) => (
+                <label
+                  key={p.id}
+                  htmlFor={`settings-${p.id}`}
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                    provider === p.id
+                      ? "border-primary bg-primary/5"
+                      : "border-input hover:bg-accent/50"
+                  }`}
+                >
+                  <RadioGroupItem value={p.id} id={`settings-${p.id}`} />
+                  <span className="font-medium">{p.name}</span>
+                </label>
+              ))}
             </RadioGroup>
           </div>
 
@@ -286,14 +280,17 @@ export default function SettingsPage() {
             <Label>Model</Label>
             <RadioGroup
               value={model}
-              onValueChange={setModel}
+              onValueChange={(v) => {
+                setModel(v);
+                if (v !== "custom") setCustomModelInput("");
+              }}
               className="grid gap-2"
             >
-              {(MODEL_OPTIONS[provider] || []).map((m) => (
+              {getModelsForProvider(provider).map((m) => (
                 <label
                   key={m.id}
                   htmlFor={`settings-model-${m.id}`}
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors ${
                     model === m.id
                       ? "border-primary bg-primary/5"
                       : "border-input hover:bg-accent/50"
@@ -302,11 +299,52 @@ export default function SettingsPage() {
                   <RadioGroupItem
                     value={m.id}
                     id={`settings-model-${m.id}`}
+                    className="mt-0.5"
                   />
-                  <span className="font-medium">{m.name}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{m.name}</span>
+                      {m.recommended && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          Recommended
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {m.description}
+                    </p>
+                  </div>
                 </label>
               ))}
+              <label
+                htmlFor="settings-model-custom"
+                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                  model === "custom"
+                    ? "border-primary bg-primary/5"
+                    : "border-input hover:bg-accent/50"
+                }`}
+              >
+                <RadioGroupItem
+                  value="custom"
+                  id="settings-model-custom"
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <span className="font-medium">Custom model</span>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Enter any model ID supported by your provider
+                  </p>
+                </div>
+              </label>
             </RadioGroup>
+            {model === "custom" && (
+              <Input
+                placeholder="e.g. claude-sonnet-4-5-20250929"
+                value={customModelInput}
+                onChange={(e) => setCustomModelInput(e.target.value)}
+                className="mt-2"
+              />
+            )}
           </div>
 
           {saveMsg && (
