@@ -23,7 +23,7 @@ interface AgentInfo {
 
 const pageTitles: Record<string, string> = {
   "/tasks": "Tasks",
-  "/content": "Content",
+  "/content": "Skills",
   "/approvals": "Approvals",
   "/calendar": "Calendar",
   "/pipeline": "Office",
