@@ -49,36 +49,29 @@ export function StepChannels({
             value={data.telegramToken}
             onChange={(e) => updateData({ telegramToken: e.target.value })}
           />
-          <div className="text-xs text-muted-foreground">
-            <p className="font-medium">How to get a Telegram bot token:</p>
-            <ol className="mt-1 list-inside list-decimal space-y-0.5">
-              <li>
-                Open{" "}
-                <a
-                  href="https://t.me/BotFather"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  @BotFather
-                </a>
-                {" "}in Telegram
-              </li>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 gap-1.5"
+            asChild
+          >
+            <a
+              href="https://t.me/BotFather"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open BotFather
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+          <div className="mt-2 text-xs text-muted-foreground">
+            <ol className="list-inside list-decimal space-y-0.5">
               <li>
                 Send <code className="rounded bg-muted px-1">/newbot</code> and
                 follow the prompts
               </li>
               <li>Copy the bot token and paste it above</li>
             </ol>
-            <a
-              href="https://t.me/BotFather"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400"
-            >
-              Open BotFather
-              <ExternalLink className="h-3 w-3" />
-            </a>
           </div>
         </div>
       </div>
