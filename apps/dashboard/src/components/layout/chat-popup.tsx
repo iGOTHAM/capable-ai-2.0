@@ -539,6 +539,33 @@ export function ChatPopup() {
     setUploadError(null);
   };
 
+  // ── Clipboard paste handler (Ctrl+V image support) ─────────────────
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item && item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+
+        // Generate a meaningful filename from the MIME type
+        const ext = file.type.split("/")[1] || "png";
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        const namedFile = new File([file], `pasted-image-${timestamp}.${ext}`, {
+          type: file.type,
+        });
+
+        const previewUrl = URL.createObjectURL(namedFile);
+        setPendingFile({ file: namedFile, previewUrl });
+        setUploadError(null);
+        return;
+      }
+    }
+  }, []);
+
   // ── Message action handlers ──────────────────────────────────────────
   const handleCopyMessage = useCallback((content: string, idx: number) => {
     navigator.clipboard.writeText(content);
@@ -593,7 +620,7 @@ export function ChatPopup() {
 
       {/* Chat popup panel */}
       {open && (
-        <div className="fixed bottom-20 right-6 z-50 flex h-[500px] w-[380px] flex-col overflow-hidden rounded-xl border bg-card shadow-2xl">
+        <div className="fixed bottom-20 right-6 z-50 flex h-[500px] w-[380px] flex-col rounded-xl border bg-card shadow-2xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="flex items-center gap-2">
@@ -631,7 +658,7 @@ export function ChatPopup() {
           {/* Messages area */}
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-3"
           >
             {/* Connecting state */}
             {wsState === "connecting" && (
@@ -848,6 +875,7 @@ export function ChatPopup() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onPaste={handlePaste}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
