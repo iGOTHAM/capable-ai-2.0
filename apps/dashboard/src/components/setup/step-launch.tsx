@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { SetupData } from "@/app/(setup)/setup/page";
+import { clearSetupStorage } from "@/lib/setup-storage";
 
 interface StepLaunchProps {
   data: SetupData;
@@ -80,6 +81,7 @@ export function StepLaunch({ data, onBack }: StepLaunchProps) {
       setPhase("verifying");
       await new Promise((r) => setTimeout(r, 1000));
 
+      clearSetupStorage();
       setPhase("success");
     } catch {
       setPhase("error");
