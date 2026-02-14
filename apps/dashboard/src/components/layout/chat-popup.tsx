@@ -18,6 +18,8 @@ import {
   Paperclip,
   FileText,
   Image as ImageIcon,
+  Copy,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -114,6 +116,7 @@ export function ChatPopup() {
   const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -140,11 +143,13 @@ export function ChatPopup() {
     }
   }, [messages]);
 
-  // Reset suggestions dismissed when popup reopens
+  // Reset suggestions dismissed when popup reopens + auto-focus input
   useEffect(() => {
     if (open) {
       setSuggestsDismissed(false);
       setUploadError(null);
+      // Focus input after popup opens (slight delay for render)
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
 
@@ -534,6 +539,17 @@ export function ChatPopup() {
     setUploadError(null);
   };
 
+  // ── Message action handlers ──────────────────────────────────────────
+  const handleCopyMessage = useCallback((content: string, idx: number) => {
+    navigator.clipboard.writeText(content);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 1500);
+  }, []);
+
+  const handleDismissMessage = useCallback((idx: number) => {
+    setMessages((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
   // ── Suggested prompt click handler ─────────────────────────────────────
   const handleSuggestClick = (text: string) => {
     if (!wsRef.current || wsState !== "connected" || sending) return;
@@ -698,7 +714,7 @@ export function ChatPopup() {
                 <div
                   key={`${msg.ts}-${i}`}
                   className={cn(
-                    "flex",
+                    "group/msg relative flex",
                     msg.role === "user" ? "justify-end" : "justify-start"
                   )}
                 >
@@ -715,6 +731,32 @@ export function ChatPopup() {
                       <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-current opacity-60" />
                     )}
                   </div>
+                  {/* Hover action buttons */}
+                  {!msg.streaming && (
+                    <div className={cn(
+                      "absolute -top-3 hidden items-center gap-0.5 rounded-md border bg-card px-1 py-0.5 shadow-sm group-hover/msg:flex",
+                      msg.role === "user" ? "right-0" : "left-0"
+                    )}>
+                      <button
+                        onClick={() => handleCopyMessage(msg.content, i)}
+                        className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+                        title="Copy"
+                      >
+                        {copiedIdx === i ? (
+                          <Check className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleDismissMessage(i)}
+                        className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+                        title="Dismiss"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
 

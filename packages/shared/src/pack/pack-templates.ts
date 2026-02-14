@@ -133,16 +133,17 @@ At the start of every new conversation, load context in this order:
 
 ### Phase 2: Orders
 3. memory/directives.md — standing orders (NEVER SKIP)
-4. This file (AGENTS.md) — operational rules
+4. memory/active-context.md — current working state (NEVER SKIP)
+5. This file (AGENTS.md) — operational rules
 
 ### Phase 3: Context
-5. Today's memory file (memory/YYYY-MM-DD.md) + yesterday's
-6. tasks.json — what's pending?
-7. Scan knowledge/ directory — read any files relevant to the current conversation
+6. Today's memory file (memory/YYYY-MM-DD.md) + yesterday's
+7. tasks.json — what's pending?
+8. Scan knowledge/ directory — read any files relevant to the current conversation
 
 ### Phase 4: Deep Context (main sessions only)
-8. MEMORY.md — long-term curated memories
-9. memory/lessons-learned.md — don't repeat mistakes
+9. MEMORY.md — long-term curated memories
+10. memory/lessons-learned.md — don't repeat mistakes
 
 **CRITICAL:** Context is ephemeral. Files are permanent. After ANY context wipe, re-read ALL startup files before responding.
 
@@ -164,6 +165,17 @@ Full access to OpenClaw's tool suite. Use proactively:
 **Fallback chain:** When a tool fails, try alternatives before reporting failure:
 browser → web_fetch → web_search → exec curl
 
+## Resourcefulness Protocol
+
+When a task seems impossible with your current tools, NEVER say "I can't do this." Instead:
+
+1. **Document files are just archives**: PPTX, DOCX, XLSX are ZIP files. Rename to .zip, extract with \`unzip\`, read the XML inside (\`ppt/slides/slide1.xml\`, \`word/document.xml\`, etc.)
+2. **Python stdlib is powerful**: \`zipfile\`, \`xml.etree.ElementTree\`, \`json\`, \`csv\`, \`re\`, \`urllib\` — use \`python3 -c "..."\` for one-liners
+3. **Shell tools chain**: \`curl | jq\`, \`unzip -p file.zip path/to/file\`, \`grep -r pattern dir/\`
+4. **Missing tool? Install it**: \`apt-get update && apt-get install -y <package>\` — takes seconds
+5. **Multiple approaches exist**: If one fails, try another. busybox, python stdlib, Node.js, shell builtins — there's always a way.
+6. **Treat constraints as puzzles, not blockers**: A resourceful agent finds the path. The answer is never just "I can't."
+
 ## Workspace Structure
 
 \`\`\`
@@ -175,9 +187,11 @@ workspace/
 ├── tasks.json           # Active task tracking (you maintain this)
 ├── knowledge/           # Domain knowledge and frameworks (searchable via memory_search)
 ├── memory/
-│   ├── directives.md    # Standing orders (read every session)
-│   ├── lessons-learned.md  # Mistakes and corrections
-│   └── YYYY-MM-DD.md    # Daily logs (today + yesterday auto-loaded)
+│   ├── active-context.md  # Working memory (read/update every session)
+│   ├── directives.md      # Standing orders (read every session)
+│   ├── lessons-learned.md # Mistakes and corrections
+│   ├── runbooks/          # Procedural memory (multi-step task guides)
+│   └── YYYY-MM-DD.md     # Daily logs (today + yesterday auto-loaded)
 ├── uploads/             # User-uploaded documents
 └── projects/            # Project folders
     └── {name}/          # e.g. projects/acme-corp/memo.md
@@ -186,6 +200,19 @@ workspace/
 When working on a specific project, save outputs to \`projects/{name}/\`. Create the folder if it doesn't exist.
 
 ## Memory Protocol
+
+### Working Memory (memory/active-context.md)
+- Your operational scratchpad — what's currently active, pending, and decided
+- Read at START of every session (before daily notes)
+- Update at END of every significant session
+- Contains: active commitments, project states, pending decisions, session handoff notes, gating policies
+- Pruned weekly: completed items removed, lessons promoted to MEMORY.md
+
+### Runbooks (memory/runbooks/)
+- Procedural memory — exact steps for multi-step tasks
+- Create a runbook whenever you discover a non-trivial procedure
+- Read the relevant runbook BEFORE executing a known procedure
+- Runbooks survive model switches and context compactions — your context window doesn't
 
 ### Daily Memory (memory/YYYY-MM-DD.md)
 - Log significant events, decisions, and findings throughout the day
@@ -839,12 +866,17 @@ export const DIRECTIVES_TEMPLATE = `# Standing Orders — READ EVERY SESSION
 2. Tool fails → try the full fallback chain: browser → web_fetch → web_search → exec curl
 3. Log errors to today's daily memory with what you tried.
 4. Pattern of failures → fix the root cause, don't just work around it.
+5. NEVER tell the user "I can't do that" without exhausting ALL alternatives first.
+6. Missing software? Install it (apt install). Missing capability? Build it (python/node script). No excuses.
 
 ## Memory Discipline
 1. After ANY significant exchange, update today's daily memory file.
 2. After ANY context compaction, re-read all startup files before responding.
 3. When user corrects you, add it to memory/lessons-learned.md IMMEDIATELY.
 4. Review lessons-learned.md weekly and propagate fixes to all systems.
+5. Update active-context.md at the END of every significant session — it's your handoff to the next session.
+6. Create runbooks for any multi-step procedure you discover. Future you will thank past you.
+7. When something fails, add a gating policy to active-context.md to prevent recurrence.
 
 ## Quality Standards
 1. Re-read your response before sending. Is it complete? Accurate? Actually helpful?
@@ -894,3 +926,52 @@ Use \`cron\` to schedule these when your user is ready:
 - **Daily Check-in**: Review active projects, flag upcoming deadlines, prepare agenda
 - **Weekly Memory Consolidation**: Review daily logs, update MEMORY.md with durable insights`,
 };
+
+// ─── memory/active-context.md — Working Memory ──────────────────────────────
+// Cognitive architecture: working memory scratchpad updated every session.
+
+export const ACTIVE_CONTEXT_TEMPLATE = `# Active Context — Working Memory
+
+Updated at the END of every significant session. Read at the START of every session.
+
+## Current Focus
+- *(What are you actively working on right now?)*
+
+## Active Commitments & Deadlines
+| Commitment | Due | Status | Notes |
+|------------|-----|--------|-------|
+| *(none yet)* | | | |
+
+## Running Project States
+- *(Summarize the state of each active project — what's done, what's next)*
+
+## Pending Decisions
+- *(Decisions waiting on user input or more information)*
+
+## Session Handoff Notes
+- *(What does the next session need to know? Context that won't survive a compaction.)*
+
+## Gating Policies
+Track failure-prevention rules learned from operational mistakes:
+| ID | Trigger | Action | Reason |
+|----|---------|--------|--------|
+| *(add policies as failures occur)* | | | |`;
+
+// ─── memory/runbooks/README.md — Procedural Memory ─────────────────────────
+
+export const RUNBOOKS_README_TEMPLATE = `# Runbooks — Procedural Memory
+
+Runbooks capture HOW to do specific multi-step tasks. They survive model switches and context compactions.
+
+## Rules
+- If a task requires multi-step tool use (API calls, auth flows, CLI sequences), create a runbook.
+- Before executing a task that has a runbook, READ the runbook first.
+- After discovering a new multi-step procedure, CREATE a runbook for it.
+
+## Format
+Save as \`memory/runbooks/{task-name}.md\` with:
+1. **Purpose**: What this runbook accomplishes
+2. **Prerequisites**: What needs to be set up first
+3. **Steps**: Exact commands/actions in order
+4. **Verification**: How to confirm success
+5. **Troubleshooting**: Common failures and fixes`;

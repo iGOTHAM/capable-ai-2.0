@@ -43,56 +43,6 @@ export default function CalendarPage() {
     fetchSchedules();
   }, [fetchSchedules]);
 
-  const handleCreate = async (task: Omit<ScheduledTask, "id" | "createdAt">) => {
-    try {
-      const res = await fetch("/api/schedules", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(task),
-      });
-      if (res.ok) {
-        await fetchSchedules();
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleUpdate = async (id: string, data: Partial<ScheduledTask>) => {
-    try {
-      await fetch("/api/schedules", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...data }),
-      });
-      await fetchSchedules();
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleToggle = async (id: string, enabled: boolean) => {
-    try {
-      await fetch("/api/schedules", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, enabled }),
-      });
-      await fetchSchedules();
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await fetch(`/api/schedules?id=${id}`, { method: "DELETE" });
-      await fetchSchedules();
-    } catch {
-      // ignore
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -106,15 +56,11 @@ export default function CalendarPage() {
       <PageHint
         id="hint-calendar"
         title="Scheduled Routines"
-        description={'Set up recurring tasks for your agent \u2014 daily briefs, weekly reports, monitoring jobs. Click "+ New schedule" to get started.'}
+        description="Your agent's automated routines and scheduled tasks. Schedules are managed through skills and the agent itself."
         icon={Clock}
       />
       <ScheduledTasksView
         tasks={tasks}
-        onCreate={handleCreate}
-        onUpdate={handleUpdate}
-        onToggle={handleToggle}
-        onDelete={handleDelete}
         onRefresh={fetchSchedules}
       />
     </div>

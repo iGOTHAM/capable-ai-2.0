@@ -9,6 +9,8 @@ import {
   DIRECTIVES_TEMPLATE,
   LESSONS_TEMPLATE,
   PROACTIVE_WORKFLOWS,
+  ACTIVE_CONTEXT_TEMPLATE,
+  RUNBOOKS_README_TEMPLATE,
   type TemplateId,
   type PersonalityTone,
 } from "@capable-ai/shared";
@@ -280,6 +282,8 @@ Pack deployed. Awaiting first interaction.
     "USER.md": userMd,
     ...(knowledge ? { [knowledge.filename]: knowledge.content } : {}),
     "memory/directives.md": directivesMd,
+    "memory/active-context.md": ACTIVE_CONTEXT_TEMPLATE,
+    "memory/runbooks/README.md": RUNBOOKS_README_TEMPLATE,
     [`memory/${dateStr}.md`]: dailyLogMd,
     "memory/lessons-learned.md": lessonsLearnedMd,
     "tasks.json": tasksJson,
