@@ -28,6 +28,7 @@ export interface SetupData {
   apiKey: string;
   model: string;
   telegramToken: string;
+  telegramBotUsername: string;
   // Personalization fields
   userName: string;
   workType: string;
@@ -53,6 +54,7 @@ export default function SetupPage() {
     apiKey: "",
     model: "",
     telegramToken: "",
+    telegramBotUsername: "",
     userName: "",
     workType: "",
     commStyle: "balanced",
