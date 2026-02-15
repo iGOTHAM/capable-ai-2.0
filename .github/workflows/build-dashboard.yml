@@ -67,3 +67,23 @@ jobs:
             --title "Dashboard Standalone (${GITHUB_SHA::7})" \
             --notes "Auto-built dashboard standalone artifact from commit ${GITHUB_SHA::7}. Used by cloud-init for droplet deployments." \
             --prerelease
+
+      - name: Auto-deploy to all active VPS dashboards
+        env:
+          DEPLOY_SECRET: ${{ secrets.DEPLOY_SECRET }}
+        run: |
+          echo "Triggering auto-deploy to all active dashboards..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://capable.ai/api/deployments/upgrade-all" \
+            -H "Authorization: Bearer $DEPLOY_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"tarballUrl": "https://github.com/iGOTHAM/capable-ai-2.0/releases/download/dashboard-latest/dashboard-standalone.tar.gz"}')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Auto-deploy triggered successfully"
+          else
+            echo "::warning::Auto-deploy returned HTTP $HTTP_CODE — deployments may need manual upgrade"
+          fi
