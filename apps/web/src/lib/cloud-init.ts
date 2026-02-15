@@ -158,7 +158,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("curl -fsSL https://get.docker.com | sh");
   add("# Install Node.js 22 for bare-metal dashboard");
   add("curl -fsSL https://deb.nodesource.com/setup_22.x | bash -");
-  add("apt-get install -y nodejs");
+  add("apt-get install -y nodejs build-essential");
   add('report "2-docker-node" "done"');
   add("");
 
@@ -545,6 +545,10 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add("ufw allow 3100/tcp");
   }
   add("ufw --force enable");
+  add("# Allow Docker containers to reach host services (dashboard on port 3100)");
+  add("iptables -I INPUT -i br-+ -j ACCEPT");
+  add("# Persist the rule across reboots via UFW after.rules");
+  add("grep -q 'br-+ -j ACCEPT' /etc/ufw/after.rules || sed -i '/COMMIT/i -A ufw-after-input -i br-+ -j ACCEPT' /etc/ufw/after.rules");
   add("");
 
   add('echo ""');
