@@ -83,16 +83,19 @@ export async function POST(req: NextRequest) {
     // Step 3: Create backup of current installation
     console.log("Creating backup...");
     await execAsync(`rm -rf ${backupDir}`);
-    await execAsync(`cp -a ${installDir} ${backupDir}`);
+    // Use cd / to avoid getcwd failures if CWD was deleted during a prior deploy
+    await execAsync(`cd / && cp -a ${installDir} ${backupDir}`).catch(() => {
+      console.log("Backup skipped (install dir may not exist yet)");
+    });
 
     // Step 4: Extract new dashboard
     console.log("Extracting new dashboard...");
-    await execAsync(`rm -rf ${installDir}/*`);
+    await execAsync(`mkdir -p ${installDir} && rm -rf ${installDir}/*`);
     await execAsync(`tar -xzf ${tmpFile} -C ${installDir}`);
 
-    // Step 5: Install native dependencies
+    // Step 5: Install native dependencies (cd explicitly to avoid getcwd issues)
     console.log("Installing native dependencies...");
-    await execAsync(`cd ${installDir} && npm install --no-save node-pty ws`, { timeout: 120000 });
+    await execAsync(`npm install --no-save --prefix ${installDir} node-pty ws`, { timeout: 120000, cwd: installDir });
 
     // Step 6: Clean up
     console.log("Cleaning up...");
