@@ -1,39 +1,83 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ArrowLeft,
   ExternalLink,
   MessageCircle,
   Hash,
   MessagesSquare,
   CheckCircle2,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SetupData } from "@/app/(setup)/setup/page";
+import { clearSetupStorage } from "@/lib/setup-storage";
 
 interface StepChannelsProps {
   data: SetupData;
   updateData: (patch: Partial<SetupData>) => void;
-  onNext: () => void;
-  onBack: () => void;
 }
 
-export function StepChannels({
-  data,
-  updateData,
-  onNext,
-  onBack,
-}: StepChannelsProps) {
+export function StepChannels({ data, updateData }: StepChannelsProps) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
   const hasToken = data.telegramToken.trim().length > 0;
   // Strip leading @ if user includes it
   const cleanUsername = data.telegramBotUsername.replace(/^@/, "").trim();
 
+  const handleFinish = async () => {
+    // If token was entered, apply it to the running agent via config API
+    if (hasToken) {
+      setSaving(true);
+      setError("");
+      try {
+        const res = await fetch("/api/openclaw/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            channels: {
+              telegram: {
+                enabled: true,
+                botToken: data.telegramToken.trim(),
+              },
+            },
+          }),
+        });
+
+        if (!res.ok) {
+          const result = await res.json().catch(() => ({}));
+          setError(
+            result.error || "Failed to configure Telegram. You can set it up later in Settings.",
+          );
+          setSaving(false);
+          return;
+        }
+      } catch {
+        setError("Failed to connect. You can set up Telegram later in Settings.");
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+    }
+
+    clearSetupStorage();
+    window.location.href = "/tasks";
+  };
+
+  const handleSkip = () => {
+    clearSetupStorage();
+    window.location.href = "/tasks";
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-muted-foreground">
-        Connect a messaging channel so you can chat with your AI agent.
+        Your agent is live! Connect a messaging channel so you can chat with it.
         You can always add channels later in Settings.
       </p>
 
@@ -164,13 +208,37 @@ export function StepChannels({
         </div>
       </div>
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back
+        <Button
+          variant="outline"
+          onClick={handleSkip}
+          disabled={saving}
+        >
+          Skip for now
         </Button>
-        <Button onClick={onNext} className="flex-1">
-          {hasToken ? "Continue" : "Skip for now"}
+        <Button
+          onClick={handleFinish}
+          disabled={saving || !hasToken}
+          className="flex-1 gap-2"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-4 w-4" />
+              Finish Setup
+            </>
+          )}
         </Button>
       </div>
     </div>

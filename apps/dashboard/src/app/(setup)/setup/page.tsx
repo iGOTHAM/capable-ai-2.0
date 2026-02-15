@@ -39,10 +39,10 @@ export interface SetupData {
 const STEPS = [
   { title: "API Key", description: "Connect your AI provider" },
   { title: "Model", description: "Choose your AI model" },
-  { title: "Channels", description: "Connect messaging (optional)" },
   { title: "Personalize", description: "Customize your agent" },
   { title: "Workspace", description: "Set up a workspace (optional)" },
   { title: "Launch", description: "Start your AI agent" },
+  { title: "Channels", description: "Connect messaging (optional)" },
 ];
 
 export default function SetupPage() {
@@ -173,14 +173,6 @@ export default function SetupPage() {
             />
           )}
           {step === 2 && (
-            <StepChannels
-              data={data}
-              updateData={updateData}
-              onNext={next}
-              onBack={back}
-            />
-          )}
-          {step === 3 && (
             <StepPersonalize
               data={data}
               updateData={updateData}
@@ -188,10 +180,18 @@ export default function SetupPage() {
               onBack={back}
             />
           )}
-          {step === 4 && (
+          {step === 3 && (
             <StepWorkspace data={data} onNext={next} onBack={back} />
           )}
-          {step === 5 && <StepLaunch data={data} onBack={back} />}
+          {step === 4 && (
+            <StepLaunch data={data} onBack={back} onNext={next} />
+          )}
+          {step === 5 && (
+            <StepChannels
+              data={data}
+              updateData={updateData}
+            />
+          )}
         </CardContent>
       </Card>
     </>
