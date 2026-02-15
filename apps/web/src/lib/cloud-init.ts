@@ -87,11 +87,16 @@ export interface CloudInitParams {
 }
 
 /**
- * Generate a cloud-init bash script that deploys the full Capable.ai stack
- * using Docker Compose (Dashboard + OpenClaw + Caddy).
+ * Generate a cloud-init bash script that deploys the full Capable.ai stack.
  *
- * This replaces the previous bare-metal/systemd approach with containers
- * for portability across VPS providers.
+ * Architecture:
+ *   - Dashboard: bare-metal systemd service (NOT Docker — see commit a5e0ef7)
+ *   - OpenClaw:  Docker container
+ *   - Caddy:     Docker container (only when subdomain is configured)
+ *
+ * Docker was removed from the dashboard because it added caching layers
+ * and made deploys take 5+ minutes. The dashboard is a standalone Next.js
+ * app that doesn't need Docker.
  */
 export function generateCloudInitScript(params: CloudInitParams): string {
   const { appUrl, projectId, projectToken, packVersion, subdomain } = params;
@@ -107,15 +112,15 @@ export function generateCloudInitScript(params: CloudInitParams): string {
 
   const totalSteps = hasSub ? 8 : 7;
 
-  // Build the script using string arrays to avoid template-literal escaping issues
   const L: string[] = [];
   const add = (s: string) => L.push(s);
 
   add("#!/bin/bash");
   add("# =========================================");
-  add("# Capable.ai — Cloud-Init Script (Docker)");
+  add("# Capable.ai — Cloud-Init Script");
   add("# Generated for project: " + projectId);
-  add("# Deploy method: Docker Compose (portable)");
+  add("# Dashboard: bare-metal systemd");
+  add("# OpenClaw + Caddy: Docker Compose");
   add("# =========================================");
   add("");
   add("set -euo pipefail");
@@ -148,21 +153,28 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add('report "1-swap" "done"');
   add("");
 
-  // Step 2: Install Docker
-  add('echo ">>> [2/' + totalSteps + '] Installing Docker..."');
+  // Step 2: Install Docker (for OpenClaw + Caddy only) + Node.js (for dashboard)
+  add('echo ">>> [2/' + totalSteps + '] Installing Docker and Node.js..."');
   add("curl -fsSL https://get.docker.com | sh");
-  add('report "2-docker" "done"');
+  add("# Install Node.js 22 for bare-metal dashboard");
+  add("curl -fsSL https://deb.nodesource.com/setup_22.x | bash -");
+  add("apt-get install -y nodejs");
+  add('report "2-docker-node" "done"');
   add("");
 
-  // Step 3: Setup directory + download dashboard tarball
+  // Step 3: Setup directories + download dashboard tarball
   add('echo ">>> [3/' + totalSteps + '] Downloading pre-built dashboard..."');
   add("mkdir -p /opt/capable/caddy/certs");
   add("mkdir -p /opt/capable/openclaw");
+  add("mkdir -p /opt/capable/dashboard");
+  add("mkdir -p /opt/capable/openclaw-home");
+  add("mkdir -p /opt/capable/data/activity");
   add("touch /opt/capable/.subscription-status.json");
   add('curl -fsSL "' + dashboardTarballUrl + '" -o /tmp/dashboard.tar.gz');
-  add("mkdir -p /opt/capable/dashboard-build");
-  add("tar -xzf /tmp/dashboard.tar.gz -C /opt/capable/dashboard-build");
+  add("tar -xzf /tmp/dashboard.tar.gz -C /opt/capable/dashboard");
   add("rm /tmp/dashboard.tar.gz");
+  add("# Install native modules for terminal WebSocket server");
+  add("cd /opt/capable/dashboard && npm install --no-save node-pty ws");
   add('report "3-dashboard-download" "done"');
   add("");
 
@@ -199,58 +211,21 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("");
 
   // Early heartbeat — register the IP and credentials before the slow Docker builds
-  // This lets the UI show progress instead of appearing stuck
   add("# Send early heartbeat so the deploy page shows progress");
   add("curl -sf -X POST " + appUrl + "/api/deployments/heartbeat \\");
   add('  -H "Content-Type: application/json" \\');
   add("  -d '{\"projectToken\":\"" + projectToken + "\",\"dropletIp\":\"'\"$DROPLET_IP\"'\",\"packVersion\":" + packVersion + ",\"status\":\"provisioning\",\"dashboardPassword\":\"'\"$DASH_PASSWORD\"'\",\"adminSecret\":\"'\"$ADMIN_SECRET\"'\",\"gatewayToken\":\"'\"$GATEWAY_TOKEN\"'\"}' || true");
   add("");
 
-  // Step 5: Write Docker Compose + container files
-  add('echo ">>> [5/' + totalSteps + '] Writing Docker Compose configuration..."');
+  // Step 5: Write Docker Compose (OpenClaw + Caddy only) + systemd service
+  add('echo ">>> [5/' + totalSteps + '] Writing Docker Compose and systemd configuration..."');
   add("");
 
-  // docker-compose.yml (single-quoted heredoc — no shell expansion)
+  // docker-compose.yml — OpenClaw + Caddy only (dashboard is bare-metal)
   add("cat > /opt/capable/docker-compose.yml << 'COMPOSE'");
+  add("# Dashboard runs bare-metal via systemd (not Docker).");
+  add("# This compose file runs OpenClaw + Caddy only.");
   add("services:");
-  add("  dashboard:");
-  add("    image: capable-ai/dashboard:latest");
-  add("    container_name: capable-dashboard");
-  add("    restart: unless-stopped");
-  if (hasSub) {
-    add("    expose:");
-    add('      - "3100"');
-    add('      - "3101"');
-  } else {
-    add("    ports:");
-    add('      - "3100:3100"');
-    add("    expose:");
-    add('      - "3101"');
-  }
-  add("    volumes:");
-  add("      - activity-data:/data/activity");
-  add("      - openclaw-config:/root/.openclaw");
-  add("      - /var/run/docker.sock:/var/run/docker.sock");
-  add("      - /opt/capable/.env:/opt/capable/.env");
-  add("      - /opt/capable/.subscription-status.json:/app/.subscription-status.json:ro");
-  add("    environment:");
-  add("      - NODE_ENV=production");
-  add("      - PORT=3100");
-  add("      - HOSTNAME=0.0.0.0");
-  add("      - AUTH_PASSWORD=${AUTH_PASSWORD}");
-  add("      - ADMIN_SECRET=${ADMIN_SECRET}");
-  add("      - GATEWAY_TOKEN=${GATEWAY_TOKEN}");
-  add("      - DATA_DIR=/data/activity");
-  add("      - OPENCLAW_GATEWAY_HOST=openclaw");
-  add("      - OPENCLAW_GATEWAY_PORT=18789");
-  add("      - OPENCLAW_CONFIG=/root/.openclaw/openclaw.json");
-  add("      - OPENCLAW_DIR=/root/.openclaw");
-  add("      - CONTAINER_MODE=docker");
-  add("      - WS_TERMINAL_PORT=3101");
-  add("    depends_on:");
-  add("      openclaw:");
-  add("        condition: service_started");
-  add("");
   add("  openclaw:");
   add("    build:");
   add("      context: ./openclaw");
@@ -258,10 +233,11 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("        OPENCLAW_VERSION: ${OPENCLAW_VERSION:-2026.2.6-3}");
   add("    container_name: capable-openclaw");
   add("    restart: unless-stopped");
+  add("    ports:");
+  add('      - "127.0.0.1:18789:18789"');
   add("    volumes:");
-  add("      - openclaw-workspace:/root/.openclaw/workspace");
-  add("      - openclaw-config:/root/.openclaw");
-  add("      - activity-data:/data/activity");
+  add("      - /opt/capable/openclaw-home:/root/.openclaw");
+  add("      - /opt/capable/data/activity:/data/activity");
   add("    environment:");
   add("      - PROJECT_ID=${PROJECT_ID}");
   add("      - PROJECT_TOKEN=${PROJECT_TOKEN}");
@@ -269,8 +245,6 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://capable.ai}");
   add("      - GATEWAY_TOKEN=${GATEWAY_TOKEN}");
   add("      - OPENCLAW_GATEWAY_PORT=18789");
-  add("    expose:");
-  add('      - "18789"');
 
   if (hasSub) {
     add("");
@@ -281,6 +255,8 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add("    ports:");
     add('      - "80:80"');
     add('      - "443:443"');
+    add("    extra_hosts:");
+    add('      - "host.docker.internal:host-gateway"');
     add("    volumes:");
     add("      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro");
     add("      - caddy-data:/data");
@@ -289,18 +265,16 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add("    environment:");
     add("      - CAPABLE_SUBDOMAIN=${SUBDOMAIN:-localhost}");
     add("    depends_on:");
-    add("      - dashboard");
     add("      - openclaw");
   }
 
   add("");
   add("volumes:");
-  add("  activity-data:");
-  add("  openclaw-workspace:");
-  add("  openclaw-config:");
   if (hasSub) {
     add("  caddy-data:");
     add("  caddy-config:");
+  } else {
+    add("  {}");
   }
   add("COMPOSE");
   add("");
@@ -364,6 +338,40 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add('exec $OPENCLAW_BIN gateway --port "${OPENCLAW_GATEWAY_PORT:-18789}" --verbose');
   add("OCENTRYPOINT");
   add("chmod +x /opt/capable/openclaw/entrypoint.sh");
+  add("");
+
+  // Dashboard systemd service — bare-metal (NOT Docker)
+  add("cat > /etc/systemd/system/capable-dashboard.service << 'SYSTEMD'");
+  add("[Unit]");
+  add("Description=Capable.ai Dashboard");
+  add("After=network.target docker.service");
+  add("Wants=docker.service");
+  add("");
+  add("[Service]");
+  add("Type=simple");
+  add("WorkingDirectory=/opt/capable/dashboard");
+  add("EnvironmentFile=/opt/capable/.env");
+  add("Environment=NODE_ENV=production");
+  add("Environment=PORT=3100");
+  add("Environment=HOSTNAME=0.0.0.0");
+  add("Environment=WS_TERMINAL_PORT=3101");
+  add("Environment=DASHBOARD_RUNTIME=systemd");
+  add("Environment=DATA_DIR=/opt/capable/data/activity");
+  add("Environment=OPENCLAW_DIR=/opt/capable/openclaw-home");
+  add("Environment=OPENCLAW_CONFIG=/opt/capable/openclaw-home/openclaw.json");
+  add("Environment=OPENCLAW_GATEWAY_HOST=127.0.0.1");
+  add("Environment=OPENCLAW_GATEWAY_PORT=18789");
+  add("ExecStart=/bin/bash -c 'node scripts/ws-terminal-server.mjs & node scripts/bootstrap-pack.mjs && exec node apps/dashboard/server.js'");
+  add("Restart=always");
+  add("RestartSec=3");
+  add("StandardOutput=journal");
+  add("StandardError=journal");
+  add("SyslogIdentifier=capable-dashboard");
+  add("");
+  add("[Install]");
+  add("WantedBy=multi-user.target");
+  add("SYSTEMD");
+  add("systemctl daemon-reload");
   add('report "5-compose-files" "done"');
   add("");
 
@@ -374,14 +382,14 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add(subdomain + ".capable.ai {");
     add("    tls /etc/caddy/certs/origin.crt /etc/caddy/certs/origin.key");
     add("");
-    add("    # Terminal WebSocket → dashboard sidecar (must be before generic @websockets)");
+    add("    # Terminal WebSocket → dashboard WS server (bare-metal on host)");
     add("    @terminal_ws {");
     add("        path /api/terminal/ws");
     add("        header Connection *Upgrade*");
     add("        header Upgrade websocket");
     add("    }");
     add("    handle @terminal_ws {");
-    add("        reverse_proxy dashboard:3101");
+    add("        reverse_proxy host.docker.internal:3101");
     add("    }");
     add("");
     add("    @websockets {");
@@ -389,7 +397,10 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add("        header Upgrade websocket");
     add("    }");
     add("    handle @websockets {");
-    add("        reverse_proxy openclaw:18789");
+    add("        reverse_proxy openclaw:18789 {");
+    add("            header_down -X-Frame-Options");
+    add("            header_down -Content-Security-Policy");
+    add("        }");
     add("    }");
     add("");
     add("    handle /chat* {");
@@ -400,7 +411,7 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add("    }");
     add("");
     add("    handle {");
-    add("        reverse_proxy dashboard:3100");
+    add("        reverse_proxy host.docker.internal:3100");
     add("    }");
     add("}");
     add("CADDYFILE");
@@ -414,35 +425,23 @@ export function generateCloudInitScript(params: CloudInitParams): string {
     add("");
   }
 
-  // Build dashboard Docker image from tarball
+  // Build OpenClaw container and start everything
   const buildStep = hasSub ? 7 : 6;
-  add('echo ">>> [' + buildStep + '/' + totalSteps + '] Building and starting containers..."');
+  add('echo ">>> [' + buildStep + '/' + totalSteps + '] Building and starting services..."');
   add("cd /opt/capable");
   add("");
-  add("# Build dashboard image from the downloaded standalone tarball");
-  add("cat > /opt/capable/Dockerfile.dashboard << 'DASHDOCKER'");
-  add("FROM node:22-alpine");
-  add("WORKDIR /app");
-  add("RUN apk add --no-cache curl docker-cli python3 make g++ libc6-compat");
-  add("COPY dashboard-build/ ./");
-  add("# Install native modules for terminal WebSocket server");
-  add("RUN npm install --no-save node-pty ws");
-  add("RUN apk del python3 make g++");
-  add("RUN mkdir -p /data/activity /root/.openclaw");
-  add("EXPOSE 3100 3101");
-  add("ENV PORT=3100 HOSTNAME=0.0.0.0 NODE_ENV=production WS_TERMINAL_PORT=3101");
-  add('CMD ["sh", "-c", "node scripts/ws-terminal-server.mjs & node scripts/bootstrap-pack.mjs && node apps/dashboard/server.js"]');
-  add("DASHDOCKER");
-  add("");
-  add("docker build -f Dockerfile.dashboard -t capable-ai/dashboard:latest .");
+  add("# Build and start OpenClaw container (+ Caddy if subdomain)");
   add("docker compose build openclaw");
-  add(hasSub ? "docker compose up -d" : "docker compose up -d dashboard openclaw");
+  add("docker compose up -d");
   add("");
-  add("# Wait for containers to be healthy");
+  add("# Start dashboard via systemd (bare-metal)");
+  add("systemctl enable --now capable-dashboard");
+  add("");
+  add("# Wait for services to be healthy");
   add("sleep 10");
   add("OPENCLAW_ACTIVE=false");
   add("for i in 1 2 3 4 5; do");
-  add("  if docker exec capable-openclaw curl -sf http://localhost:18789/ > /dev/null 2>&1; then");
+  add("  if curl -sf http://localhost:18789/ > /dev/null 2>&1; then");
   add('    echo "  OpenClaw gateway is running"');
   add("    OPENCLAW_ACTIVE=true");
   add("    break");
@@ -453,18 +452,19 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add('if [ "$OPENCLAW_ACTIVE" = "false" ]; then');
   add('  echo "  WARNING: OpenClaw gateway may not be running"');
   add('  docker logs capable-openclaw 2>&1 | tail -30');
-  add('  report "' + buildStep + '-containers" "warning" "openclaw may not be running"');
+  add('  report "' + buildStep + '-services" "warning" "openclaw may not be running"');
   add("fi");
-  add('report "' + buildStep + '-containers" "done"');
+  add('report "' + buildStep + '-services" "done"');
   add("");
 
-  // Heartbeat
+  // Heartbeat + deploy script
   const hbStep = hasSub ? 8 : 7;
-  add('echo ">>> [' + hbStep + '/' + totalSteps + '] Setting up heartbeat..."');
+  add('echo ">>> [' + hbStep + '/' + totalSteps + '] Setting up heartbeat and deploy script..."');
   add("curl -sf -X POST " + appUrl + "/api/deployments/heartbeat \\");
   add('  -H "Content-Type: application/json" \\');
   add("  -d '{\"projectToken\":\"" + projectToken + "\",\"dropletIp\":\"'\"$DROPLET_IP\"'\",\"packVersion\":" + packVersion + ",\"status\":\"active\",\"dashboardPassword\":\"'\"$DASH_PASSWORD\"'\",\"adminSecret\":\"'\"$ADMIN_SECRET\"'\",\"gatewayToken\":\"'\"$GATEWAY_TOKEN\"'\"}' || true");
   add("");
+
   // Heartbeat script — captures response and writes subscription status to disk
   add("cat > /opt/capable/heartbeat.sh << 'HBSCRIPT'");
   add("#!/bin/bash");
@@ -487,6 +487,46 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   add("HBSCRIPT");
   add("chmod +x /opt/capable/heartbeat.sh");
   add("");
+
+  // Deploy script — for manual upgrades and auto-deploy
+  add("cat > /opt/capable/deploy-dashboard.sh << 'DEPLOYSCRIPT'");
+  add("#!/bin/bash");
+  add('set -euo pipefail');
+  add('ASSET_ID="${1:?Usage: deploy-dashboard.sh <GITHUB_ASSET_ID>}"');
+  add('GH_TOKEN="${GH_TOKEN:?Set GH_TOKEN env var}"');
+  add('INSTALL_DIR="/opt/capable/dashboard"');
+  add('BACKUP_DIR="/opt/capable/dashboard.backup"');
+  add('echo ">>> Downloading asset $ASSET_ID..."');
+  add('curl -fSL -H "Authorization: token $GH_TOKEN" -H "Accept: application/octet-stream" \\');
+  add('  "https://api.github.com/repos/iGOTHAM/capable-ai-2.0/releases/assets/$ASSET_ID" \\');
+  add('  -o /tmp/dashboard-upgrade.tar.gz');
+  add('echo ">>> Backing up current dashboard..."');
+  add('rm -rf "$BACKUP_DIR"');
+  add('cp -a "$INSTALL_DIR" "$BACKUP_DIR"');
+  add('echo ">>> Extracting new dashboard..."');
+  add('rm -rf "$INSTALL_DIR"/*');
+  add('tar -xzf /tmp/dashboard-upgrade.tar.gz -C "$INSTALL_DIR"');
+  add('echo ">>> Installing native dependencies..."');
+  add('cd "$INSTALL_DIR" && npm install --no-save node-pty ws');
+  add('echo ">>> Restarting dashboard..."');
+  add('systemctl restart capable-dashboard');
+  add('sleep 2');
+  add('if systemctl is-active --quiet capable-dashboard; then');
+  add('  echo ">>> Dashboard upgraded successfully"');
+  add("else");
+  add('  echo ">>> Dashboard failed to start, rolling back..."');
+  add('  rm -rf "$INSTALL_DIR"');
+  add('  mv "$BACKUP_DIR" "$INSTALL_DIR"');
+  add('  systemctl restart capable-dashboard');
+  add('  echo ">>> Rollback complete"');
+  add('  exit 1');
+  add("fi");
+  add('rm -f /tmp/dashboard-upgrade.tar.gz');
+  add('echo ">>> Done"');
+  add("DEPLOYSCRIPT");
+  add("chmod +x /opt/capable/deploy-dashboard.sh");
+  add("");
+
   add("cat > /etc/cron.d/capable-heartbeat << 'CRON'");
   add("*/5 * * * * root /opt/capable/heartbeat.sh > /dev/null 2>&1");
   add("CRON");
@@ -501,7 +541,6 @@ export function generateCloudInitScript(params: CloudInitParams): string {
   if (hasSub) {
     add("ufw allow 80/tcp");
     add("ufw allow 443/tcp");
-    // Port 3100 not exposed to host when Caddy is present — no deny needed
   } else {
     add("ufw allow 3100/tcp");
   }
