@@ -5,17 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   ArrowLeft,
+  ArrowRight,
   Rocket,
   Loader2,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
 import type { SetupData } from "@/app/(setup)/setup/page";
-import { clearSetupStorage } from "@/lib/setup-storage";
 
 interface StepLaunchProps {
   data: SetupData;
   onBack: () => void;
+  onNext: () => void;
 }
 
 type LaunchPhase =
@@ -47,7 +48,7 @@ const MODEL_NAMES: Record<string, string> = {
   "o4-mini": "o4-mini",
 };
 
-export function StepLaunch({ data, onBack }: StepLaunchProps) {
+export function StepLaunch({ data, onBack, onNext }: StepLaunchProps) {
   const [phase, setPhase] = useState<LaunchPhase>("idle");
   const [error, setError] = useState("");
 
@@ -66,7 +67,6 @@ export function StepLaunch({ data, onBack }: StepLaunchProps) {
           provider: data.provider,
           apiKey: data.apiKey,
           model: data.model,
-          telegramToken: data.telegramToken || undefined,
         }),
       });
 
@@ -81,7 +81,6 @@ export function StepLaunch({ data, onBack }: StepLaunchProps) {
       setPhase("verifying");
       await new Promise((r) => setTimeout(r, 1000));
 
-      clearSetupStorage();
       setPhase("success");
     } catch {
       setPhase("error");
@@ -106,10 +105,6 @@ export function StepLaunch({ data, onBack }: StepLaunchProps) {
           <dd className="font-medium">
             {MODEL_NAMES[data.model] || data.model}
           </dd>
-          <dt className="text-muted-foreground">Telegram</dt>
-          <dd className="font-medium">
-            {data.telegramToken ? "Connected" : "Not configured"}
-          </dd>
         </dl>
       </div>
 
@@ -133,12 +128,9 @@ export function StepLaunch({ data, onBack }: StepLaunchProps) {
       )}
 
       {phase === "success" ? (
-        <Button
-          onClick={() => (window.location.href = "/tasks")}
-          className="w-full gap-2"
-        >
-          <CheckCircle2 className="h-4 w-4" />
-          Start Chatting
+        <Button onClick={onNext} className="w-full gap-2">
+          Next: Connect Telegram
+          <ArrowRight className="h-4 w-4" />
         </Button>
       ) : (
         <div className="flex gap-3">
